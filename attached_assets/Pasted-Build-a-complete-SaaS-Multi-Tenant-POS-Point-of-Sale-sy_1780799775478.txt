@@ -1,0 +1,431 @@
+Build a complete SaaS Multi-Tenant POS (Point of Sale) system with modern UI/UX and scalable architecture.
+
+PROJECT NAME:
+Universal POS SaaS
+
+OVERVIEW:
+Create a cloud-based POS platform where multiple businesses can register, subscribe, and use the system under their own brand.
+
+The system must support multiple business types:
+
+1. Food & Beverage (Restaurant, Cafe, Coffee Shop)
+2. Fashion & Retail Store
+3. Salon & Beauty
+4. Minimarket & Grocery Store
+
+The application must be Multi-Tenant, meaning each business only sees its own data while the developer/admin can manage all tenants from a Super Admin Dashboard.
+
+==================================================
+TECH STACK
+==================================================
+
+Frontend:
+- React
+- TypeScript
+- TailwindCSS
+- Shadcn UI
+
+Backend:
+- Node.js
+- Express.js
+
+Database:
+- PostgreSQL
+
+Authentication:
+- JWT Authentication
+- Role-Based Access Control
+
+Storage:
+- Store logos and images
+
+Deployment Ready:
+- Docker Support
+- Environment Variables
+
+==================================================
+MULTI TENANT SYSTEM
+==================================================
+
+Each business registration creates a unique tenant.
+
+Database tables must include:
+
+tenant_id
+
+for data isolation.
+
+Examples:
+
+tenants
+users
+products
+categories
+orders
+customers
+expenses
+employees
+subscriptions
+
+All data queries must automatically filter by tenant_id.
+
+No tenant can access another tenant's data.
+
+==================================================
+USER ROLES
+==================================================
+
+1. Super Admin (Developer)
+2. Business Owner
+3. Manager
+4. Cashier
+5. Staff
+
+Permissions must be configurable.
+
+==================================================
+SUPER ADMIN DASHBOARD
+==================================================
+
+Create a Developer Dashboard with:
+
+- Total Registered Businesses
+- Active Businesses
+- Expired Subscriptions
+- Monthly Revenue
+- Total Transactions
+- Total Users
+- Business Type Statistics
+- Subscription Analytics
+
+Features:
+
+- View all tenants
+- Search tenant
+- Suspend tenant
+- Activate tenant
+- Delete tenant
+- Manage subscriptions
+- Send announcements
+- View transaction summary
+- View payment history
+- System settings
+
+==================================================
+TENANT REGISTRATION
+==================================================
+
+Business owner can:
+
+- Register account
+- Verify email
+- Login
+
+Business setup wizard:
+
+Step 1:
+Choose Business Type
+
+Options:
+- Restaurant
+- Cafe
+- Fashion Store
+- Salon
+- Minimarket
+
+Step 2:
+Business Information
+
+- Business Name
+- Business Address
+- Phone Number
+- WhatsApp Number
+- Email
+- Upload Logo
+
+Step 3:
+Subscription Plan
+
+- Trial
+- Basic
+- Pro
+- Enterprise
+
+Step 4:
+Payment
+
+==================================================
+BRANDING SYSTEM
+==================================================
+
+Each tenant can:
+
+- Upload logo
+- Change store name
+- Change receipt footer
+- Upload favicon
+- Customize colors
+
+All branding must be isolated per tenant.
+
+==================================================
+SUBSCRIPTION SYSTEM
+==================================================
+
+Plans:
+
+TRIAL
+- 14 days
+
+BASIC
+- 1 Branch
+
+PRO
+- Multiple Branches
+
+ENTERPRISE
+- Unlimited
+
+Features:
+
+- Auto expiration
+- Renewal reminder
+- Subscription status
+- Payment history
+
+==================================================
+POS SYSTEM
+==================================================
+
+Sales Screen:
+
+- Product Grid
+- Search Product
+- Barcode Search
+- Shopping Cart
+- Discount
+- Tax
+- Notes
+- Hold Order
+- Resume Order
+
+Payment Methods:
+
+- Cash
+- QRIS
+- Bank Transfer
+- E-Wallet
+- Credit Card
+
+Receipt:
+
+- Print Receipt
+- Download PDF
+- Share Receipt
+
+==================================================
+PRODUCT MANAGEMENT
+==================================================
+
+Features:
+
+- Product Categories
+- Product Variants
+- SKU
+- Barcode
+- Product Image
+- Cost Price
+- Selling Price
+- Stock
+
+Variants Examples:
+
+Fashion:
+- Size
+- Color
+
+Food:
+- Extra Toppings
+- Add-ons
+
+==================================================
+INVENTORY MANAGEMENT
+==================================================
+
+- Stock In
+- Stock Out
+- Stock Adjustment
+- Supplier Management
+- Purchase Orders
+- Low Stock Alert
+- Inventory Reports
+
+==================================================
+CUSTOMER MANAGEMENT
+==================================================
+
+- Customer Database
+- Loyalty Points
+- Customer Notes
+- Purchase History
+- Membership Levels
+
+==================================================
+EMPLOYEE MANAGEMENT
+==================================================
+
+- Employee Profiles
+- Shift Management
+- Attendance
+- Cashier Tracking
+
+Every transaction must store:
+
+- Employee Name
+- Cashier ID
+- Login Session
+
+==================================================
+AUDIT LOG SYSTEM
+==================================================
+
+Track:
+
+- Login
+- Logout
+- Product Creation
+- Product Update
+- Product Delete
+- Sales
+- Refunds
+- Settings Changes
+
+==================================================
+REPORTING
+==================================================
+
+Dashboard Analytics:
+
+- Daily Sales
+- Weekly Sales
+- Monthly Sales
+- Best Selling Products
+- Revenue
+- Profit
+- Expenses
+- Cash Flow
+
+Export:
+
+- PDF
+- Excel
+- CSV
+
+==================================================
+BUSINESS TYPE MODULES
+==================================================
+
+F&B Module:
+
+- Table Management
+- Kitchen Display System
+- Order Queue
+- QR Menu Ordering
+
+Fashion Module:
+
+- Color Variants
+- Size Variants
+- Barcode Label Printing
+
+Salon Module:
+
+- Appointment Booking
+- Service Packages
+- Staff Assignment
+
+Minimarket Module:
+
+- Supplier Management
+- Bulk Product Import
+- Fast Barcode Checkout
+
+==================================================
+NOTIFICATION SYSTEM
+==================================================
+
+- Order Notifications
+- Subscription Expiry Alerts
+- Low Stock Alerts
+- System Announcements
+
+==================================================
+SECURITY
+==================================================
+
+- JWT Authentication
+- Password Encryption
+- CSRF Protection
+- Rate Limiting
+- Secure API
+- Multi Tenant Security
+
+==================================================
+UI REQUIREMENTS
+==================================================
+
+Design should look similar to modern SaaS products.
+
+Requirements:
+
+- Responsive Mobile
+- Responsive Tablet
+- Responsive Desktop
+- Dark Mode
+- Light Mode
+
+Use professional dashboard design.
+
+==================================================
+DATABASE REQUIREMENTS
+==================================================
+
+Generate complete PostgreSQL schema.
+
+Generate:
+
+- ERD
+- Migration files
+- Seed data
+
+==================================================
+API REQUIREMENTS
+==================================================
+
+Create complete REST API for all modules.
+
+Include:
+
+- Authentication
+- POS
+- Products
+- Inventory
+- Reports
+- Subscription
+- Tenants
+
+==================================================
+FINAL REQUIREMENT
+==================================================
+
+Generate production-ready code structure.
+
+Create:
+- Frontend
+- Backend
+- Database
+- API Documentation
+- Installation Guide
+- Deployment Guide
+
+The system must be scalable for 10,000+ businesses and 100,000+ users.

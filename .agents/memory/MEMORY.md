@@ -1,0 +1,2 @@
+- [Flow POS seed approach](flow-pos-seed.md) — seed DB via psql (tsx unavailable in api-server); scripts package needs @workspace/db dep added first
+- [Flow POS auth](flow-pos-auth.md) — JWT with SESSION_SECRET; password = SHA-256(pw + 'flow-salt'); token key `flow_token` in localStorage

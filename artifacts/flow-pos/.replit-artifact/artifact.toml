@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "Flow POS"
+version = "1.0.0"
+id = "artifacts/flow-pos"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19083
+
+[services.development]
+run = "pnpm --filter @workspace/flow-pos run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/flow-pos", "run", "build" ]
+publicDir = "artifacts/flow-pos/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19083"
+BASE_PATH = "/"
