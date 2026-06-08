@@ -5,6 +5,7 @@ import { z } from "zod/v4";
 export const tenantsTable = pgTable("tenants", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
+  slug: text("slug").unique(),
   businessType: text("business_type").notNull(), // restaurant, cafe, fashion, salon, minimarket
   status: text("status").notNull().default("trial"), // active, suspended, trial, expired
   address: text("address"),
@@ -12,9 +13,17 @@ export const tenantsTable = pgTable("tenants", {
   email: text("email"),
   logoUrl: text("logo_url"),
   primaryColor: text("primary_color").default("#1D4EF5"),
+  bannerUrl: text("banner_url"),
   receiptFooter: text("receipt_footer"),
   subscriptionPlan: text("subscription_plan").default("trial"),
   subscriptionExpiresAt: timestamp("subscription_expires_at", { withTimezone: true }),
+  enableDineIn: boolean("enable_dine_in").notNull().default(true),
+  enableTakeAway: boolean("enable_take_away").notNull().default(true),
+  enableDelivery: boolean("enable_delivery").notNull().default(false),
+  enableCash: boolean("enable_cash").notNull().default(true),
+  enableQris: boolean("enable_qris").notNull().default(true),
+  enableBankTransfer: boolean("enable_bank_transfer").notNull().default(false),
+  enableEwallet: boolean("enable_ewallet").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

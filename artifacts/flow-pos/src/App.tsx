@@ -16,6 +16,9 @@ import InventoryPage from "@/pages/inventory";
 import ReportsPage from "@/pages/reports";
 import SettingsPage from "@/pages/settings";
 import AdminPage from "@/pages/admin";
+import CustomerMenuPage from "@/pages/customer-menu";
+import CustomerOrdersPage from "@/pages/customer-orders";
+import QrManagerPage from "@/pages/qr-manager";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -23,22 +26,31 @@ const queryClient = new QueryClient({
   },
 });
 
+function PublicMenu() {
+  const [location] = useLocation();
+  const slug = location.replace(/^\/menu\//, "").split("?")[0];
+  return <CustomerMenuPage key={slug} slug={slug} />;
+}
+
 function AppRoutes() {
   const [location, setLocation] = useLocation();
   const { user, loading, login, logout } = useAuth();
 
+  const isMenuPage = location.startsWith("/menu/");
+
   useEffect(() => {
-    if (!loading) {
-      const isAuthPage = location === "/login" || location === "/register";
-      if (!user && !isAuthPage) {
-        setLocation("/login");
-      } else if (user && isAuthPage) {
-        setLocation(user.role === "super_admin" ? "/admin" : "/dashboard");
-      } else if (user && (location === "/" || location === "")) {
-        setLocation(user.role === "super_admin" ? "/admin" : "/dashboard");
-      }
+    if (isMenuPage || loading) return;
+    const isAuthPage = location === "/login" || location === "/register";
+    if (!user && !isAuthPage) {
+      setLocation("/login");
+    } else if (user && isAuthPage) {
+      setLocation(user.role === "super_admin" ? "/admin" : "/dashboard");
+    } else if (user && (location === "/" || location === "")) {
+      setLocation(user.role === "super_admin" ? "/admin" : "/dashboard");
     }
-  }, [user, loading, location]);
+  }, [user, loading, location, isMenuPage]);
+
+  if (isMenuPage) return <PublicMenu />;
 
   if (loading) {
     return (
@@ -71,11 +83,13 @@ function AppRoutes() {
         <Route path="/products"><ProductsPage /></Route>
         <Route path="/categories"><CategoriesPage /></Route>
         <Route path="/orders"><OrdersPage /></Route>
+        <Route path="/customer-orders"><CustomerOrdersPage /></Route>
         <Route path="/customers"><CustomersPage /></Route>
         <Route path="/employees"><EmployeesPage /></Route>
         <Route path="/inventory"><InventoryPage /></Route>
         <Route path="/reports"><ReportsPage /></Route>
         <Route path="/settings"><SettingsPage /></Route>
+        <Route path="/qr-menu"><QrManagerPage /></Route>
         <Route path="/admin"><AdminPage /></Route>
         <Route>{user.role === "super_admin" ? <AdminPage /> : <DashboardPage />}</Route>
       </Switch>

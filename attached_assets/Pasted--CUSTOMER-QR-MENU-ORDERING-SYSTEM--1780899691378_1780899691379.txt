@@ -1,0 +1,254 @@
+==================================================
+CUSTOMER QR MENU ORDERING SYSTEM
+================================
+
+CUSTOMER MENU SYSTEM
+
+Each tenant must have its own public customer ordering page.
+
+Customers can access menu via:
+
+* QR Code
+* Public Link
+* Table QR
+* WhatsApp Link
+
+Example:
+
+yourapp.com/store/coffee-jakarta
+yourapp.com/menu/tenant-slug
+
+Each tenant has isolated customer menu pages.
+
+==================================================
+CUSTOMER FEATURES
+=================
+
+Customers can:
+
+* Browse menu
+* View categories
+* View product details
+* Add to cart
+* Add notes
+* Select variants
+* Select toppings/add-ons
+* Change quantity
+
+==================================================
+ORDER TYPES
+===========
+
+Customer must choose:
+
+* Dine In
+* Take Away
+* Delivery
+
+==================================================
+DINE IN FLOW
+============
+
+Customer inputs:
+
+* Table Number
+* Customer Name
+
+==================================================
+TAKE AWAY FLOW
+==============
+
+Customer inputs:
+
+* Customer Name
+* Phone Number
+
+==================================================
+DELIVERY FLOW
+=============
+
+Customer inputs:
+
+* Customer Name
+* Phone Number
+* Full Address
+* Delivery Notes
+* Google Maps Location
+
+Delivery system supports:
+
+* Nearby Delivery
+* Long Distance Delivery
+
+Delivery fee can be:
+
+* Manual
+* Distance-based
+* Fixed Price
+
+==================================================
+CUSTOMER PAYMENT METHODS
+========================
+
+Available payment methods:
+
+* Cash on Delivery
+* Cashier Payment
+* QRIS
+* Bank Transfer
+* E-Wallet
+
+Tenant can enable/disable payment methods.
+
+==================================================
+ORDER STATUS
+============
+
+Customer can track order status:
+
+* Pending
+* Confirmed
+* Preparing
+* Ready
+* On Delivery
+* Completed
+* Cancelled
+
+==================================================
+REALTIME OWNER DASHBOARD
+========================
+
+All customer orders must instantly appear in:
+
+* Cashier Dashboard
+* Kitchen Display
+* Owner Dashboard
+
+Displayed data:
+
+* Customer Name
+* Phone Number
+* Address
+* Order Items
+* Payment Method
+* Order Type
+* Delivery Fee
+* Notes
+* Order Time
+* Status
+
+==================================================
+QR CODE MANAGEMENT
+==================
+
+Tenant can generate:
+
+* Store QR Code
+* Table QR Codes
+* Category QR Codes
+
+Each QR can contain:
+
+* Tenant ID
+* Table ID
+* Branch ID
+
+==================================================
+CUSTOMER UI REQUIREMENTS
+========================
+
+Customer ordering page must be:
+
+* Mobile First
+* Fast Loading
+* PWA Ready
+* Responsive
+* Tenant Branded
+
+Support:
+
+* Tenant Logo
+* Tenant Colors
+* Banner Images
+* Promo Banner
+
+==================================================
+REALTIME FEATURES
+=================
+
+Use:
+
+* WebSocket
+  or
+* Socket.IO
+
+For realtime:
+
+* New Orders
+* Order Status Updates
+* Kitchen Notifications
+
+==================================================
+DATABASE ADDITIONAL REQUIREMENTS
+================================
+
+Additional tables required:
+
+* public_menus
+* menu_sessions
+* customer_orders
+* customer_order_items
+* delivery_addresses
+* payment_transactions
+* table_qr_codes
+* branches
+* delivery_zones
+* tenant_payment_methods
+
+==================================================
+MULTI TENANT CUSTOMER MENU
+==========================
+
+Each tenant must have its own isolated public ordering system.
+
+Example:
+
+Tenant A:
+Cafe Kopi
+
+QR:
+kopi.app/menu/kopijakarta
+
+Tenant B:
+Burger Store
+
+QR:
+kopi.app/menu/burgerbandung
+
+All data must be automatically filtered by:
+
+* tenant_id
+
+Including:
+
+* products
+* orders
+* payments
+* customers
+* delivery data
+
+Each business owner can only view their own data and orders.
+
+==================================================
+CUSTOMER ORDERING ECOSYSTEM
+===========================
+
+This module combines:
+
+* POS SaaS
+* QR Restaurant System
+* Online Ordering System
+* Mini Food Delivery System
+* Multi Tenant Ordering Platform
+
+into one integrated ecosystem.
