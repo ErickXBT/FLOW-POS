@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useAuth, type AuthUser } from "@/hooks/use-auth";
+import { useAuth, type AuthUser, type UserRole } from "@/hooks/use-auth";
 import Layout from "@/components/layout";
 import LoginPage from "@/pages/login";
 import RegisterPage from "@/pages/register";
@@ -19,12 +19,27 @@ import AdminPage from "@/pages/admin";
 import CustomerMenuPage from "@/pages/customer-menu";
 import CustomerOrdersPage from "@/pages/customer-orders";
 import QrManagerPage from "@/pages/qr-manager";
+import KitchenDisplayPage from "@/pages/kitchen-display";
+import DeliveryOrdersPage from "@/pages/delivery-orders";
+import ActivityLogsPage from "@/pages/activity-logs";
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: { retry: 1, staleTime: 30_000 },
   },
 });
+
+// Default landing page per role after login
+function defaultRoute(role: UserRole): string {
+  switch (role) {
+    case "super_admin": return "/admin";
+    case "kitchen_staff": return "/kitchen";
+    case "delivery_staff": return "/delivery";
+    case "cashier": return "/pos";
+    case "staff": return "/pos";
+    default: return "/dashboard";
+  }
+}
 
 function PublicMenu() {
   const [location] = useLocation();
@@ -44,9 +59,9 @@ function AppRoutes() {
     if (!user && !isAuthPage) {
       setLocation("/login");
     } else if (user && isAuthPage) {
-      setLocation(user.role === "super_admin" ? "/admin" : "/dashboard");
+      setLocation(defaultRoute(user.role));
     } else if (user && (location === "/" || location === "")) {
-      setLocation(user.role === "super_admin" ? "/admin" : "/dashboard");
+      setLocation(defaultRoute(user.role));
     }
   }, [user, loading, location, isMenuPage]);
 
@@ -64,7 +79,6 @@ function AppRoutes() {
   }
 
   const isAuthPage = location === "/login" || location === "/register";
-
   if (!user || isAuthPage) {
     return (
       <Switch>
@@ -78,23 +92,41 @@ function AppRoutes() {
   return (
     <Layout user={user} onLogout={logout}>
       <Switch>
+        {/* Owner / Manager */}
         <Route path="/dashboard"><DashboardPage /></Route>
-        <Route path="/pos"><POSPage /></Route>
-        <Route path="/products"><ProductsPage /></Route>
-        <Route path="/categories"><CategoriesPage /></Route>
-        <Route path="/orders"><OrdersPage /></Route>
-        <Route path="/customer-orders"><CustomerOrdersPage /></Route>
-        <Route path="/customers"><CustomersPage /></Route>
-        <Route path="/employees"><EmployeesPage /></Route>
-        <Route path="/inventory"><InventoryPage /></Route>
         <Route path="/reports"><ReportsPage /></Route>
+        <Route path="/employees"><EmployeesPage /></Route>
+        <Route path="/categories"><CategoriesPage /></Route>
+        <Route path="/inventory"><InventoryPage /></Route>
         <Route path="/settings"><SettingsPage /></Route>
         <Route path="/qr-menu"><QrManagerPage /></Route>
+        <Route path="/activity-logs"><ActivityLogsPage /></Route>
+
+        {/* All operational roles */}
+        <Route path="/pos"><POSPage /></Route>
+        <Route path="/orders"><OrdersPage /></Route>
+        <Route path="/customers"><CustomersPage /></Route>
+        <Route path="/products"><ProductsPage /></Route>
+        <Route path="/customer-orders"><CustomerOrdersPage /></Route>
+
+        {/* Role-specific */}
+        <Route path="/kitchen"><KitchenDisplayPage /></Route>
+        <Route path="/delivery"><DeliveryOrdersPage /></Route>
+
+        {/* Super admin */}
         <Route path="/admin"><AdminPage /></Route>
-        <Route>{user.role === "super_admin" ? <AdminPage /> : <DashboardPage />}</Route>
+
+        {/* Default fallback */}
+        <Route><DashboardFallback user={user} /></Route>
       </Switch>
     </Layout>
   );
+}
+
+function DashboardFallback({ user }: { user: AuthUser }) {
+  const [, setLocation] = useLocation();
+  useEffect(() => { setLocation(defaultRoute(user.role)); }, []);
+  return null;
 }
 
 export default function App() {

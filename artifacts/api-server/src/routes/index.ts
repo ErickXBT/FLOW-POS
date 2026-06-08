@@ -11,6 +11,7 @@ import employeesRouter from "./employees";
 import inventoryRouter from "./inventory";
 import reportsRouter from "./reports";
 import menuRouter from "./menu";
+import activityRouter from "./activity";
 
 const router: IRouter = Router();
 
@@ -26,5 +27,6 @@ router.use(employeesRouter);
 router.use(inventoryRouter);
 router.use(reportsRouter);
 router.use(menuRouter);
+router.use(activityRouter);
 
 export default router;

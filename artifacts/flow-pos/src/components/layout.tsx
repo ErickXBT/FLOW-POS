@@ -3,33 +3,103 @@ import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, ShoppingCart, Package, Tag, ClipboardList,
   Users, UserCheck, BarChart3, Warehouse, Settings,
-  Shield, LogOut, Menu, X, Sun, Moon, QrCode, Smartphone
+  Shield, LogOut, Menu, X, Sun, Moon, QrCode, Smartphone,
+  ChefHat, Truck, Activity
 } from "lucide-react";
 import flowLogo from "@assets/FLOW_LOGO_1780799864457.png";
 import type { AuthUser } from "@/hooks/use-auth";
+import { ROLE_LABELS, hasPermission } from "@/hooks/use-auth";
 
 interface NavItem {
   href: string;
   label: string;
   icon: React.ReactNode;
-  roles?: string[];
 }
 
-const NAV: NavItem[] = [
-  { href: "/dashboard", label: "Dashboard", icon: <LayoutDashboard size={18} /> },
-  { href: "/pos", label: "Kasir (POS)", icon: <ShoppingCart size={18} /> },
-  { href: "/customer-orders", label: "Pesanan Online", icon: <Smartphone size={18} /> },
-  { href: "/orders", label: "Transaksi", icon: <ClipboardList size={18} /> },
-  { href: "/products", label: "Produk", icon: <Package size={18} /> },
-  { href: "/categories", label: "Kategori", icon: <Tag size={18} /> },
-  { href: "/inventory", label: "Inventori", icon: <Warehouse size={18} /> },
-  { href: "/customers", label: "Pelanggan", icon: <Users size={18} /> },
-  { href: "/employees", label: "Karyawan", icon: <UserCheck size={18} />, roles: ["owner", "manager"] },
-  { href: "/reports", label: "Laporan", icon: <BarChart3 size={18} />, roles: ["owner", "manager"] },
-  { href: "/qr-menu", label: "QR Menu", icon: <QrCode size={18} />, roles: ["owner"] },
-  { href: "/settings", label: "Pengaturan", icon: <Settings size={18} />, roles: ["owner"] },
-  { href: "/admin", label: "Super Admin", icon: <Shield size={18} />, roles: ["super_admin"] },
-];
+// Navigation per role
+function getNavItems(role: string): NavItem[] {
+  switch (role) {
+    case "super_admin":
+      return [
+        { href: "/admin", label: "Super Admin", icon: <Shield size={18} /> },
+      ];
+
+    case "owner":
+      return [
+        { href: "/dashboard", label: "Dashboard", icon: <LayoutDashboard size={18} /> },
+        { href: "/pos", label: "Kasir (POS)", icon: <ShoppingCart size={18} /> },
+        { href: "/customer-orders", label: "Pesanan Online", icon: <Smartphone size={18} /> },
+        { href: "/kitchen", label: "Display Dapur", icon: <ChefHat size={18} /> },
+        { href: "/delivery", label: "Delivery", icon: <Truck size={18} /> },
+        { href: "/orders", label: "Transaksi", icon: <ClipboardList size={18} /> },
+        { href: "/products", label: "Produk", icon: <Package size={18} /> },
+        { href: "/categories", label: "Kategori", icon: <Tag size={18} /> },
+        { href: "/inventory", label: "Inventori", icon: <Warehouse size={18} /> },
+        { href: "/customers", label: "Pelanggan", icon: <Users size={18} /> },
+        { href: "/employees", label: "Karyawan", icon: <UserCheck size={18} /> },
+        { href: "/reports", label: "Laporan", icon: <BarChart3 size={18} /> },
+        { href: "/qr-menu", label: "QR Menu", icon: <QrCode size={18} /> },
+        { href: "/activity-logs", label: "Log Aktivitas", icon: <Activity size={18} /> },
+        { href: "/settings", label: "Pengaturan", icon: <Settings size={18} /> },
+      ];
+
+    case "manager":
+      return [
+        { href: "/dashboard", label: "Dashboard", icon: <LayoutDashboard size={18} /> },
+        { href: "/pos", label: "Kasir (POS)", icon: <ShoppingCart size={18} /> },
+        { href: "/customer-orders", label: "Pesanan Online", icon: <Smartphone size={18} /> },
+        { href: "/kitchen", label: "Display Dapur", icon: <ChefHat size={18} /> },
+        { href: "/delivery", label: "Delivery", icon: <Truck size={18} /> },
+        { href: "/orders", label: "Transaksi", icon: <ClipboardList size={18} /> },
+        { href: "/products", label: "Produk", icon: <Package size={18} /> },
+        { href: "/inventory", label: "Inventori", icon: <Warehouse size={18} /> },
+        { href: "/customers", label: "Pelanggan", icon: <Users size={18} /> },
+        { href: "/employees", label: "Karyawan", icon: <UserCheck size={18} /> },
+        { href: "/reports", label: "Laporan", icon: <BarChart3 size={18} /> },
+        { href: "/activity-logs", label: "Log Aktivitas", icon: <Activity size={18} /> },
+      ];
+
+    case "cashier":
+      return [
+        { href: "/pos", label: "Kasir (POS)", icon: <ShoppingCart size={18} /> },
+        { href: "/customer-orders", label: "Pesanan Online", icon: <Smartphone size={18} /> },
+        { href: "/orders", label: "Transaksi Hari Ini", icon: <ClipboardList size={18} /> },
+        { href: "/customers", label: "Pelanggan", icon: <Users size={18} /> },
+      ];
+
+    case "kitchen_staff":
+      return [
+        { href: "/kitchen", label: "Display Dapur", icon: <ChefHat size={18} /> },
+      ];
+
+    case "delivery_staff":
+      return [
+        { href: "/delivery", label: "Pesanan Delivery", icon: <Truck size={18} /> },
+      ];
+
+    case "staff":
+      return [
+        { href: "/pos", label: "Kasir (POS)", icon: <ShoppingCart size={18} /> },
+        { href: "/orders", label: "Transaksi", icon: <ClipboardList size={18} /> },
+      ];
+
+    default:
+      return [
+        { href: "/dashboard", label: "Dashboard", icon: <LayoutDashboard size={18} /> },
+      ];
+  }
+}
+
+// Role color badges
+const ROLE_COLORS: Record<string, string> = {
+  super_admin: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
+  owner: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
+  manager: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+  cashier: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
+  kitchen_staff: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400",
+  delivery_staff: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-400",
+  staff: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400",
+};
 
 interface LayoutProps {
   user: AuthUser;
@@ -47,15 +117,33 @@ export default function Layout({ user, onLogout, children }: LayoutProps) {
     setDark(d => !d);
   };
 
-  const filteredNav = NAV.filter(item => {
-    if (!item.roles) return user.role !== "super_admin" || item.href === "/admin";
-    if (user.role === "super_admin") return item.href === "/admin";
-    return item.roles.includes(user.role);
-  });
+  const navItems = getNavItems(user.role);
 
-  const roleLabel: Record<string, string> = {
-    super_admin: "Super Admin", owner: "Owner", manager: "Manager", cashier: "Kasir", staff: "Staff"
-  };
+  // Kitchen/Delivery staff get full-screen layout (no sidebar)
+  const isFullscreen = user.role === "kitchen_staff" || user.role === "delivery_staff";
+
+  if (isFullscreen) {
+    return (
+      <div className="flex flex-col h-screen overflow-hidden">
+        {user.role !== "kitchen_staff" && (
+          <header className="h-12 bg-card border-b border-border flex items-center px-4 gap-3 flex-shrink-0">
+            <img src={flowLogo} alt="Flow" className="h-5 brightness-0 dark:invert opacity-60" />
+            <div className="flex-1" />
+            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_COLORS[user.role] ?? ""}`}>
+              {ROLE_LABELS[user.role as keyof typeof ROLE_LABELS]}
+            </span>
+            <span className="text-sm font-medium text-foreground">{user.name}</span>
+            <button onClick={onLogout} className="text-muted-foreground hover:text-foreground p-1.5 hover:bg-muted rounded-lg transition-colors">
+              <LogOut size={16} />
+            </button>
+          </header>
+        )}
+        <main className="flex-1 overflow-hidden">
+          {children}
+        </main>
+      </div>
+    );
+  }
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
@@ -63,7 +151,7 @@ export default function Layout({ user, onLogout, children }: LayoutProps) {
         <img src={flowLogo} alt="Flow" className="h-8 brightness-0 invert" />
       </div>
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-0.5">
-        {filteredNav.map(item => {
+        {navItems.map(item => {
           const active = location === item.href || location.startsWith(item.href + "/");
           return (
             <Link
@@ -82,14 +170,16 @@ export default function Layout({ user, onLogout, children }: LayoutProps) {
           );
         })}
       </nav>
-      <div className="px-4 py-4 border-t border-sidebar-border">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-8 h-8 rounded-full bg-sidebar-primary flex items-center justify-center text-sm font-bold text-sidebar-primary-foreground">
+      <div className="px-4 py-4 border-t border-sidebar-border space-y-2">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-sidebar-primary flex items-center justify-center text-sm font-bold text-sidebar-primary-foreground flex-shrink-0">
             {user.name.charAt(0).toUpperCase()}
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-sidebar-foreground text-sm font-medium truncate">{user.name}</div>
-            <div className="text-sidebar-foreground opacity-50 text-xs">{roleLabel[user.role]}</div>
+            <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium mt-0.5 ${ROLE_COLORS[user.role] ?? ""}`}>
+              {ROLE_LABELS[user.role as keyof typeof ROLE_LABELS]}
+            </span>
           </div>
         </div>
         <button

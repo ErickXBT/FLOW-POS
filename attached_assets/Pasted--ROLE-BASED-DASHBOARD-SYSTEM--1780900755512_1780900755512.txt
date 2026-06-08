@@ -1,0 +1,224 @@
+==================================================
+ROLE BASED DASHBOARD SYSTEM
+===========================
+
+The system must support separate dashboards and permissions for each employee role.
+
+Each role can only access features based on assigned permissions.
+
+==================================================
+USER ROLES
+==========
+
+1. Super Admin
+2. Business Owner
+3. Manager
+4. Cashier
+5. Kitchen Staff
+6. Staff
+7. Delivery Staff
+
+==================================================
+SUPER ADMIN ACCESS
+==================
+
+Can access:
+
+* All tenants
+* System analytics
+* Subscription management
+* Tenant management
+* Revenue reports
+* Global settings
+* System monitoring
+
+==================================================
+BUSINESS OWNER ACCESS
+=====================
+
+Can access:
+
+* Full business dashboard
+* Sales reports
+* Inventory
+* Employees
+* Customers
+* Branch management
+* Financial reports
+* Subscription settings
+* Branding settings
+* QR menu settings
+
+Cannot access:
+
+* Other tenants data
+
+==================================================
+MANAGER ACCESS
+==============
+
+Can access:
+
+* Daily operations dashboard
+* Sales reports
+* Employee monitoring
+* Inventory management
+* Order management
+* Customer management
+
+Can manage:
+
+* Cashiers
+* Staff
+* Orders
+* Stock
+
+Cannot access:
+
+* Subscription settings
+* Super admin settings
+
+==================================================
+CASHIER ACCESS
+==============
+
+Can access:
+
+* POS screen
+* Customer orders
+* Payment processing
+* Print receipts
+* Daily transactions
+
+Cannot access:
+
+* Financial reports
+* Employee settings
+* Subscription settings
+* System settings
+
+==================================================
+KITCHEN STAFF ACCESS
+====================
+
+Can access:
+
+* Kitchen Display System
+* Incoming orders
+* Order status updates
+
+Can update:
+
+* Preparing
+* Ready
+
+Cannot access:
+
+* Payments
+* Reports
+* Inventory
+* Financial data
+
+==================================================
+DELIVERY STAFF ACCESS
+=====================
+
+Can access:
+
+* Delivery orders
+* Customer address
+* Delivery status
+
+Can update:
+
+* On Delivery
+* Delivered
+
+Cannot access:
+
+* Reports
+* Financial data
+* Inventory
+
+==================================================
+STAFF ACCESS
+============
+
+Can access only assigned modules based on permissions.
+
+==================================================
+PERMISSION MANAGEMENT
+=====================
+
+Business owner can:
+
+* Create custom roles
+* Enable/disable permissions
+* Assign module access
+* Restrict branch access
+
+==================================================
+BRANCH ACCESS CONTROL
+=====================
+
+Employees can be limited to specific branches.
+
+Example:
+
+Employee A:
+
+* Branch Jakarta only
+
+Employee B:
+
+* Branch Bandung only
+
+==================================================
+ACTIVITY TRACKING
+=================
+
+Track employee activities:
+
+* Login
+* Logout
+* Orders created
+* Refund actions
+* Product edits
+* Stock adjustments
+* Failed login attempts
+
+==================================================
+SESSION MANAGEMENT
+==================
+
+Track:
+
+* Device login
+* Active sessions
+* Login history
+* IP address
+* Logout history
+
+==================================================
+EMPLOYEE DASHBOARD UI
+=====================
+
+Each role must have different dashboard layouts and navigation menus.
+
+Examples:
+
+Cashier Dashboard:
+
+* POS Focused UI
+
+Kitchen Dashboard:
+
+* Order Queue UI
+
+Owner Dashboard:
+
+* Analytics & Reports UI
+
+Delivery Dashboard:
+
+* Delivery Tracking UI

@@ -2,3 +2,4 @@
 - [Flow POS auth](flow-pos-auth.md) — JWT with SESSION_SECRET; password = SHA-256(pw + 'flow-salt'); token key `flow_token` in localStorage
 - [QR Menu routing](qr-menu-routing.md) — wouter useParams() returns empty when component is rendered outside a Route; pass slug as explicit prop from parent instead.
 - [DB migration approach](db-migration.md) — use psql raw SQL for additive column/table adds; drizzle-kit push fails non-interactively when unique constraints exist on non-empty tables.
+- [Role-based dashboard system](role-based-dashboard.md) — 7 roles with separate navs, dashboards, auto-redirect on login; kitchen/delivery get full-screen no-sidebar layout; employee invite at POST /employees/:id/invite creates linked user account.

@@ -8,3 +8,5 @@ export * from "./employees";
 export * from "./inventory";
 export * from "./subscriptions";
 export * from "./customer-orders";
+export * from "./activity-logs";
+export * from "./user-sessions";

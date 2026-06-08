@@ -3,11 +3,20 @@ import { setAuthTokenGetter } from "@workspace/api-client-react";
 
 const TOKEN_KEY = "flow_token";
 
+export type UserRole =
+  | "super_admin"
+  | "owner"
+  | "manager"
+  | "cashier"
+  | "kitchen_staff"
+  | "delivery_staff"
+  | "staff";
+
 export interface AuthUser {
   id: number;
   name: string;
   email: string;
-  role: "super_admin" | "owner" | "manager" | "cashier" | "staff";
+  role: UserRole;
   tenantId: number | null;
   createdAt: string;
 }
@@ -19,6 +28,35 @@ export function getStoredToken(): string | null {
 export function setStoredToken(token: string | null): void {
   if (token) localStorage.setItem(TOKEN_KEY, token);
   else localStorage.removeItem(TOKEN_KEY);
+}
+
+// Role-based permission helpers
+export const ROLE_LABELS: Record<UserRole, string> = {
+  super_admin: "Super Admin",
+  owner: "Pemilik",
+  manager: "Manager",
+  cashier: "Kasir",
+  kitchen_staff: "Staff Dapur",
+  delivery_staff: "Kurir",
+  staff: "Staff",
+};
+
+export function hasPermission(role: UserRole, permission: string): boolean {
+  const perms: Record<string, UserRole[]> = {
+    view_reports: ["owner", "manager", "super_admin"],
+    manage_employees: ["owner", "manager", "super_admin"],
+    manage_products: ["owner", "manager", "super_admin"],
+    manage_inventory: ["owner", "manager", "super_admin"],
+    view_customers: ["owner", "manager", "cashier", "super_admin"],
+    manage_orders: ["owner", "manager", "cashier", "super_admin"],
+    view_pos: ["owner", "manager", "cashier", "staff", "super_admin"],
+    view_kitchen: ["owner", "manager", "kitchen_staff"],
+    view_delivery: ["owner", "manager", "delivery_staff"],
+    manage_settings: ["owner", "super_admin"],
+    manage_qr_menu: ["owner", "super_admin"],
+    view_activity_logs: ["owner", "manager", "super_admin"],
+  };
+  return (perms[permission] ?? []).includes(role);
 }
 
 // Register auth token getter on module load
