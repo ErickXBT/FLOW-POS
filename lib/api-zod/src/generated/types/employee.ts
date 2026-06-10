@@ -5,7 +5,6 @@
  * Flow POS SaaS API
  * OpenAPI spec version: 0.1.0
  */
-import type { EmployeeRole } from './employeeRole';
 
 export interface Employee {
   id: number;
@@ -14,8 +13,12 @@ export interface Employee {
   email?: string | null;
   /** @nullable */
   phone?: string | null;
-  role: EmployeeRole;
+  role: string;
   isActive?: boolean;
   tenantId: number;
+  /** @nullable */
+  branchId?: number | null;
+  /** @nullable */
+  customRoleId?: number | null;
   createdAt: string;
 }

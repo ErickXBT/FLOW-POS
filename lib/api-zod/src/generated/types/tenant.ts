@@ -24,8 +24,15 @@ export interface Tenant {
   /** @nullable */
   primaryColor?: string | null;
   /** @nullable */
+  coverUrl?: string | null;
+  /** @nullable */
+  bio?: string | null;
+  /** @nullable */
   subscriptionPlan?: string | null;
   /** @nullable */
   subscriptionExpiresAt?: string | null;
+  enableDelivery?: boolean;
+  deliveryFeeNear?: number;
+  deliveryFeeFar?: number;
   createdAt: string;
 }

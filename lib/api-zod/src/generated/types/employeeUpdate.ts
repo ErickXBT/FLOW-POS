@@ -5,12 +5,15 @@
  * Flow POS SaaS API
  * OpenAPI spec version: 0.1.0
  */
-import type { EmployeeUpdateRole } from './employeeUpdateRole';
 
 export interface EmployeeUpdate {
   name?: string;
   email?: string;
   phone?: string;
-  role?: EmployeeUpdateRole;
+  role?: string;
   isActive?: boolean;
+  /** @nullable */
+  branchId?: number | null;
+  /** @nullable */
+  customRoleId?: number | null;
 }

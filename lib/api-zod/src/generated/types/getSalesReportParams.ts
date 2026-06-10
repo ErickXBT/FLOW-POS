@@ -11,4 +11,5 @@ export type GetSalesReportParams = {
 period?: GetSalesReportPeriod;
 dateFrom?: string;
 dateTo?: string;
+branchId?: number;
 };

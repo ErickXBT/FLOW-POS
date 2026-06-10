@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, gte, lte, count, sql, desc } from "drizzle-orm";
-import { db, ordersTable, orderItemsTable, productsTable, customersTable } from "@workspace/db";
+import { db, ordersTable, orderItemsTable, productsTable, customersTable, employeesTable } from "@workspace/db";
 import { GetSalesReportQueryParams, GetSalesChartDataQueryParams } from "@workspace/api-zod";
 import { extractToken } from "./auth";
 
@@ -25,6 +25,14 @@ function startOf(unit: "day" | "week" | "month" | "year"): Date {
   now.setMonth(0, 1); now.setHours(0, 0, 0, 0); return now;
 }
 
+async function getActiveBranchFilter(claims: any, queryBranchId?: any): Promise<number | null> {
+  if (claims.role !== "owner" && claims.role !== "super_admin") {
+    const [emp] = await db.select({ branchId: employeesTable.branchId }).from(employeesTable).where(eq(employeesTable.userId, claims.userId)).limit(1);
+    return emp?.branchId ?? null;
+  }
+  return queryBranchId ? Number(queryBranchId) : null;
+}
+
 router.get("/reports/dashboard", async (req, res): Promise<void> => {
   const claims = requireTenant(req, res);
   if (!claims) return;
@@ -34,26 +42,32 @@ router.get("/reports/dashboard", async (req, res): Promise<void> => {
   const weekStart = startOf("week");
   const monthStart = startOf("month");
 
+  const branchId = await getActiveBranchFilter(claims, req.query.branchId);
+  const baseOrderConditions = [eq(ordersTable.tenantId, tid), eq(ordersTable.status, "completed")];
+  if (branchId) {
+    baseOrderConditions.push(eq(ordersTable.branchId, branchId));
+  }
+
   const [todayOrders] = await db.select({ count: count() }).from(ordersTable)
-    .where(and(eq(ordersTable.tenantId, tid), eq(ordersTable.status, "completed"), gte(ordersTable.createdAt, todayStart)));
+    .where(and(...baseOrderConditions, gte(ordersTable.createdAt, todayStart)));
 
   const [todaySales] = await db.select({ total: sql<number>`COALESCE(SUM(CAST(total AS DECIMAL)), 0)` })
     .from(ordersTable)
-    .where(and(eq(ordersTable.tenantId, tid), eq(ordersTable.status, "completed"), gte(ordersTable.createdAt, todayStart)));
+    .where(and(...baseOrderConditions, gte(ordersTable.createdAt, todayStart)));
 
   const [weekRevenue] = await db.select({ total: sql<number>`COALESCE(SUM(CAST(total AS DECIMAL)), 0)` })
     .from(ordersTable)
-    .where(and(eq(ordersTable.tenantId, tid), eq(ordersTable.status, "completed"), gte(ordersTable.createdAt, weekStart)));
+    .where(and(...baseOrderConditions, gte(ordersTable.createdAt, weekStart)));
 
   const [monthRevenue] = await db.select({ total: sql<number>`COALESCE(SUM(CAST(total AS DECIMAL)), 0)` })
     .from(ordersTable)
-    .where(and(eq(ordersTable.tenantId, tid), eq(ordersTable.status, "completed"), gte(ordersTable.createdAt, monthStart)));
+    .where(and(...baseOrderConditions, gte(ordersTable.createdAt, monthStart)));
 
   const lastMonthStart = new Date(monthStart);
   lastMonthStart.setMonth(lastMonthStart.getMonth() - 1);
   const [lastMonthRevenue] = await db.select({ total: sql<number>`COALESCE(SUM(CAST(total AS DECIMAL)), 0)` })
     .from(ordersTable)
-    .where(and(eq(ordersTable.tenantId, tid), eq(ordersTable.status, "completed"),
+    .where(and(...baseOrderConditions,
       gte(ordersTable.createdAt, lastMonthStart), lte(ordersTable.createdAt, monthStart)));
 
   const [totalProducts] = await db.select({ count: count() }).from(productsTable).where(eq(productsTable.tenantId, tid));
@@ -100,12 +114,16 @@ router.get("/reports/sales", async (req, res): Promise<void> => {
   }
   if (qp.success && qp.data.dateTo) dateTo = new Date(qp.data.dateTo);
 
+  const branchId = await getActiveBranchFilter(claims, req.query.branchId);
   const conditions = [
     eq(ordersTable.tenantId, tid),
     eq(ordersTable.status, "completed"),
     gte(ordersTable.createdAt, dateFrom),
     lte(ordersTable.createdAt, dateTo),
   ];
+  if (branchId) {
+    conditions.push(eq(ordersTable.branchId, branchId));
+  }
   const where = and(...conditions);
 
   const [agg] = await db.select({
@@ -196,13 +214,21 @@ router.get("/reports/sales/chart", async (req, res): Promise<void> => {
     }
   }
 
+  const branchId = await getActiveBranchFilter(claims, req.query.branchId);
+  const baseConditions = [
+    eq(ordersTable.tenantId, tid),
+    eq(ordersTable.status, "completed"),
+  ];
+  if (branchId) {
+    baseConditions.push(eq(ordersTable.branchId, branchId));
+  }
+
   const result = await Promise.all(points.map(async (pt) => {
     const [agg] = await db.select({
       revenue: sql<number>`COALESCE(SUM(CAST(total AS DECIMAL)), 0)`,
       orders: count(),
     }).from(ordersTable).where(and(
-      eq(ordersTable.tenantId, tid),
-      eq(ordersTable.status, "completed"),
+      ...baseConditions,
       gte(ordersTable.createdAt, pt.from),
       lte(ordersTable.createdAt, pt.to),
     ));

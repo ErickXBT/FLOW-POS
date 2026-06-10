@@ -1,8 +1,11 @@
 import { Router, type IRouter } from "express";
-import { eq, and, desc, sql } from "drizzle-orm";
+import { eq, and, desc, sql, inArray } from "drizzle-orm";
+import crypto from "crypto";
 import {
   db, tenantsTable, categoriesTable, productsTable,
   customerOrdersTable, customerOrderItemsTable, tableQrCodesTable,
+  publicMenusTable, branchesTable, customerSessionsTable, customerCartsTable,
+  publicMenuCategoriesTable, publicMenuProductsTable,
 } from "@workspace/db";
 import { extractToken } from "./auth";
 
@@ -77,17 +80,34 @@ router.get("/tenant/orders/events", (req, res) => {
 
 router.get("/menu/:slug", async (req, res): Promise<void> => {
   const { slug } = req.params;
+  const branchIdParam = req.query.branch_id ? Number(req.query.branch_id) : null;
+
   const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.slug, slug));
   if (!tenant || tenant.status === "suspended") {
     res.status(404).json({ error: "Menu tidak ditemukan" }); return;
   }
 
-  const categories = await db.select().from(categoriesTable)
-    .where(eq(categoriesTable.tenantId, tenant.id)).orderBy(categoriesTable.name);
+  // Find active menu
+  let menu = null;
+  if (branchIdParam) {
+    [menu] = await db.select().from(publicMenusTable)
+      .where(and(eq(publicMenusTable.tenantId, tenant.id), eq(publicMenusTable.branchId, branchIdParam), eq(publicMenusTable.isActive, true)));
+  } else {
+    [menu] = await db.select().from(publicMenusTable)
+      .where(and(eq(publicMenusTable.tenantId, tenant.id), eq(publicMenusTable.isActive, true)))
+      .limit(1);
+  }
 
-  const products = await db.select().from(productsTable)
-    .where(and(eq(productsTable.tenantId, tenant.id), eq(productsTable.isActive, true), sql`${productsTable.stock} > 0`))
-    .orderBy(productsTable.name);
+  // Find branch
+  let branch = null;
+  if (menu) {
+    [branch] = await db.select().from(branchesTable).where(eq(branchesTable.id, menu.branchId));
+  } else {
+    const branches = await db.select().from(branchesTable).where(eq(branchesTable.tenantId, tenant.id)).limit(1);
+    if (branches.length > 0) {
+      branch = branches[0];
+    }
+  }
 
   res.json({
     tenant: {
@@ -95,6 +115,10 @@ router.get("/menu/:slug", async (req, res): Promise<void> => {
       businessType: tenant.businessType, address: tenant.address, phone: tenant.phone,
       logoUrl: tenant.logoUrl, primaryColor: tenant.primaryColor ?? "#1D4EF5",
       bannerUrl: (tenant as any).bannerUrl ?? null,
+      coverUrl: tenant.coverUrl ?? null,
+      bio: tenant.bio ?? null,
+      deliveryFeeNear: tenant.deliveryFeeNear !== undefined ? Number(tenant.deliveryFeeNear) : 0,
+      deliveryFeeFar: tenant.deliveryFeeFar !== undefined ? Number(tenant.deliveryFeeFar) : 5000,
       enableDineIn: (tenant as any).enableDineIn ?? true,
       enableTakeAway: (tenant as any).enableTakeAway ?? true,
       enableDelivery: (tenant as any).enableDelivery ?? false,
@@ -103,13 +127,188 @@ router.get("/menu/:slug", async (req, res): Promise<void> => {
       enableBankTransfer: (tenant as any).enableBankTransfer ?? false,
       enableEwallet: (tenant as any).enableEwallet ?? false,
     },
-    categories: categories.map(c => ({ id: c.id, name: c.name, description: c.description })),
-    products: products.map(p => ({
-      id: p.id, name: p.name, description: p.description,
-      price: Number(p.price), imageUrl: p.imageUrl,
-      categoryId: p.categoryId, stock: p.stock,
-    })),
+    branch: branch ? {
+      id: branch.id,
+      name: branch.name,
+    } : null,
+    menu: menu ? {
+      id: menu.id,
+      name: menu.name,
+      logoUrl: menu.logoUrl,
+      bannerUrl: menu.bannerUrl,
+      themeSettings: menu.themeSettings,
+      enableDineIn: menu.enableDineIn,
+      enableTakeAway: menu.enableTakeAway,
+      enableDelivery: menu.enableDelivery,
+      estimatedDeliveryTime: menu.estimatedDeliveryTime,
+      isActive: menu.isActive,
+    } : null,
   });
+});
+
+router.post("/menu/:slug/sessions/init", async (req, res): Promise<void> => {
+  const { slug } = req.params;
+  const { qrCode, branchId, tableId } = req.body;
+
+  const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.slug, slug));
+  if (!tenant) { res.status(404).json({ error: "Tenant tidak ditemukan" }); return; }
+
+  const activeBranchId = Number(branchId);
+  const sessionId = crypto.randomBytes(16).toString("hex");
+  const menuSessionId = crypto.randomBytes(16).toString("hex");
+
+  // Expiry in 24 hours
+  const expiresAt = new Date();
+  expiresAt.setHours(expiresAt.getHours() + 24);
+
+  const [session] = await db.insert(customerSessionsTable).values({
+    tenantId: tenant.id,
+    branchId: activeBranchId,
+    sessionId,
+    menuSessionId,
+    tableId: tableId ? String(tableId) : null,
+    isActive: true,
+    expiresAt,
+  }).returning();
+
+  res.json({
+    menuSessionId: session.menuSessionId,
+    tableId: session.tableId,
+  });
+});
+
+router.get("/menu/:slug/cart", async (req, res): Promise<void> => {
+  const { menu_session_id } = req.query;
+  if (!menu_session_id) { res.status(400).json({ error: "menu_session_id diperlukan" }); return; }
+
+  const [session] = await db.select().from(customerSessionsTable)
+    .where(and(eq(customerSessionsTable.menuSessionId, String(menu_session_id)), eq(customerSessionsTable.isActive, true)));
+  if (!session) { res.json({ cartData: [] }); return; }
+
+  const [cart] = await db.select().from(customerCartsTable)
+    .where(eq(customerCartsTable.customerSessionId, session.id));
+
+  if (!cart) {
+    res.json({ cartData: [] });
+  } else {
+    try {
+      res.json({ cartData: JSON.parse(cart.cartData) });
+    } catch {
+      res.json({ cartData: [] });
+    }
+  }
+});
+
+router.post("/menu/:slug/cart", async (req, res): Promise<void> => {
+  const { menuSessionId, cartData } = req.body;
+  if (!menuSessionId) { res.status(400).json({ error: "menuSessionId diperlukan" }); return; }
+
+  const [session] = await db.select().from(customerSessionsTable)
+    .where(and(eq(customerSessionsTable.menuSessionId, menuSessionId), eq(customerSessionsTable.isActive, true)));
+  if (!session) { res.status(404).json({ error: "Sesi tidak ditemukan atau kedaluwarsa" }); return; }
+
+  const cartJson = JSON.stringify(cartData || []);
+
+  const [existingCart] = await db.select().from(customerCartsTable)
+    .where(eq(customerCartsTable.customerSessionId, session.id));
+
+  if (existingCart) {
+    await db.update(customerCartsTable)
+      .set({ cartData: cartJson, updatedAt: new Date() })
+      .where(eq(customerCartsTable.id, existingCart.id));
+  } else {
+    await db.insert(customerCartsTable).values({
+      tenantId: session.tenantId,
+      branchId: session.branchId,
+      customerSessionId: session.id,
+      cartData: cartJson,
+    });
+  }
+
+  res.json({ success: true });
+});
+
+router.get("/menu/:slug/products", async (req, res): Promise<void> => {
+  const { slug } = req.params;
+  const branchId = req.query.branch_id ? Number(req.query.branch_id) : null;
+
+  const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.slug, slug));
+  if (!tenant) { res.status(404).json({ error: "Tenant tidak ditemukan" }); return; }
+
+  let categories: any[] = [];
+  let products: any[] = [];
+
+  if (branchId) {
+    const [menu] = await db.select().from(publicMenusTable)
+      .where(and(eq(publicMenusTable.tenantId, tenant.id), eq(publicMenusTable.branchId, branchId), eq(publicMenusTable.isActive, true)));
+    
+    if (menu) {
+      categories = await db.select().from(publicMenuCategoriesTable)
+        .where(eq(publicMenuCategoriesTable.publicMenuId, menu.id))
+        .orderBy(publicMenuCategoriesTable.sortOrder);
+      
+      if (categories.length > 0) {
+        const catIds = categories.map(c => c.id);
+        products = await db.select().from(publicMenuProductsTable)
+          .where(and(inArray(publicMenuProductsTable.publicMenuCategoryId, catIds), eq(publicMenuProductsTable.isAvailable, true)))
+          .orderBy(publicMenuProductsTable.name);
+      }
+    }
+  }
+
+  if (categories.length === 0) {
+    const stdCats = await db.select().from(categoriesTable)
+      .where(eq(categoriesTable.tenantId, tenant.id))
+      .orderBy(categoriesTable.name);
+    
+    categories = stdCats.map(c => ({
+      id: c.id,
+      name: c.name,
+      description: c.description,
+    }));
+
+    const stdProds = await db.select().from(productsTable)
+      .where(and(eq(productsTable.tenantId, tenant.id), eq(productsTable.isActive, true)))
+      .orderBy(productsTable.name);
+
+    products = stdProds.map(p => ({
+      id: p.id,
+      productId: p.id,
+      name: p.name,
+      description: p.description,
+      price: Number(p.price),
+      promoPrice: null,
+      imageUrl: p.imageUrl,
+      isAvailable: p.isActive,
+      stock: p.stock,
+      variantSettings: null,
+      publicMenuCategoryId: p.categoryId,
+      isBestSeller: p.isBestSeller,
+    }));
+  } else {
+    categories = categories.map(c => ({
+      id: c.id,
+      name: c.name,
+      description: c.description,
+    }));
+
+    products = products.map(p => ({
+      id: p.id,
+      productId: p.productId,
+      name: p.name,
+      description: p.description,
+      price: Number(p.price),
+      promoPrice: p.promoPrice ? Number(p.promoPrice) : null,
+      imageUrl: p.imageUrl,
+      isAvailable: p.isAvailable,
+      stock: p.stock,
+      variantSettings: p.variantSettings,
+      publicMenuCategoryId: p.publicMenuCategoryId,
+      isBestSeller: false,
+    }));
+  }
+
+  res.json({ categories, products });
 });
 
 router.post("/menu/:slug/orders", async (req, res): Promise<void> => {
@@ -129,7 +328,7 @@ router.post("/menu/:slug/orders", async (req, res): Promise<void> => {
   const productIds = items.map((i: any) => i.productId);
   const products = productIds.length > 0
     ? await db.select().from(productsTable)
-        .where(and(sql`${productsTable.id} = ANY(${productIds}::int[])`, eq(productsTable.tenantId, tenant.id)))
+        .where(and(inArray(productsTable.id, productIds), eq(productsTable.tenantId, tenant.id)))
     : [];
   const productMap = products.reduce((m: any, p) => { m[p.id] = p; return m; }, {});
 
@@ -199,7 +398,7 @@ router.get("/tenant/customer-orders", async (req, res): Promise<void> => {
   const orderIds = orders.map(o => o.id);
   const items = orderIds.length > 0
     ? await db.select().from(customerOrderItemsTable)
-        .where(sql`${customerOrderItemsTable.customerOrderId} = ANY(${orderIds}::int[])`)
+        .where(inArray(customerOrderItemsTable.customerOrderId, orderIds))
     : [];
 
   const itemsByOrder = items.reduce((acc: any, item) => {
@@ -209,6 +408,21 @@ router.get("/tenant/customer-orders", async (req, res): Promise<void> => {
   }, {});
 
   res.json({ data: orders.map(o => formatCustomerOrder(o, itemsByOrder[o.id] ?? [])), total: orders.length, page, limit });
+});
+
+router.get("/tenant/customer-orders/:id", async (req, res): Promise<void> => {
+  const claims = extractToken(req);
+  if (!claims || !claims.tenantId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const orderId = Number(req.params.id);
+  const [order] = await db.select().from(customerOrdersTable)
+    .where(and(eq(customerOrdersTable.id, orderId), eq(customerOrdersTable.tenantId, claims.tenantId)));
+  if (!order) { res.status(404).json({ error: "Pesanan tidak ditemukan" }); return; }
+
+  const items = await db.select().from(customerOrderItemsTable)
+    .where(eq(customerOrderItemsTable.customerOrderId, order.id));
+
+  res.json(formatCustomerOrder(order, items));
 });
 
 router.patch("/tenant/customer-orders/:id/status", async (req, res): Promise<void> => {

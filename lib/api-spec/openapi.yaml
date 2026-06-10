@@ -400,6 +400,10 @@ paths:
           in: query
           schema:
             type: integer
+        - name: branchId
+          in: query
+          schema:
+            type: integer
       responses:
         "200":
           description: Top products
@@ -524,6 +528,10 @@ paths:
       summary: Get recent orders for activity feed
       parameters:
         - name: limit
+          in: query
+          schema:
+            type: integer
+        - name: branchId
           in: query
           schema:
             type: integer
@@ -821,6 +829,11 @@ paths:
       operationId: getDashboardStats
       tags: [reports]
       summary: Get tenant dashboard summary stats
+      parameters:
+        - name: branchId
+          in: query
+          schema:
+            type: integer
       responses:
         "200":
           description: Dashboard stats
@@ -848,6 +861,10 @@ paths:
           in: query
           schema:
             type: string
+        - name: branchId
+          in: query
+          schema:
+            type: integer
       responses:
         "200":
           description: Sales report
@@ -867,6 +884,10 @@ paths:
           schema:
             type: string
             enum: [week, month, year]
+        - name: branchId
+          in: query
+          schema:
+            type: integer
       responses:
         "200":
           description: Chart data
@@ -876,6 +897,326 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/SalesChartPoint"
+
+
+  # ── Branches ─────────────────────────────────────────────────────────────
+  /branches:
+    get:
+      operationId: listBranches
+      tags: [tenant]
+      summary: List all branches
+      responses:
+        "200":
+          description: Branches
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Branch"
+    post:
+      operationId: createBranch
+      tags: [tenant]
+      summary: Create branch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BranchInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Branch"
+
+  /branches/{id}:
+    patch:
+      operationId: updateBranch
+      tags: [tenant]
+      summary: Update branch
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BranchUpdate"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Branch"
+    delete:
+      operationId: deleteBranch
+      tags: [tenant]
+      summary: Delete branch
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Custom Roles ─────────────────────────────────────────────────────────
+  /roles:
+    get:
+      operationId: listRoles
+      tags: [tenant]
+      summary: List all custom roles
+      responses:
+        "200":
+          description: Custom roles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CustomRole"
+    post:
+      operationId: createRole
+      tags: [tenant]
+      summary: Create custom role
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomRoleInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomRole"
+
+  /roles/{id}:
+    patch:
+      operationId: updateRole
+      tags: [tenant]
+      summary: Update custom role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CustomRoleInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CustomRole"
+    delete:
+      operationId: deleteRole
+      tags: [tenant]
+      summary: Delete custom role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Announcements ────────────────────────────────────────────────────────
+  /announcements:
+    get:
+      operationId: listAnnouncements
+      tags: [tenant]
+      summary: List all announcements
+      responses:
+        "200":
+          description: Announcements
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Announcement"
+
+  /admin/announcements:
+    post:
+      operationId: createAnnouncement
+      tags: [admin]
+      summary: Create announcement (admin only)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnnouncementInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Announcement"
+
+  # ── Support Tickets ──────────────────────────────────────────────────────
+  /support/tickets:
+    get:
+      operationId: listSupportTickets
+      tags: [tenant]
+      summary: List support tickets
+      responses:
+        "200":
+          description: Tickets
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SupportTicket"
+    post:
+      operationId: createSupportTicket
+      tags: [tenant]
+      summary: Create support ticket
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupportTicketInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportTicket"
+
+  /support/tickets/{id}/replies:
+    get:
+      operationId: listTicketReplies
+      tags: [tenant]
+      summary: List replies for ticket
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Replies
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TicketReply"
+    post:
+      operationId: createTicketReply
+      tags: [tenant]
+      summary: Reply to ticket
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TicketReplyInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TicketReply"
+
+  # ── Admin Config & Impersonation ──────────────────────────────────────────
+  /admin/tenants/{id}/impersonate:
+    post:
+      operationId: impersonateTenant
+      tags: [admin]
+      summary: Impersonate a tenant's owner
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Token response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+
+  /admin/settings:
+    get:
+      operationId: getAdminSettings
+      tags: [admin]
+      summary: Get platform global settings
+      responses:
+        "200":
+          description: Platform settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformSettings"
+    patch:
+      operationId: updateAdminSettings
+      tags: [admin]
+      summary: Update platform global settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PlatformSettingsInput"
+      responses:
+        "200":
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PlatformSettings"
+
+  /admin/security-logs:
+    get:
+      operationId: getSecurityLogs
+      tags: [admin]
+      summary: Get security audit logs
+      responses:
+        "200":
+          description: Security logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SecurityLog"
 
 components:
   schemas:
@@ -915,6 +1256,10 @@ components:
           type: ["string", "null"]
         address:
           type: ["string", "null"]
+        plan:
+          type: string
+          enum: [starter, business, pro, custom, trial]
+
 
     AuthResponse:
       type: object
@@ -937,7 +1282,7 @@ components:
           type: string
         role:
           type: string
-          enum: [super_admin, owner, manager, cashier, staff]
+          enum: [super_admin, owner, manager, cashier, kitchen_staff, staff, delivery_staff]
         tenantId:
           type: ["integer", "null"]
         createdAt:
@@ -946,7 +1291,7 @@ components:
     # ── Admin ─────────────────────────────────────────────────────────────
     AdminStats:
       type: object
-      required: [totalTenants, activeTenants, expiredSubscriptions, monthlyRevenue, totalTransactions, totalUsers]
+      required: [totalTenants, activeTenants, suspendedTenants, trialUsers, expiredSubscriptions, monthlyRevenue, annualRevenue, totalOrders, totalCustomers, totalEmployees, totalBranches, totalTransactions, totalUsers]
       properties:
         totalTenants:
           type: integer
@@ -954,10 +1299,22 @@ components:
           type: integer
         suspendedTenants:
           type: integer
+        trialUsers:
+          type: integer
         expiredSubscriptions:
           type: integer
         monthlyRevenue:
           type: number
+        annualRevenue:
+          type: number
+        totalOrders:
+          type: integer
+        totalCustomers:
+          type: integer
+        totalEmployees:
+          type: integer
+        totalBranches:
+          type: integer
         totalTransactions:
           type: integer
         totalUsers:
@@ -1024,10 +1381,20 @@ components:
           type: ["string", "null"]
         primaryColor:
           type: ["string", "null"]
+        coverUrl:
+          type: ["string", "null"]
+        bio:
+          type: ["string", "null"]
         subscriptionPlan:
           type: ["string", "null"]
         subscriptionExpiresAt:
           type: ["string", "null"]
+        enableDelivery:
+          type: boolean
+        deliveryFeeNear:
+          type: integer
+        deliveryFeeFar:
+          type: integer
         createdAt:
           type: string
 
@@ -1044,8 +1411,20 @@ components:
           type: string
         primaryColor:
           type: string
+        logoUrl:
+          type: string
+        coverUrl:
+          type: string
+        bio:
+          type: string
         receiptFooter:
           type: string
+        enableDelivery:
+          type: boolean
+        deliveryFeeNear:
+          type: integer
+        deliveryFeeFar:
+          type: integer
 
     # ── Subscription ──────────────────────────────────────────────────────
     Subscription:
@@ -1167,6 +1546,8 @@ components:
           type: integer
         isActive:
           type: boolean
+        isBestSeller:
+          type: boolean
         createdAt:
           type: string
 
@@ -1194,6 +1575,8 @@ components:
           type: string
         categoryId:
           type: integer
+        isBestSeller:
+          type: boolean
 
     ProductUpdate:
       type: object
@@ -1219,6 +1602,8 @@ components:
         categoryId:
           type: ["integer", "null"]
         isActive:
+          type: boolean
+        isBestSeller:
           type: boolean
 
     TopProduct:
@@ -1286,6 +1671,8 @@ components:
           type: ["string", "null"]
         tenantId:
           type: integer
+        branchId:
+          type: ["integer", "null"]
         items:
           type: array
           items:
@@ -1334,6 +1721,8 @@ components:
         customerId:
           type: integer
         employeeId:
+          type: integer
+        branchId:
           type: integer
 
     OrderItemInput:
@@ -1445,11 +1834,14 @@ components:
           type: ["string", "null"]
         role:
           type: string
-          enum: [manager, cashier, staff]
         isActive:
           type: boolean
         tenantId:
           type: integer
+        branchId:
+          type: ["integer", "null"]
+        customRoleId:
+          type: ["integer", "null"]
         createdAt:
           type: string
 
@@ -1465,7 +1857,10 @@ components:
           type: string
         role:
           type: string
-          enum: [manager, cashier, staff]
+        branchId:
+          type: ["integer", "null"]
+        customRoleId:
+          type: ["integer", "null"]
 
     EmployeeUpdate:
       type: object
@@ -1478,9 +1873,12 @@ components:
           type: string
         role:
           type: string
-          enum: [manager, cashier, staff]
         isActive:
           type: boolean
+        branchId:
+          type: ["integer", "null"]
+        customRoleId:
+          type: ["integer", "null"]
 
     # ── Inventory ─────────────────────────────────────────────────────────
     InventoryItem:
@@ -1604,3 +2002,197 @@ components:
           type: number
         orders:
           type: integer
+
+    Branch:
+      type: object
+      required: [id, tenantId, name, createdAt]
+      properties:
+        id:
+          type: integer
+        tenantId:
+          type: integer
+        name:
+          type: string
+        address:
+          type: ["string", "null"]
+        phone:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    BranchInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        address:
+          type: string
+        phone:
+          type: string
+
+    BranchUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        address:
+          type: string
+        phone:
+          type: string
+
+    CustomRole:
+      type: object
+      required: [id, tenantId, name, permissions, createdAt]
+      properties:
+        id:
+          type: integer
+        tenantId:
+          type: integer
+        name:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+        createdAt:
+          type: string
+
+    CustomRoleInput:
+      type: object
+      required: [name, permissions]
+      properties:
+        name:
+          type: string
+        permissions:
+          type: array
+          items:
+            type: string
+
+    Announcement:
+      type: object
+      required: [id, title, content, type, createdAt]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        content:
+          type: string
+        type:
+          type: string
+        createdAt:
+          type: string
+
+    AnnouncementInput:
+      type: object
+      required: [title, content, type]
+      properties:
+        title:
+          type: string
+        content:
+          type: string
+        type:
+          type: string
+
+    SupportTicket:
+      type: object
+      required: [id, tenantId, title, description, status, category, createdAt]
+      properties:
+        id:
+          type: integer
+        tenantId:
+          type: integer
+        tenantName:
+          type: ["string", "null"]
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+        category:
+          type: string
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    SupportTicketInput:
+      type: object
+      required: [title, description, category]
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        category:
+          type: string
+
+    TicketReply:
+      type: object
+      required: [id, ticketId, senderId, senderRole, senderName, message, createdAt]
+      properties:
+        id:
+          type: integer
+        ticketId:
+          type: integer
+        senderId:
+          type: integer
+        senderRole:
+          type: string
+        senderName:
+          type: string
+        message:
+          type: string
+        createdAt:
+          type: string
+
+    TicketReplyInput:
+      type: object
+      required: [message]
+      properties:
+        message:
+          type: string
+
+    PlatformSettings:
+      type: object
+      required: [key, value]
+      properties:
+        key:
+          type: string
+        value:
+          type: object
+
+    PlatformSettingsInput:
+      type: object
+      required: [value]
+      properties:
+        value:
+          type: object
+
+    SecurityLog:
+      type: object
+      required: [id, userId, userName, userRole, action, createdAt]
+      properties:
+        id:
+          type: integer
+        tenantId:
+          type: ["integer", "null"]
+        userId:
+          type: integer
+        userName:
+          type: string
+        userRole:
+          type: string
+          enum: [super_admin, owner, manager, cashier, kitchen_staff, staff, delivery_staff]
+        action:
+          type: string
+        module:
+          type: ["string", "null"]
+        details:
+          type: object
+        ipAddress:
+          type: ["string", "null"]
+        createdAt:
+          type: string

@@ -17,4 +17,5 @@ export interface ProductInput {
   minStock?: number;
   imageUrl?: string;
   categoryId?: number;
+  isBestSeller?: boolean;
 }

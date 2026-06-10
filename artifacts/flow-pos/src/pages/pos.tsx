@@ -24,6 +24,13 @@ export default function POSPage() {
   const [success, setSuccess] = useState(false);
   const queryClient = useQueryClient();
 
+  // Custom states for KDS and Delivery synchronization
+  const [orderType, setOrderType] = useState("dine_in");
+  const [tableNumber, setTableNumber] = useState("");
+  const [customerName, setCustomerName] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+  const [deliveryAddress, setDeliveryAddress] = useState("");
+
   const { data: productsData } = useListProducts({ search: search || undefined, categoryId: activeCat || undefined, limit: 100 });
   const { data: categories } = useListCategories();
   const createOrder = useCreateOrder();
@@ -55,11 +62,24 @@ export default function POSPage() {
         discount,
         tax: taxAmount,
         total,
+        // Pass custom fields inside request body (casted to any since not in OpenAPI schema)
+        ...({
+          orderType,
+          tableNumber,
+          customerName,
+          customerPhone,
+          deliveryAddress
+        } as any)
       }
     }, {
       onSuccess: () => {
         setCart([]);
         setDiscount(0);
+        setOrderType("dine_in");
+        setTableNumber("");
+        setCustomerName("");
+        setCustomerPhone("");
+        setDeliveryAddress("");
         setSuccess(true);
         queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
         setTimeout(() => setSuccess(false), 3000);
@@ -212,8 +232,97 @@ export default function POSPage() {
             </div>
           </div>
 
+          {/* Order Type Selector */}
+          <div className="space-y-2 py-2 border-t border-border">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-muted-foreground">Jenis Pesanan</span>
+            </div>
+            <div className="grid grid-cols-3 gap-1.5">
+              {[
+                { value: "dine_in", label: "Dine In", icon: "🪑" },
+                { value: "take_away", label: "Bawa Pulang", icon: "🛍️" },
+                { value: "delivery", label: "Delivery", icon: "🛵" }
+              ].map(ot => (
+                <button
+                  key={ot.value}
+                  type="button"
+                  onClick={() => {
+                    setOrderType(ot.value);
+                    if (ot.value !== "delivery") {
+                      setDeliveryAddress("");
+                      setCustomerPhone("");
+                    }
+                    if (ot.value !== "dine_in") {
+                      setTableNumber("");
+                    }
+                  }}
+                  className={`flex flex-col items-center justify-center p-2 rounded-lg border text-[10px] font-semibold transition-all ${
+                    orderType === ot.value
+                      ? "border-primary bg-primary/10 text-primary shadow-sm"
+                      : "border-border text-muted-foreground hover:bg-muted/30"
+                  }`}
+                >
+                  <span className="text-base mb-0.5">{ot.icon}</span>
+                  {ot.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Dine-in inputs */}
+            {orderType === "dine_in" && (
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-muted-foreground">Nomor Meja</label>
+                <input
+                  type="text"
+                  placeholder="Contoh: Meja #5"
+                  value={tableNumber}
+                  onChange={e => setTableNumber(e.target.value)}
+                  className="w-full px-3 py-2 border border-input rounded-lg text-xs bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+              </div>
+            )}
+
+            {/* Delivery inputs */}
+            {orderType === "delivery" && (
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-muted-foreground">Penerima</label>
+                    <input
+                      type="text"
+                      placeholder="Nama..."
+                      value={customerName}
+                      onChange={e => setCustomerName(e.target.value)}
+                      className="w-full px-3 py-2 border border-input rounded-lg text-xs bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-muted-foreground">No. Telepon</label>
+                    <input
+                      type="text"
+                      placeholder="0812..."
+                      value={customerPhone}
+                      onChange={e => setCustomerPhone(e.target.value)}
+                      className="w-full px-3 py-2 border border-input rounded-lg text-xs bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-muted-foreground">Alamat Lengkap Pengiriman</label>
+                  <textarea
+                    placeholder="Alamat lengkap penerima..."
+                    value={deliveryAddress}
+                    onChange={e => setDeliveryAddress(e.target.value)}
+                    rows={2}
+                    className="w-full px-3 py-2 border border-input rounded-lg text-xs bg-background focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Payment method */}
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2 border-t border-border pt-2">
             {PAYMENT_METHODS.map(pm => (
               <button
                 key={pm.value}

@@ -30,7 +30,7 @@ export const LoginResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "email": zod.string(),
-  "role": zod.enum(['super_admin', 'owner', 'manager', 'cashier', 'staff']),
+  "role": zod.enum(['super_admin', 'owner', 'manager', 'cashier', 'kitchen_staff', 'staff', 'delivery_staff']),
   "tenantId": zod.number().nullable(),
   "createdAt": zod.string().optional()
 })
@@ -47,7 +47,8 @@ export const RegisterBody = zod.object({
   "businessName": zod.string(),
   "businessType": zod.enum(['restaurant', 'cafe', 'fashion', 'salon', 'minimarket']),
   "phone": zod.string().nullish(),
-  "address": zod.string().nullish()
+  "address": zod.string().nullish(),
+  "plan": zod.enum(['starter', 'business', 'pro', 'custom', 'trial']).optional()
 })
 
 
@@ -58,7 +59,7 @@ export const GetMeResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "email": zod.string(),
-  "role": zod.enum(['super_admin', 'owner', 'manager', 'cashier', 'staff']),
+  "role": zod.enum(['super_admin', 'owner', 'manager', 'cashier', 'kitchen_staff', 'staff', 'delivery_staff']),
   "tenantId": zod.number().nullable(),
   "createdAt": zod.string().optional()
 })
@@ -70,9 +71,15 @@ export const GetMeResponse = zod.object({
 export const GetAdminStatsResponse = zod.object({
   "totalTenants": zod.number(),
   "activeTenants": zod.number(),
-  "suspendedTenants": zod.number().optional(),
+  "suspendedTenants": zod.number(),
+  "trialUsers": zod.number(),
   "expiredSubscriptions": zod.number(),
   "monthlyRevenue": zod.number(),
+  "annualRevenue": zod.number(),
+  "totalOrders": zod.number(),
+  "totalCustomers": zod.number(),
+  "totalEmployees": zod.number(),
+  "totalBranches": zod.number(),
   "totalTransactions": zod.number(),
   "totalUsers": zod.number(),
   "byBusinessType": zod.array(zod.object({
@@ -103,8 +110,13 @@ export const ListAdminTenantsResponse = zod.object({
   "email": zod.string().nullish(),
   "logoUrl": zod.string().nullish(),
   "primaryColor": zod.string().nullish(),
+  "coverUrl": zod.string().nullish(),
+  "bio": zod.string().nullish(),
   "subscriptionPlan": zod.string().nullish(),
   "subscriptionExpiresAt": zod.string().nullish(),
+  "enableDelivery": zod.boolean().optional(),
+  "deliveryFeeNear": zod.number().optional(),
+  "deliveryFeeFar": zod.number().optional(),
   "createdAt": zod.string()
 })),
   "total": zod.number(),
@@ -130,8 +142,13 @@ export const GetAdminTenantResponse = zod.object({
   "email": zod.string().nullish(),
   "logoUrl": zod.string().nullish(),
   "primaryColor": zod.string().nullish(),
+  "coverUrl": zod.string().nullish(),
+  "bio": zod.string().nullish(),
   "subscriptionPlan": zod.string().nullish(),
   "subscriptionExpiresAt": zod.string().nullish(),
+  "enableDelivery": zod.boolean().optional(),
+  "deliveryFeeNear": zod.number().optional(),
+  "deliveryFeeFar": zod.number().optional(),
   "createdAt": zod.string()
 })
 
@@ -165,8 +182,13 @@ export const UpdateTenantStatusResponse = zod.object({
   "email": zod.string().nullish(),
   "logoUrl": zod.string().nullish(),
   "primaryColor": zod.string().nullish(),
+  "coverUrl": zod.string().nullish(),
+  "bio": zod.string().nullish(),
   "subscriptionPlan": zod.string().nullish(),
   "subscriptionExpiresAt": zod.string().nullish(),
+  "enableDelivery": zod.boolean().optional(),
+  "deliveryFeeNear": zod.number().optional(),
+  "deliveryFeeFar": zod.number().optional(),
   "createdAt": zod.string()
 })
 
@@ -184,8 +206,13 @@ export const GetTenantResponse = zod.object({
   "email": zod.string().nullish(),
   "logoUrl": zod.string().nullish(),
   "primaryColor": zod.string().nullish(),
+  "coverUrl": zod.string().nullish(),
+  "bio": zod.string().nullish(),
   "subscriptionPlan": zod.string().nullish(),
   "subscriptionExpiresAt": zod.string().nullish(),
+  "enableDelivery": zod.boolean().optional(),
+  "deliveryFeeNear": zod.number().optional(),
+  "deliveryFeeFar": zod.number().optional(),
   "createdAt": zod.string()
 })
 
@@ -199,7 +226,13 @@ export const UpdateTenantBody = zod.object({
   "phone": zod.string().optional(),
   "email": zod.string().optional(),
   "primaryColor": zod.string().optional(),
-  "receiptFooter": zod.string().optional()
+  "logoUrl": zod.string().optional(),
+  "coverUrl": zod.string().optional(),
+  "bio": zod.string().optional(),
+  "receiptFooter": zod.string().optional(),
+  "enableDelivery": zod.boolean().optional(),
+  "deliveryFeeNear": zod.number().optional(),
+  "deliveryFeeFar": zod.number().optional()
 })
 
 export const UpdateTenantResponse = zod.object({
@@ -212,8 +245,13 @@ export const UpdateTenantResponse = zod.object({
   "email": zod.string().nullish(),
   "logoUrl": zod.string().nullish(),
   "primaryColor": zod.string().nullish(),
+  "coverUrl": zod.string().nullish(),
+  "bio": zod.string().nullish(),
   "subscriptionPlan": zod.string().nullish(),
   "subscriptionExpiresAt": zod.string().nullish(),
+  "enableDelivery": zod.boolean().optional(),
+  "deliveryFeeNear": zod.number().optional(),
+  "deliveryFeeFar": zod.number().optional(),
   "createdAt": zod.string()
 })
 
@@ -322,6 +360,7 @@ export const ListProductsResponse = zod.object({
   "categoryName": zod.string().nullish(),
   "tenantId": zod.number(),
   "isActive": zod.boolean().optional(),
+  "isBestSeller": zod.boolean().optional(),
   "createdAt": zod.string().optional()
 })),
   "total": zod.number(),
@@ -343,7 +382,8 @@ export const CreateProductBody = zod.object({
   "stock": zod.number(),
   "minStock": zod.number().optional(),
   "imageUrl": zod.string().optional(),
-  "categoryId": zod.number().optional()
+  "categoryId": zod.number().optional(),
+  "isBestSeller": zod.boolean().optional()
 })
 
 
@@ -351,7 +391,8 @@ export const CreateProductBody = zod.object({
  * @summary Get top selling products
  */
 export const GetTopProductsQueryParams = zod.object({
-  "limit": zod.coerce.number().optional()
+  "limit": zod.coerce.number().optional(),
+  "branchId": zod.coerce.number().optional()
 })
 
 export const GetTopProductsResponseItem = zod.object({
@@ -386,6 +427,7 @@ export const GetProductResponse = zod.object({
   "categoryName": zod.string().nullish(),
   "tenantId": zod.number(),
   "isActive": zod.boolean().optional(),
+  "isBestSeller": zod.boolean().optional(),
   "createdAt": zod.string().optional()
 })
 
@@ -408,7 +450,8 @@ export const UpdateProductBody = zod.object({
   "minStock": zod.number().optional(),
   "imageUrl": zod.string().optional(),
   "categoryId": zod.number().nullish(),
-  "isActive": zod.boolean().optional()
+  "isActive": zod.boolean().optional(),
+  "isBestSeller": zod.boolean().optional()
 })
 
 export const UpdateProductResponse = zod.object({
@@ -426,6 +469,7 @@ export const UpdateProductResponse = zod.object({
   "categoryName": zod.string().nullish(),
   "tenantId": zod.number(),
   "isActive": zod.boolean().optional(),
+  "isBestSeller": zod.boolean().optional(),
   "createdAt": zod.string().optional()
 })
 
@@ -465,6 +509,7 @@ export const ListOrdersResponse = zod.object({
   "employeeId": zod.number().nullish(),
   "employeeName": zod.string().nullish(),
   "tenantId": zod.number(),
+  "branchId": zod.number().nullish(),
   "items": zod.array(zod.object({
   "id": zod.number(),
   "productId": zod.number(),
@@ -497,7 +542,8 @@ export const CreateOrderBody = zod.object({
   "total": zod.number(),
   "notes": zod.string().optional(),
   "customerId": zod.number().optional(),
-  "employeeId": zod.number().optional()
+  "employeeId": zod.number().optional(),
+  "branchId": zod.number().optional()
 })
 
 
@@ -505,7 +551,8 @@ export const CreateOrderBody = zod.object({
  * @summary Get recent orders for activity feed
  */
 export const GetRecentOrdersQueryParams = zod.object({
-  "limit": zod.coerce.number().optional()
+  "limit": zod.coerce.number().optional(),
+  "branchId": zod.coerce.number().optional()
 })
 
 export const GetRecentOrdersResponseItem = zod.object({
@@ -523,6 +570,7 @@ export const GetRecentOrdersResponseItem = zod.object({
   "employeeId": zod.number().nullish(),
   "employeeName": zod.string().nullish(),
   "tenantId": zod.number(),
+  "branchId": zod.number().nullish(),
   "items": zod.array(zod.object({
   "id": zod.number(),
   "productId": zod.number(),
@@ -558,6 +606,7 @@ export const GetOrderResponse = zod.object({
   "employeeId": zod.number().nullish(),
   "employeeName": zod.string().nullish(),
   "tenantId": zod.number(),
+  "branchId": zod.number().nullish(),
   "items": zod.array(zod.object({
   "id": zod.number(),
   "productId": zod.number(),
@@ -596,6 +645,7 @@ export const UpdateOrderStatusResponse = zod.object({
   "employeeId": zod.number().nullish(),
   "employeeName": zod.string().nullish(),
   "tenantId": zod.number(),
+  "branchId": zod.number().nullish(),
   "items": zod.array(zod.object({
   "id": zod.number(),
   "productId": zod.number(),
@@ -716,9 +766,11 @@ export const ListEmployeesResponseItem = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "phone": zod.string().nullish(),
-  "role": zod.enum(['manager', 'cashier', 'staff']),
+  "role": zod.string(),
   "isActive": zod.boolean().optional(),
   "tenantId": zod.number(),
+  "branchId": zod.number().nullish(),
+  "customRoleId": zod.number().nullish(),
   "createdAt": zod.string()
 })
 export const ListEmployeesResponse = zod.array(ListEmployeesResponseItem)
@@ -731,7 +783,9 @@ export const CreateEmployeeBody = zod.object({
   "name": zod.string(),
   "email": zod.string().optional(),
   "phone": zod.string().optional(),
-  "role": zod.enum(['manager', 'cashier', 'staff'])
+  "role": zod.string(),
+  "branchId": zod.number().nullish(),
+  "customRoleId": zod.number().nullish()
 })
 
 
@@ -746,8 +800,10 @@ export const UpdateEmployeeBody = zod.object({
   "name": zod.string().optional(),
   "email": zod.string().optional(),
   "phone": zod.string().optional(),
-  "role": zod.enum(['manager', 'cashier', 'staff']).optional(),
-  "isActive": zod.boolean().optional()
+  "role": zod.string().optional(),
+  "isActive": zod.boolean().optional(),
+  "branchId": zod.number().nullish(),
+  "customRoleId": zod.number().nullish()
 })
 
 export const UpdateEmployeeResponse = zod.object({
@@ -755,9 +811,11 @@ export const UpdateEmployeeResponse = zod.object({
   "name": zod.string(),
   "email": zod.string().nullish(),
   "phone": zod.string().nullish(),
-  "role": zod.enum(['manager', 'cashier', 'staff']),
+  "role": zod.string(),
   "isActive": zod.boolean().optional(),
   "tenantId": zod.number(),
+  "branchId": zod.number().nullish(),
+  "customRoleId": zod.number().nullish(),
   "createdAt": zod.string()
 })
 
@@ -827,6 +885,10 @@ export const ListInventoryAdjustmentsResponse = zod.array(ListInventoryAdjustmen
 /**
  * @summary Get tenant dashboard summary stats
  */
+export const GetDashboardStatsQueryParams = zod.object({
+  "branchId": zod.coerce.number().optional()
+})
+
 export const GetDashboardStatsResponse = zod.object({
   "todaySales": zod.number(),
   "todayOrders": zod.number(),
@@ -845,7 +907,8 @@ export const GetDashboardStatsResponse = zod.object({
 export const GetSalesReportQueryParams = zod.object({
   "period": zod.enum(['today', 'week', 'month', 'year']).optional(),
   "dateFrom": zod.coerce.string().optional(),
-  "dateTo": zod.coerce.string().optional()
+  "dateTo": zod.coerce.string().optional(),
+  "branchId": zod.coerce.number().optional()
 })
 
 export const GetSalesReportResponse = zod.object({
@@ -872,7 +935,8 @@ export const GetSalesReportResponse = zod.object({
  * @summary Get sales chart data over time
  */
 export const GetSalesChartDataQueryParams = zod.object({
-  "period": zod.enum(['week', 'month', 'year']).optional()
+  "period": zod.enum(['week', 'month', 'year']).optional(),
+  "branchId": zod.coerce.number().optional()
 })
 
 export const GetSalesChartDataResponseItem = zod.object({
@@ -881,5 +945,260 @@ export const GetSalesChartDataResponseItem = zod.object({
   "orders": zod.number()
 })
 export const GetSalesChartDataResponse = zod.array(GetSalesChartDataResponseItem)
+
+
+/**
+ * @summary List all branches
+ */
+export const ListBranchesResponseItem = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "name": zod.string(),
+  "address": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+export const ListBranchesResponse = zod.array(ListBranchesResponseItem)
+
+
+/**
+ * @summary Create branch
+ */
+export const CreateBranchBody = zod.object({
+  "name": zod.string(),
+  "address": zod.string().optional(),
+  "phone": zod.string().optional()
+})
+
+
+/**
+ * @summary Update branch
+ */
+export const UpdateBranchParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateBranchBody = zod.object({
+  "name": zod.string().optional(),
+  "address": zod.string().optional(),
+  "phone": zod.string().optional()
+})
+
+export const UpdateBranchResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "name": zod.string(),
+  "address": zod.string().nullish(),
+  "phone": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Delete branch
+ */
+export const DeleteBranchParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary List all custom roles
+ */
+export const ListRolesResponseItem = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "name": zod.string(),
+  "permissions": zod.array(zod.string()),
+  "createdAt": zod.string()
+})
+export const ListRolesResponse = zod.array(ListRolesResponseItem)
+
+
+/**
+ * @summary Create custom role
+ */
+export const CreateRoleBody = zod.object({
+  "name": zod.string(),
+  "permissions": zod.array(zod.string())
+})
+
+
+/**
+ * @summary Update custom role
+ */
+export const UpdateRoleParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateRoleBody = zod.object({
+  "name": zod.string(),
+  "permissions": zod.array(zod.string())
+})
+
+export const UpdateRoleResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "name": zod.string(),
+  "permissions": zod.array(zod.string()),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Delete custom role
+ */
+export const DeleteRoleParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary List all announcements
+ */
+export const ListAnnouncementsResponseItem = zod.object({
+  "id": zod.number(),
+  "title": zod.string(),
+  "content": zod.string(),
+  "type": zod.string(),
+  "createdAt": zod.string()
+})
+export const ListAnnouncementsResponse = zod.array(ListAnnouncementsResponseItem)
+
+
+/**
+ * @summary Create announcement (admin only)
+ */
+export const CreateAnnouncementBody = zod.object({
+  "title": zod.string(),
+  "content": zod.string(),
+  "type": zod.string()
+})
+
+
+/**
+ * @summary List support tickets
+ */
+export const ListSupportTicketsResponseItem = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "tenantName": zod.string().nullish(),
+  "title": zod.string(),
+  "description": zod.string(),
+  "status": zod.string(),
+  "category": zod.string(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string().optional()
+})
+export const ListSupportTicketsResponse = zod.array(ListSupportTicketsResponseItem)
+
+
+/**
+ * @summary Create support ticket
+ */
+export const CreateSupportTicketBody = zod.object({
+  "title": zod.string(),
+  "description": zod.string(),
+  "category": zod.string()
+})
+
+
+/**
+ * @summary List replies for ticket
+ */
+export const ListTicketRepliesParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ListTicketRepliesResponseItem = zod.object({
+  "id": zod.number(),
+  "ticketId": zod.number(),
+  "senderId": zod.number(),
+  "senderRole": zod.string(),
+  "senderName": zod.string(),
+  "message": zod.string(),
+  "createdAt": zod.string()
+})
+export const ListTicketRepliesResponse = zod.array(ListTicketRepliesResponseItem)
+
+
+/**
+ * @summary Reply to ticket
+ */
+export const CreateTicketReplyParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const CreateTicketReplyBody = zod.object({
+  "message": zod.string()
+})
+
+
+/**
+ * @summary Impersonate a tenant's owner
+ */
+export const ImpersonateTenantParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ImpersonateTenantResponse = zod.object({
+  "token": zod.string(),
+  "user": zod.object({
+  "id": zod.number(),
+  "name": zod.string(),
+  "email": zod.string(),
+  "role": zod.enum(['super_admin', 'owner', 'manager', 'cashier', 'kitchen_staff', 'staff', 'delivery_staff']),
+  "tenantId": zod.number().nullable(),
+  "createdAt": zod.string().optional()
+})
+})
+
+
+/**
+ * @summary Get platform global settings
+ */
+export const GetAdminSettingsResponse = zod.object({
+  "key": zod.string(),
+  "value": zod.object({
+
+}).passthrough()
+})
+
+
+/**
+ * @summary Update platform global settings
+ */
+export const UpdateAdminSettingsBody = zod.object({
+  "value": zod.object({
+
+}).passthrough()
+})
+
+export const UpdateAdminSettingsResponse = zod.object({
+  "key": zod.string(),
+  "value": zod.object({
+
+}).passthrough()
+})
+
+
+/**
+ * @summary Get security audit logs
+ */
+export const GetSecurityLogsResponseItem = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number().nullish(),
+  "userId": zod.number(),
+  "userName": zod.string(),
+  "userRole": zod.enum(['super_admin', 'owner', 'manager', 'cashier', 'kitchen_staff', 'staff', 'delivery_staff']),
+  "action": zod.string(),
+  "module": zod.string().nullish(),
+  "details": zod.object({
+
+}).passthrough().optional(),
+  "ipAddress": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+export const GetSecurityLogsResponse = zod.array(GetSecurityLogsResponseItem)
 
 

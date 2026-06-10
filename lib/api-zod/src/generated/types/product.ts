@@ -28,5 +28,6 @@ export interface Product {
   categoryName?: string | null;
   tenantId: number;
   isActive?: boolean;
+  isBestSeller?: boolean;
   createdAt?: string;
 }

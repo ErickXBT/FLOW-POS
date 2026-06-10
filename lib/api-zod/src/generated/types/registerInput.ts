@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { RegisterInputBusinessType } from './registerInputBusinessType';
+import type { RegisterInputPlan } from './registerInputPlan';
 
 export interface RegisterInput {
   name: string;
@@ -17,4 +18,5 @@ export interface RegisterInput {
   phone?: string | null;
   /** @nullable */
   address?: string | null;
+  plan?: RegisterInputPlan;
 }

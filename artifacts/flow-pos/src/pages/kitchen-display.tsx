@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { ChefHat, Clock, CheckCircle2, Package, RefreshCw, Wifi, WifiOff, Bell } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -19,22 +20,14 @@ function elapsed(iso: string) {
   return `${Math.floor(secs / 3600)}j ${Math.floor((secs % 3600) / 60)}m`;
 }
 
-function urgencyClass(iso: string, status: string) {
-  if (status === "ready") return "border-green-300";
-  const mins = (Date.now() - new Date(iso).getTime()) / 60000;
-  if (mins > 20) return "border-red-400 ring-2 ring-red-100";
-  if (mins > 10) return "border-amber-400";
-  return "border-card-border";
-}
-
 export default function KitchenDisplayPage() {
+  const { user } = useAuth();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [connected, setConnected] = useState(false);
   const [updating, setUpdating] = useState<number | null>(null);
   const [newAlerts, setNewAlerts] = useState(0);
   const tokenRef = useRef(localStorage.getItem("flow_token") ?? "");
-  const audioRef = useRef<AudioContext | null>(null);
 
   function playAlert() {
     try {
@@ -49,7 +42,10 @@ export default function KitchenDisplayPage() {
   }
 
   async function fetchOrders() {
-    const r = await fetch(`${BASE}/api/tenant/customer-orders?status=pending,confirmed,preparing`, {
+    let url = `${BASE}/api/tenant/customer-orders?status=pending,confirmed,preparing`;
+    if (user?.branchId) url += `&branchId=${user.branchId}`;
+
+    const r = await fetch(url, {
       headers: { Authorization: `Bearer ${tokenRef.current}` },
     });
     if (r.ok) {
@@ -60,7 +56,7 @@ export default function KitchenDisplayPage() {
     setLoading(false);
   }
 
-  useEffect(() => { fetchOrders(); }, []);
+  useEffect(() => { fetchOrders(); }, [user?.branchId]);
 
   useEffect(() => {
     const token = tokenRef.current;
@@ -70,9 +66,11 @@ export default function KitchenDisplayPage() {
     evtSrc.onmessage = (e) => {
       const data = JSON.parse(e.data);
       if (data.type === "new_order") {
-        setOrders(prev => [data.order, ...prev]);
-        setNewAlerts(n => n + 1);
-        playAlert();
+        if (!user?.branchId || data.order.branchId === user.branchId) {
+          setOrders(prev => [data.order, ...prev]);
+          setNewAlerts(n => n + 1);
+          playAlert();
+        }
       } else if (data.type === "status_update") {
         setOrders(prev => {
           const updated = prev.map(o => o.id === data.orderId ? { ...o, status: data.status } : o);
@@ -81,7 +79,7 @@ export default function KitchenDisplayPage() {
       }
     };
     return () => evtSrc.close();
-  }, []);
+  }, [user?.branchId]);
 
   async function updateStatus(orderId: number, status: string) {
     setUpdating(orderId);
@@ -99,18 +97,18 @@ export default function KitchenDisplayPage() {
     setUpdating(null);
   }
 
-  const pendingOrders = orders.filter(o => o.status === "pending");
-  const preparingOrders = orders.filter(o => o.status === "preparing" || o.status === "confirmed");
+  const pendingOrders = orders.filter(o => o.status === "pending" || o.status === "confirmed");
+  const preparingOrders = orders.filter(o => o.status === "preparing");
 
   return (
-    <div className="min-h-screen bg-gray-950 text-white flex flex-col">
+    <div className="min-h-screen bg-gray-955 text-white flex flex-col" style={{ backgroundColor: "#0b0f19" }}>
       {/* Top bar */}
       <header className="bg-gray-900 border-b border-gray-800 px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <ChefHat size={22} className="text-orange-400" />
           <div>
             <div className="font-bold text-white">Kitchen Display System</div>
-            <div className="text-xs text-gray-400">Sistem Tampilan Dapur</div>
+            <div className="text-xs text-gray-400">Tampilan Dapur {user?.branchName ? `(${user.branchName})` : ""}</div>
           </div>
         </div>
         <div className="flex items-center gap-4">
@@ -137,7 +135,7 @@ export default function KitchenDisplayPage() {
         <div className="flex-1 grid md:grid-cols-2 divide-x divide-gray-800">
           {/* Pending column */}
           <div className="flex flex-col">
-            <div className="px-4 py-3 bg-amber-900/30 border-b border-gray-800 flex items-center justify-between">
+            <div className="px-4 py-3 bg-amber-900/20 border-b border-gray-800 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Clock size={16} className="text-amber-400" />
                 <span className="font-semibold text-amber-300 text-sm">Antrian Baru</span>
@@ -163,7 +161,7 @@ export default function KitchenDisplayPage() {
 
           {/* Preparing column */}
           <div className="flex flex-col">
-            <div className="px-4 py-3 bg-purple-900/30 border-b border-gray-800 flex items-center justify-between">
+            <div className="px-4 py-3 bg-purple-900/20 border-b border-gray-800 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <ChefHat size={16} className="text-purple-400" />
                 <span className="font-semibold text-purple-300 text-sm">Sedang Dimasak</span>
@@ -216,9 +214,14 @@ function KitchenOrderCard({ order, updating, onConfirm, onPrepare, onReady, onCa
       {/* Items */}
       <div className="px-3 py-2.5 space-y-1.5 border-b border-gray-800">
         {order.items?.map((item: any) => (
-          <div key={item.id} className="flex justify-between text-sm">
-            <span className="text-white font-medium">{item.quantity}× {item.productName}</span>
-            {item.notes && <span className="text-xs text-amber-400 italic truncate max-w-[40%]">{item.notes}</span>}
+          <div key={item.id} className="flex flex-col text-sm border-b border-gray-800/40 pb-1 last:border-b-0 last:pb-0">
+            <div className="flex justify-between">
+              <span className="text-white font-medium">{item.quantity}× {item.productName}</span>
+            </div>
+            {item.variantSelection && (
+              <span className="text-[10px] text-gray-400 mt-0.5">{item.variantSelection}</span>
+            )}
+            {item.notes && <span className="text-xs text-amber-400 italic mt-0.5">Catatan: {item.notes}</span>}
           </div>
         ))}
         {order.notes && (
@@ -230,7 +233,7 @@ function KitchenOrderCard({ order, updating, onConfirm, onPrepare, onReady, onCa
 
       {/* Actions */}
       <div className="px-3 py-2 flex gap-2">
-        {order.status === "pending" && (
+        {(order.status === "pending" || order.status === "confirmed") && (
           <>
             <button onClick={onPrepare} disabled={updating === order.id}
               className="flex-1 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-colors disabled:opacity-50">
@@ -244,7 +247,7 @@ function KitchenOrderCard({ order, updating, onConfirm, onPrepare, onReady, onCa
             )}
           </>
         )}
-        {(order.status === "confirmed" || order.status === "preparing") && (
+        {order.status === "preparing" && (
           <button onClick={onReady} disabled={updating === order.id}
             className="flex-1 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-bold transition-colors disabled:opacity-50">
             {updating === order.id ? "..." : "✓ Siap Disajikan"}

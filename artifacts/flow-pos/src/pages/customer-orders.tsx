@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
-import { Clock, ChefHat, Package, Truck, CheckCircle2, XCircle, RefreshCw, Wifi, WifiOff } from "lucide-react";
+import { Clock, ChefHat, Package, Truck, CheckCircle2, XCircle, RefreshCw, Wifi, WifiOff, Navigation } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -14,7 +15,7 @@ const STATUS_CONFIG: Record<string, { label: string; cls: string; next?: string;
 };
 const TYPE_LABEL: Record<string, string> = { dine_in: "Dine In", take_away: "Take Away", delivery: "Delivery" };
 const TYPE_ICON: Record<string, string> = { dine_in: "🪑", take_away: "🛍️", delivery: "🛵" };
-const PAY_LABEL: Record<string, string> = { cash: "Tunai", qris: "QRIS", bank_transfer: "Transfer", ewallet: "E-Wallet" };
+const PAY_LABEL: Record<string, string> = { cash: "Tunai", cashier: "Kasir", qris: "QRIS", bank_transfer: "Transfer", ewallet: "E-Wallet" };
 
 function formatRp(v: number) { return `Rp ${v.toLocaleString("id-ID")}`; }
 function timeAgo(iso: string) {
@@ -25,6 +26,7 @@ function timeAgo(iso: string) {
 }
 
 export default function CustomerOrdersPage() {
+  const { user } = useAuth();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
@@ -33,14 +35,31 @@ export default function CustomerOrdersPage() {
   const sseRef = useRef<EventSource | null>(null);
   const tokenRef = useRef<string>(localStorage.getItem("flow_token") ?? "");
 
+  function playAlert() {
+    try {
+      const ctx = new AudioContext();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.frequency.value = 880; gain.gain.value = 0.3;
+      osc.start(); osc.stop(ctx.currentTime + 0.15);
+      setTimeout(() => { osc.frequency.value = 1100; osc.start(ctx.currentTime + 0.2); osc.stop(ctx.currentTime + 0.35); }, 200);
+    } catch {}
+  }
+
   async function fetchOrders() {
-    const url = statusFilter ? `${BASE}/api/tenant/customer-orders?status=${statusFilter}` : `${BASE}/api/tenant/customer-orders`;
+    let url = `${BASE}/api/tenant/customer-orders`;
+    const params: string[] = [];
+    if (statusFilter) params.push(`status=${statusFilter}`);
+    if (user?.branchId) params.push(`branchId=${user.branchId}`);
+    if (params.length > 0) url += `?${params.join("&")}`;
+
     const r = await fetch(url, { headers: { Authorization: `Bearer ${tokenRef.current}` } });
     if (r.ok) { const d = await r.json(); setOrders(d.data ?? []); }
     setLoading(false);
   }
 
-  useEffect(() => { fetchOrders(); }, [statusFilter]);
+  useEffect(() => { fetchOrders(); }, [statusFilter, user?.branchId]);
 
   useEffect(() => {
     const token = localStorage.getItem("flow_token") ?? "";
@@ -53,13 +72,16 @@ export default function CustomerOrdersPage() {
     evtSrc.onmessage = (e) => {
       const data = JSON.parse(e.data);
       if (data.type === "new_order") {
-        setOrders(prev => [data.order, ...prev]);
+        if (!user?.branchId || data.order.branchId === user.branchId) {
+          setOrders(prev => [data.order, ...prev]);
+          playAlert();
+        }
       } else if (data.type === "status_update") {
         setOrders(prev => prev.map(o => o.id === data.orderId ? { ...o, status: data.status } : o));
       }
     };
     return () => { evtSrc.close(); setConnected(false); };
-  }, []);
+  }, [user?.branchId]);
 
   async function updateStatus(orderId: number, status: string) {
     setUpdating(orderId);
@@ -82,7 +104,7 @@ export default function CustomerOrdersPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-foreground">Pesanan Online</h1>
-          <p className="text-muted-foreground text-sm">Pesanan dari QR Menu pelanggan</p>
+          <p className="text-muted-foreground text-sm">Pesanan dari QR Menu pelanggan {user?.branchName ? `(${user.branchName})` : ""}</p>
         </div>
         <div className="flex items-center gap-3">
           <div className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full ${connected ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
@@ -169,8 +191,19 @@ export default function CustomerOrdersPage() {
                     </div>
                   ))}
                   {order.deliveryAddress && (
-                    <div className="mt-2 text-xs text-muted-foreground bg-muted/30 rounded-lg px-2 py-1.5">
-                      📍 {order.deliveryAddress}
+                    <div className="mt-2 text-xs text-muted-foreground bg-muted/30 rounded-lg p-2 flex items-center justify-between gap-2 border">
+                      <div className="min-w-0 flex-1">
+                        <span className="font-semibold text-foreground">Alamat Pengiriman:</span>
+                        <div className="truncate">📍 {order.deliveryAddress}</div>
+                        {order.deliveryNotes && <div className="text-[10px] text-muted-foreground mt-0.5">Catatan: {order.deliveryNotes}</div>}
+                      </div>
+                      <a
+                        href={order.googleMapsLocation || `https://maps.google.com/?q=${encodeURIComponent(order.deliveryAddress)}`}
+                        target="_blank" rel="noopener noreferrer"
+                        className="flex-shrink-0 flex items-center gap-1 text-xs bg-primary/10 text-primary px-2.5 py-1.5 rounded-lg hover:bg-primary/20 transition-colors font-bold"
+                      >
+                        <Navigation size={12} /> Maps
+                      </a>
                     </div>
                   )}
                   {order.notes && (

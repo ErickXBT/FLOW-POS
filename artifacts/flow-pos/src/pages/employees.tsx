@@ -1,10 +1,16 @@
 import { useState } from "react";
-import { useListEmployees, useCreateEmployee, useUpdateEmployee, useDeleteEmployee } from "@workspace/api-client-react";
+import {
+  useListEmployees,
+  useCreateEmployee,
+  useUpdateEmployee,
+  useDeleteEmployee,
+  useListBranches,
+  useListRoles,
+  getListEmployeesQueryKey
+} from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Search, Edit2, Trash2, UserCheck, X, KeyRound, ChefHat, Truck, ShieldCheck } from "lucide-react";
+import { Plus, Search, Edit2, Trash2, UserCheck, X, KeyRound, ChefHat, Truck, ShieldCheck, MapPin, Shield } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
-
-const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 const ALL_ROLES = [
   { value: "manager", label: "Manager", icon: "👔", desc: "Akses penuh operasional" },
@@ -28,19 +34,42 @@ const ROLE_COLORS: Record<string, string> = {
 };
 
 function EmployeeForm({ initial, onSubmit, onClose, loading }: any) {
+  const { data: branches } = useListBranches();
+  const { data: customRoles } = useListRoles();
+
   const [form, setForm] = useState({
     name: initial?.name || "",
     email: initial?.email || "",
     phone: initial?.phone || "",
     role: initial?.role || "cashier",
     isActive: initial?.isActive ?? true,
+    branchId: initial?.branchId != null ? Number(initial.branchId) : "",
+    customRoleId: initial?.customRoleId != null ? Number(initial.customRoleId) : "",
   });
+
+  const [roleType, setRoleType] = useState(initial?.customRoleId ? "custom" : "standard");
+
+  const handleSubmitForm = () => {
+    const payload = {
+      name: form.name,
+      email: form.email || null,
+      phone: form.phone || null,
+      role: roleType === "custom" 
+        ? (customRoles?.find(r => r.id === Number(form.customRoleId))?.name || "staff")
+        : form.role,
+      isActive: form.isActive,
+      branchId: form.branchId ? Number(form.branchId) : null,
+      customRoleId: roleType === "custom" && form.customRoleId ? Number(form.customRoleId) : null,
+    };
+    onSubmit(payload);
+  };
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-      <div className="bg-card border border-card-border rounded-2xl shadow-xl w-full max-w-md">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <h2 className="font-semibold">{initial ? "Edit Karyawan" : "Tambah Karyawan"}</h2>
-          <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X size={20} /></button>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+      <div className="bg-card border border-card-border rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border sticky top-0 bg-card z-10">
+          <h2 className="font-semibold text-foreground">{initial ? "Edit Karyawan" : "Tambah Karyawan"}</h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors"><X size={20} /></button>
         </div>
         <div className="p-6 space-y-4">
           {[
@@ -52,34 +81,86 @@ function EmployeeForm({ initial, onSubmit, onClose, loading }: any) {
               <label className="block text-sm font-medium mb-1 text-foreground">{f.label}</label>
               <input type={f.type} value={(form as any)[f.key]} placeholder={f.placeholder}
                 onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
-                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+                className="w-full px-3 py-2 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground" />
             </div>
           ))}
+
+          {/* Branch Assignment */}
           <div>
-            <label className="block text-sm font-medium mb-2 text-foreground">Role</label>
-            <div className="grid grid-cols-1 gap-2">
-              {ALL_ROLES.map(r => (
-                <button key={r.value} type="button" onClick={() => setForm(p => ({ ...p, role: r.value }))}
-                  className={`flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-colors ${form.role === r.value ? "border-primary bg-primary/5" : "border-border hover:border-border/80"}`}>
-                  <span className="text-xl">{r.icon}</span>
-                  <div>
-                    <div className="font-medium text-sm text-foreground">{r.label}</div>
-                    <div className="text-xs text-muted-foreground">{r.desc}</div>
-                  </div>
-                  {form.role === r.value && <ShieldCheck size={16} className="ml-auto text-primary" />}
-                </button>
+            <label className="block text-sm font-medium mb-1 text-foreground">Penempatan Cabang (Branch)</label>
+            <select
+              value={form.branchId}
+              onChange={e => setForm(p => ({ ...p, branchId: e.target.value }))}
+              className="w-full px-3 py-2 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground"
+            >
+              <option value="">Semua Cabang / Pusat</option>
+              {(branches || []).map(b => (
+                <option key={b.id} value={b.id}>{b.name}</option>
               ))}
-            </div>
+            </select>
           </div>
-          <div className="flex items-center gap-2">
+
+          {/* Role Type Tabs */}
+          <div>
+            <label className="block text-sm font-medium mb-2 text-foreground">Tipe Peran (Role Type)</label>
+            <div className="flex gap-2 p-1 bg-muted rounded-xl mb-3">
+              <button
+                type="button"
+                onClick={() => setRoleType("standard")}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${roleType === "standard" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+              >
+                Role Standar
+              </button>
+              <button
+                type="button"
+                onClick={() => setRoleType("custom")}
+                disabled={(customRoles || []).length === 0}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all ${roleType === "custom" ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"} disabled:opacity-50`}
+              >
+                Role Custom ({ (customRoles || []).length })
+              </button>
+            </div>
+
+            {roleType === "standard" ? (
+              <div className="grid grid-cols-1 gap-2">
+                {ALL_ROLES.map(r => (
+                  <button key={r.value} type="button" onClick={() => setForm(p => ({ ...p, role: r.value }))}
+                    className={`flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-colors ${form.role === r.value ? "border-primary bg-primary/5" : "border-border hover:border-border/80"}`}>
+                    <span className="text-xl">{r.icon}</span>
+                    <div>
+                      <div className="font-semibold text-sm text-foreground">{r.label}</div>
+                      <div className="text-xs text-muted-foreground">{r.desc}</div>
+                    </div>
+                    {form.role === r.value && <ShieldCheck size={16} className="ml-auto text-primary" />}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div>
+                <label className="block text-xs font-medium mb-1 text-muted-foreground">Pilih Role Custom</label>
+                <select
+                  value={form.customRoleId}
+                  onChange={e => setForm(p => ({ ...p, customRoleId: e.target.value }))}
+                  className="w-full px-3 py-2 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground"
+                >
+                  <option value="">-- Pilih Role --</option>
+                  {(customRoles || []).map(r => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 pt-2">
             <input type="checkbox" id="isActive" checked={form.isActive} onChange={e => setForm(p => ({ ...p, isActive: e.target.checked }))} className="rounded" />
             <label htmlFor="isActive" className="text-sm font-medium text-foreground">Aktif</label>
           </div>
         </div>
-        <div className="flex gap-3 px-6 pb-6">
-          <button onClick={onClose} className="flex-1 py-2.5 border border-border rounded-lg text-sm font-medium hover:bg-muted">Batal</button>
-          <button onClick={() => onSubmit(form)} disabled={loading || !form.name}
-            className="flex-1 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50">
+        <div className="flex gap-3 px-6 pb-6 sticky bottom-0 bg-card pt-3 border-t border-border flex-shrink-0 z-10">
+          <button onClick={onClose} className="flex-1 py-2.5 border border-border rounded-xl text-sm font-medium hover:bg-muted text-foreground">Batal</button>
+          <button onClick={handleSubmitForm} disabled={loading || !form.name || (roleType === "custom" && !form.customRoleId)}
+            className="flex-1 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:opacity-90 disabled:opacity-50 shadow-md shadow-primary/10">
             {loading ? "Menyimpan..." : "Simpan"}
           </button>
         </div>
@@ -94,6 +175,7 @@ function InviteModal({ employee, onClose }: { employee: any; onClose: () => void
   const [done, setDone] = useState(false);
   const [error, setError] = useState("");
   const token = localStorage.getItem("flow_token") ?? "";
+  const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
   async function handleInvite() {
     if (!password || password.length < 6) { setError("Password minimal 6 karakter"); return; }
@@ -109,10 +191,10 @@ function InviteModal({ employee, onClose }: { employee: any; onClose: () => void
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-      <div className="bg-card border border-card-border rounded-2xl shadow-xl w-full max-w-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+      <div className="bg-card border border-card-border rounded-2xl shadow-xl w-full max-w-sm animate-scale-up">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <h2 className="font-semibold flex items-center gap-2"><KeyRound size={16} className="text-primary" /> Buat Akun Login</h2>
+          <h2 className="font-semibold text-foreground flex items-center gap-2"><KeyRound size={16} className="text-primary" /> Buat Akun Login</h2>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X size={20} /></button>
         </div>
         {done ? (
@@ -121,17 +203,17 @@ function InviteModal({ employee, onClose }: { employee: any; onClose: () => void
             <div className="font-semibold text-foreground mb-1">Akun berhasil dibuat!</div>
             <div className="text-sm text-muted-foreground mb-1">Email: <strong>{employee.email}</strong></div>
             <div className="text-sm text-muted-foreground mb-4">Role: <strong>{ROLE_LABELS[employee.role] ?? employee.role}</strong></div>
-            <div className="bg-muted rounded-lg px-4 py-3 text-xs text-muted-foreground mb-4">
+            <div className="bg-muted rounded-xl px-4 py-3 text-xs text-muted-foreground mb-4">
               Karyawan dapat login dengan email dan password yang ditetapkan. Dashboard akan disesuaikan dengan role mereka.
             </div>
-            <button onClick={onClose} className="w-full py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold">Selesai</button>
+            <button onClick={onClose} className="w-full py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold">Selesai</button>
           </div>
         ) : (
           <div className="p-6 space-y-4">
             <div className="bg-muted/50 rounded-xl p-4 space-y-1">
               <div className="text-sm font-medium text-foreground">{employee.name}</div>
               <div className="text-xs text-muted-foreground">{employee.email}</div>
-              <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_COLORS[employee.role] ?? ""}`}>
+              <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_COLORS[employee.role] ?? "bg-primary/10 text-primary"}`}>
                 {ROLE_LABELS[employee.role] ?? employee.role}
               </span>
             </div>
@@ -144,13 +226,13 @@ function InviteModal({ employee, onClose }: { employee: any; onClose: () => void
               <label className="block text-sm font-medium mb-1 text-foreground">Set Password</label>
               <input type="password" value={password} onChange={e => setPassword(e.target.value)}
                 placeholder="Minimal 6 karakter" disabled={!employee.email}
-                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-50" />
+                className="w-full px-3 py-2 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground disabled:opacity-50" />
             </div>
             {error && <div className="text-red-500 text-xs">{error}</div>}
             <div className="flex gap-3">
-              <button onClick={onClose} className="flex-1 py-2.5 border border-border rounded-lg text-sm font-medium hover:bg-muted">Batal</button>
+              <button onClick={onClose} className="flex-1 py-2.5 border border-border rounded-xl text-sm font-medium hover:bg-muted text-foreground">Batal</button>
               <button onClick={handleInvite} disabled={loading || !employee.email || !password}
-                className="flex-1 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50">
+                className="flex-1 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:opacity-90 disabled:opacity-50">
                 {loading ? "..." : "Buat Akun"}
               </button>
             </div>
@@ -170,24 +252,29 @@ export default function EmployeesPage() {
   const queryClient = useQueryClient();
 
   const { data: employees, isLoading } = useListEmployees({ search: search || undefined });
-  const { mutateAsync: create, isPending: creating } = useCreateEmployee();
-  const { mutateAsync: update, isPending: updating } = useUpdateEmployee();
-  const { mutateAsync: remove } = useDeleteEmployee();
+  const { data: branches } = useListBranches();
+  const { data: customRoles } = useListRoles();
+
+  const create = useCreateEmployee();
+  const update = useUpdateEmployee();
+  const remove = useDeleteEmployee();
 
   async function handleCreate(form: any) {
-    await create({ body: form });
-    queryClient.invalidateQueries({ queryKey: ["listEmployees"] });
+    await create.mutateAsync({ data: form });
+    queryClient.invalidateQueries({ queryKey: getListEmployeesQueryKey() });
     setShowForm(false);
   }
+
   async function handleUpdate(form: any) {
-    await update({ params: { id: editing.id }, body: form });
-    queryClient.invalidateQueries({ queryKey: ["listEmployees"] });
+    await update.mutateAsync({ id: editing.id, data: form });
+    queryClient.invalidateQueries({ queryKey: getListEmployeesQueryKey() });
     setEditing(null);
   }
+
   async function handleDelete(id: number) {
     if (!confirm("Hapus karyawan ini?")) return;
-    await remove({ params: { id } });
-    queryClient.invalidateQueries({ queryKey: ["listEmployees"] });
+    await remove.mutateAsync({ id });
+    queryClient.invalidateQueries({ queryKey: getListEmployeesQueryKey() });
   }
 
   const canManage = user && ["owner", "manager"].includes(user.role);
@@ -196,12 +283,12 @@ export default function EmployeesPage() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-5">
         <div>
-          <h1 className="text-xl font-bold text-foreground">Karyawan</h1>
-          <p className="text-muted-foreground text-sm">Kelola tim dan akses sistem</p>
+          <h1 className="text-xl font-bold text-foreground">Karyawan & Hak Akses</h1>
+          <p className="text-muted-foreground text-sm">Kelola tim, atur cabang outlet dan delegasikan perizinan sistem</p>
         </div>
         {canManage && (
           <button onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors">
+            className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/95 transition-all shadow-md shadow-primary/10">
             <Plus size={16} /> Tambah Karyawan
           </button>
         )}
@@ -210,86 +297,97 @@ export default function EmployeesPage() {
       {/* Role guide */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mb-5">
         {ALL_ROLES.map(r => (
-          <div key={r.value} className="bg-card border border-card-border rounded-xl p-3 text-center">
+          <div key={r.value} className="bg-card border border-card-border rounded-2xl p-3 text-center shadow-sm">
             <div className="text-xl mb-1">{r.icon}</div>
             <div className="text-xs font-semibold text-foreground">{r.label}</div>
-            <div className="text-xs text-muted-foreground mt-0.5">{r.desc}</div>
+            <div className="text-[10px] text-muted-foreground mt-0.5">{r.desc}</div>
           </div>
         ))}
       </div>
 
       <div className="relative mb-4">
-        <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+        <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Cari karyawan..."
-          className="w-full pl-9 pr-4 py-2.5 border border-input rounded-xl bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+          placeholder="Cari karyawan berdasarkan nama..."
+          className="w-full pl-10 pr-4 py-2.5 border border-input rounded-xl bg-card text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground transition-all shadow-sm"
         />
       </div>
 
       {isLoading ? (
         <div className="space-y-3">
-          {[1, 2, 3].map(i => <div key={i} className="h-20 rounded-xl bg-card border border-card-border animate-pulse" />)}
+          {[1, 2, 3].map(i => <div key={i} className="h-20 rounded-2xl bg-card border border-card-border animate-pulse" />)}
         </div>
       ) : (employees || []).length === 0 ? (
-        <div className="text-center py-16">
+        <div className="text-center py-16 bg-card border border-card-border rounded-2xl">
           <UserCheck size={40} className="mx-auto mb-3 text-muted-foreground/30" />
-          <div className="text-muted-foreground text-sm">Belum ada karyawan. Tambahkan anggota tim Anda.</div>
+          <div className="text-muted-foreground text-sm font-medium">Belum ada karyawan. Tambahkan anggota tim Anda.</div>
         </div>
       ) : (
         <div className="space-y-3">
-          {(employees || []).map((emp: any) => (
-            <div key={emp.id} className="bg-card border border-card-border rounded-2xl p-4 flex items-center gap-4 shadow-sm">
-              <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center font-bold text-foreground flex-shrink-0 text-lg">
-                {emp.name.charAt(0).toUpperCase()}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="font-semibold text-foreground">{emp.name}</span>
-                  <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_COLORS[emp.role] ?? "bg-muted text-muted-foreground"}`}>
-                    {ROLE_LABELS[emp.role] ?? emp.role}
-                  </span>
-                  {emp.userId && (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 flex items-center gap-1">
-                      <ShieldCheck size={10} /> Punya Akun
+          {(employees || []).map((emp: any) => {
+            const branchName = branches?.find(b => b.id === emp.branchId)?.name;
+            const isCustomRole = !!emp.customRoleId;
+            const customRoleName = customRoles?.find(r => r.id === emp.customRoleId)?.name;
+
+            return (
+              <div key={emp.id} className="bg-card border border-card-border rounded-2xl p-4 flex items-center gap-4 shadow-sm hover:shadow-md transition-all">
+                <div className="w-10 h-10 rounded-full bg-muted flex items-center justify-center font-bold text-foreground flex-shrink-0 text-lg">
+                  {emp.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-semibold text-foreground text-sm md:text-base">{emp.name}</span>
+                    <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${isCustomRole ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400" : (ROLE_COLORS[emp.role] ?? "bg-muted text-muted-foreground")}`}>
+                      {isCustomRole ? `Role Custom: ${customRoleName || emp.role}` : (ROLE_LABELS[emp.role] ?? emp.role)}
                     </span>
-                  )}
-                  {!emp.isActive && (
-                    <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-600">Nonaktif</span>
-                  )}
+                    {branchName && (
+                      <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-600 dark:bg-blue-950/20 dark:text-blue-400 flex items-center gap-1">
+                        <MapPin size={10} /> {branchName}
+                      </span>
+                    )}
+                    {emp.userId && (
+                      <span className="text-xs px-2.5 py-0.5 rounded-full bg-green-50 text-green-700 dark:bg-green-950/20 dark:text-green-400 flex items-center gap-1">
+                        <ShieldCheck size={10} /> Login Aktif
+                      </span>
+                    )}
+                    {!emp.isActive && (
+                      <span className="text-xs px-2.5 py-0.5 rounded-full bg-red-100 text-red-600 font-medium">Nonaktif</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
+                    {emp.email && <span>{emp.email}</span>}
+                    {emp.phone && <span>{emp.phone}</span>}
+                  </div>
                 </div>
-                <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
-                  {emp.email && <span>{emp.email}</span>}
-                  {emp.phone && <span>{emp.phone}</span>}
-                </div>
-              </div>
-              {canManage && (
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  {emp.email && (
-                    <button onClick={() => setInviting(emp)}
-                      className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
-                      title="Buat akun login">
-                      <KeyRound size={16} />
+                {canManage && (
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {emp.email && (
+                      <button onClick={() => setInviting(emp)}
+                        className="p-2 text-muted-foreground hover:text-primary hover:bg-primary/10 rounded-xl transition-colors"
+                        title="Buat akun login">
+                        <KeyRound size={16} />
+                      </button>
+                    )}
+                    <button onClick={() => setEditing(emp)}
+                      className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-xl transition-colors">
+                      <Edit2 size={16} />
                     </button>
-                  )}
-                  <button onClick={() => setEditing(emp)}
-                    className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors">
-                    <Edit2 size={16} />
-                  </button>
-                  <button onClick={() => handleDelete(emp.id)}
-                    className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors">
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              )}
-            </div>
-          ))}
+                    <button onClick={() => handleDelete(emp.id)}
+                      className="p-2 text-muted-foreground hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl transition-colors">
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {showForm && <EmployeeForm onSubmit={handleCreate} onClose={() => setShowForm(false)} loading={creating} />}
-      {editing && <EmployeeForm initial={editing} onSubmit={handleUpdate} onClose={() => setEditing(null)} loading={updating} />}
+      {showForm && <EmployeeForm onSubmit={handleCreate} onClose={() => setShowForm(false)} loading={create.isPending} />}
+      {editing && <EmployeeForm initial={editing} onSubmit={handleUpdate} onClose={() => setEditing(null)} loading={update.isPending} />}
       {inviting && <InviteModal employee={inviting} onClose={() => setInviting(null)} />}
     </div>
   );

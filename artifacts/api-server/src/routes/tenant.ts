@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq } from "drizzle-orm";
-import { db, tenantsTable, subscriptionsTable, subscriptionPlansTable } from "@workspace/db";
+import { db, tenantsTable, subscriptionsTable, subscriptionPlansTable, publicMenusTable } from "@workspace/db";
 import { UpdateTenantBody } from "@workspace/api-zod";
 import { extractToken } from "./auth";
 
@@ -39,6 +39,12 @@ router.patch("/tenant", async (req, res): Promise<void> => {
     .set({ ...body.data, updatedAt: new Date() })
     .where(eq(tenantsTable.id, claims.tenantId))
     .returning();
+
+  if (body.data.name) {
+    await db.update(publicMenusTable)
+      .set({ name: body.data.name })
+      .where(eq(publicMenusTable.tenantId, claims.tenantId));
+  }
 
   res.json({
     ...tenant,

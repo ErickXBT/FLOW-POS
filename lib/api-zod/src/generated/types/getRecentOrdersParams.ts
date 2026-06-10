@@ -8,4 +8,5 @@
 
 export type GetRecentOrdersParams = {
 limit?: number;
+branchId?: number;
 };

@@ -16,6 +16,7 @@ export const productsTable = pgTable("products", {
   categoryId: integer("category_id"),
   tenantId: integer("tenant_id").notNull(),
   isActive: boolean("is_active").notNull().default(true),
+  isBestSeller: boolean("is_best_seller").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

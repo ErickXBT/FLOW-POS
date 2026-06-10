@@ -29,6 +29,8 @@ export interface Order {
   /** @nullable */
   employeeName?: string | null;
   tenantId: number;
+  /** @nullable */
+  branchId?: number | null;
   items?: OrderItem[];
   createdAt: string;
 }

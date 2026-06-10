@@ -47,3 +47,11 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# Environment variables
+.env
+.env.*
+
+# Uploaded product images
+/artifacts/api-server/uploads
+

@@ -19,4 +19,5 @@ export interface ProductUpdate {
   /** @nullable */
   categoryId?: number | null;
   isActive?: boolean;
+  isBestSeller?: boolean;
 }

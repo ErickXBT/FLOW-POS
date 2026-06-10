@@ -1,9 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams } from "wouter";
 import {
   ShoppingCart, Plus, Minus, Trash2, X, ChevronRight, MapPin,
   Phone, User, FileText, CheckCircle2, Clock, ChefHat,
-  Package, Truck, Star, Search, ArrowLeft, QrCode
+  Package, Truck, Star, Search, ArrowLeft, QrCode, Sparkles,
+  Map, DollarSign, CreditCard, Bell, Info
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -12,32 +13,108 @@ interface TenantInfo {
   id: number; name: string; slug: string; businessType: string;
   address: string | null; phone: string | null; logoUrl: string | null;
   primaryColor: string; bannerUrl: string | null;
+  coverUrl: string | null; bio: string | null;
   enableDineIn: boolean; enableTakeAway: boolean; enableDelivery: boolean;
   enableCash: boolean; enableQris: boolean; enableBankTransfer: boolean; enableEwallet: boolean;
+  deliveryFeeNear?: number; deliveryFeeFar?: number;
 }
-interface Product { id: number; name: string; description: string | null; price: number; imageUrl: string | null; categoryId: number | null; stock: number; }
-interface Category { id: number; name: string; description: string | null; }
-interface CartItem { product: Product; quantity: number; notes: string; }
+
+interface BranchInfo {
+  id: number;
+  name: string;
+}
+
+interface PublicMenuInfo {
+  id: number;
+  name: string;
+  logoUrl: string | null;
+  bannerUrl: string | null;
+  themeSettings: string | null;
+  enableDineIn: boolean;
+  enableTakeAway: boolean;
+  enableDelivery: boolean;
+  estimatedDeliveryTime: string | null;
+  isActive: boolean;
+}
+
+interface Product {
+  id: number;
+  productId: number;
+  name: string;
+  description: string | null;
+  price: number;
+  promoPrice: number | null;
+  imageUrl: string | null;
+  isAvailable: boolean;
+  stock: number;
+  variantSettings: string | null;
+  publicMenuCategoryId: number | null;
+  isBestSeller?: boolean;
+}
+
+interface Category {
+  id: number;
+  name: string;
+  description: string | null;
+}
+
+interface CartItem {
+  id: string; // unique cart item id (productId + variants hash)
+  product: Product;
+  quantity: number;
+  notes: string;
+  selectedVariant: string;
+  selectedToppings: string[];
+  totalPrice: number;
+}
 
 const STATUS_STEPS: Record<string, { label: string; icon: any; step: number }> = {
   pending:     { label: "Menunggu Konfirmasi", icon: Clock, step: 1 },
   confirmed:   { label: "Pesanan Dikonfirmasi", icon: CheckCircle2, step: 2 },
-  preparing:   { label: "Sedang Diproses", icon: ChefHat, step: 3 },
-  ready:       { label: "Siap Diambil", icon: Package, step: 4 },
+  preparing:   { label: "Sedang Diproses Dapur", icon: ChefHat, step: 3 },
+  ready:       { label: "Siap Diambil/Disajikan", icon: Package, step: 4 },
   on_delivery: { label: "Dalam Pengiriman", icon: Truck, step: 5 },
-  completed:   { label: "Selesai", icon: Star, step: 6 },
-  cancelled:   { label: "Dibatalkan", icon: X, step: 0 },
+  completed:   { label: "Pesanan Selesai", icon: Star, step: 6 },
+  cancelled:   { label: "Pesanan Dibatalkan", icon: X, step: 0 },
 };
 
 const PAY_LABELS: Record<string, string> = {
-  cash: "Tunai / Cash on Delivery", qris: "QRIS", bank_transfer: "Transfer Bank", ewallet: "E-Wallet",
+  cash: "Tunai / Cash on Delivery",
+  cashier: "Bayar di Kasir",
+  qris: "QRIS",
+  bank_transfer: "Transfer Bank",
+  ewallet: "E-Wallet",
 };
+
 const ORDER_TYPE_LABELS: Record<string, string> = {
-  dine_in: "Makan di Tempat", take_away: "Bawa Pulang", delivery: "Antar ke Alamat",
+  dine_in: "Makan di Tempat (Dine In)",
+  take_away: "Bawa Pulang (Take Away)",
+  delivery: "Antar ke Alamat (Delivery)",
 };
 
 function formatRp(v: number) { return `Rp ${v.toLocaleString("id-ID")}`; }
 
+const loadLeaflet = (cb: () => void) => {
+  if ((window as any).L) {
+    cb();
+    return;
+  }
+  if (!document.getElementById("leaflet-css")) {
+    const link = document.createElement("link");
+    link.id = "leaflet-css";
+    link.rel = "stylesheet";
+    link.href = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css";
+    document.head.appendChild(link);
+  }
+  const script = document.createElement("script");
+  script.src = "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js";
+  script.onload = () => {
+    cb();
+  };
+  document.body.appendChild(script);
+};
+
+// ── Tracking View Component ──────────────────────────────────────────────────
 function TrackingView({ orderId, slug, primary, onBack }: { orderId: number; slug: string; primary: string; onBack: () => void }) {
   const [order, setOrder] = useState<any>(null);
   const [error, setError] = useState("");
@@ -58,10 +135,13 @@ function TrackingView({ orderId, slug, primary, onBack }: { orderId: number; slu
 
   if (error) return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="text-center">
+      <div className="text-center bg-white p-6 rounded-3xl shadow-sm border max-w-sm">
         <div className="text-5xl mb-4">😕</div>
-        <div className="text-gray-600 mb-4">{error}</div>
-        <button onClick={onBack} className="text-sm font-medium" style={{ color: primary }}>← Kembali ke Menu</button>
+        <div className="text-gray-800 font-bold mb-2">Error</div>
+        <div className="text-gray-500 text-sm mb-6">{error}</div>
+        <button onClick={onBack} className="w-full py-3 rounded-2xl text-white font-bold text-sm" style={{ backgroundColor: primary }}>
+          Kembali ke Menu
+        </button>
       </div>
     </div>
   );
@@ -78,158 +158,461 @@ function TrackingView({ orderId, slug, primary, onBack }: { orderId: number; slu
   return (
     <div className="min-h-screen bg-gray-50 pb-10">
       <div className="sticky top-0 z-10 bg-white border-b px-4 py-3 flex items-center gap-3 shadow-sm">
-        <button onClick={onBack} className="p-1 text-gray-500"><ArrowLeft size={20} /></button>
+        <button onClick={onBack} className="p-1 text-gray-500 hover:bg-gray-100 rounded-full"><ArrowLeft size={20} /></button>
         <div>
-          <div className="font-bold text-sm text-gray-900">Status Pesanan</div>
+          <div className="font-bold text-sm text-gray-900">Pelacakan Pesanan</div>
           <div className="text-xs font-mono text-gray-400">{order.orderNumber}</div>
         </div>
       </div>
 
       <div className="max-w-md mx-auto px-4 pt-6 space-y-4">
-        {/* Status banner */}
-        <div className="rounded-2xl p-5 text-white text-center shadow-lg" style={{ background: order.status === "cancelled" ? "#ef4444" : primary }}>
-          {curr && <curr.icon className="mx-auto mb-2" size={36} />}
-          <div className="text-xl font-bold">{curr?.label ?? order.status}</div>
-          <div className="text-sm opacity-80 mt-1">{ORDER_TYPE_LABELS[order.orderType] ?? order.orderType}</div>
+        {/* Status Card */}
+        <div className="rounded-3xl p-6 text-white text-center shadow-lg transition-all" style={{ background: order.status === "cancelled" ? "#ef4444" : `linear-gradient(135deg, ${primary}, ${primary}cc)` }}>
+          {curr && <curr.icon className="mx-auto mb-3 animate-pulse" size={40} />}
+          <div className="text-xl font-black">{curr?.label ?? order.status.toUpperCase()}</div>
+          <div className="text-xs opacity-90 mt-1.5 bg-white/20 inline-block px-3 py-1 rounded-full font-bold">
+            {ORDER_TYPE_LABELS[order.orderType] ?? order.orderType}
+          </div>
         </div>
 
-        {/* Progress */}
+        {/* Steps Progress */}
         {order.status !== "cancelled" && (
-          <div className="bg-white rounded-2xl p-4 shadow-sm">
-            <div className="flex justify-between">
+          <div className="bg-white rounded-3xl p-5 shadow-sm space-y-3">
+            <div className="text-xs font-bold text-gray-400 uppercase tracking-wide">Status Alur Kerja</div>
+            <div className="relative flex justify-between items-center">
               {steps.map((s, i) => {
                 const step = STATUS_STEPS[s];
                 const done = (curr?.step ?? 0) >= (step?.step ?? 0);
                 return (
-                  <div key={s} className="flex flex-col items-center gap-1 flex-1">
-                    <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors ${done ? "text-white" : "bg-gray-100 text-gray-300"}`}
+                  <div key={s} className="flex flex-col items-center gap-1.5 flex-1 relative z-10">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black transition-all ${done ? "text-white shadow-md shadow-primary/20" : "bg-gray-100 text-gray-300"}`}
                       style={done ? { backgroundColor: primary } : {}}>
                       {i + 1}
                     </div>
-                    <div className={`text-[9px] text-center leading-tight ${done ? "text-gray-700 font-medium" : "text-gray-300"}`}>
+                    <div className={`text-[10px] text-center leading-tight font-semibold ${done ? "text-gray-800" : "text-gray-300"}`}>
                       {step?.label.split(" ")[0]}
                     </div>
-                    {i < steps.length - 1 && (
-                      <div className="absolute" />
-                    )}
                   </div>
                 );
               })}
+              {/* Progress Line */}
+              <div className="absolute top-4 left-4 right-4 h-0.5 bg-gray-100 -z-10" />
             </div>
           </div>
         )}
 
-        {/* Order detail */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
-          <div className="font-semibold text-gray-900 text-sm">Detail Pesanan</div>
-          <div className="text-xs text-gray-500 space-y-1">
-            <div className="flex justify-between"><span>Pelanggan</span><span className="font-medium text-gray-700">{order.customerName}</span></div>
-            {order.tableNumber && <div className="flex justify-between"><span>Meja</span><span className="font-medium text-gray-700">#{order.tableNumber}</span></div>}
-            {order.customerPhone && <div className="flex justify-between"><span>Telepon</span><span className="font-medium text-gray-700">{order.customerPhone}</span></div>}
-            {order.deliveryAddress && <div className="flex justify-between"><span>Alamat</span><span className="font-medium text-gray-700 text-right max-w-[60%]">{order.deliveryAddress}</span></div>}
-            <div className="flex justify-between"><span>Pembayaran</span><span className="font-medium text-gray-700">{PAY_LABELS[order.paymentMethod] ?? order.paymentMethod}</span></div>
+        {/* Delivery / Address Progress */}
+        {order.orderType === "delivery" && order.deliveryAddress && (
+          <div className="bg-white rounded-3xl p-5 shadow-sm space-y-3">
+            <div className="font-bold text-gray-900 text-sm flex items-center gap-2">
+              <Truck size={16} style={{ color: primary }} /> Informasi Pengantaran
+            </div>
+            <div className="text-xs text-gray-600 space-y-2 bg-gray-50 p-3 rounded-2xl">
+              <div>
+                <span className="font-semibold block text-gray-800">Alamat Tujuan:</span>
+                {order.deliveryAddress}
+              </div>
+              {order.deliveryNotes && (
+                <div>
+                  <span className="font-semibold block text-gray-800">Catatan Kurir:</span>
+                  <span className="italic text-gray-500">"{order.deliveryNotes}"</span>
+                </div>
+              )}
+            </div>
           </div>
-          <div className="border-t pt-3 space-y-2">
+        )}
+
+        {/* Order Details */}
+        <div className="bg-white rounded-3xl p-5 shadow-sm space-y-4">
+          <div className="font-bold text-gray-900 text-sm">Rincian Transaksi</div>
+          <div className="text-xs text-gray-500 space-y-2 border-b pb-3">
+            <div className="flex justify-between"><span>Nama Pelanggan</span><span className="font-bold text-gray-800">{order.customerName}</span></div>
+            {order.customerPhone && <div className="flex justify-between"><span>Nomor Telepon</span><span className="font-bold text-gray-800">{order.customerPhone}</span></div>}
+            {order.tableNumber && <div className="flex justify-between"><span>Nomor Meja</span><span className="font-bold text-gray-800">Meja #{order.tableNumber}</span></div>}
+            <div className="flex justify-between"><span>Metode Pembayaran</span><span className="font-bold text-gray-800">{PAY_LABELS[order.paymentMethod] ?? order.paymentMethod}</span></div>
+          </div>
+          <div className="space-y-3">
             {order.items?.map((item: any) => (
-              <div key={item.id} className="flex justify-between text-sm">
-                <span className="text-gray-600">{item.productName} <span className="text-gray-400">×{item.quantity}</span></span>
-                <span className="font-semibold text-gray-900">{formatRp(item.subtotal)}</span>
+              <div key={item.id} className="text-xs">
+                <div className="flex justify-between font-bold text-gray-800">
+                  <span>{item.productName} <span className="text-gray-400 font-normal">×{item.quantity}</span></span>
+                  <span>{formatRp(item.subtotal)}</span>
+                </div>
+                {item.variantSelection && (
+                  <div className="text-[10px] text-gray-400 mt-0.5">
+                    {JSON.parse(item.variantSelection)}
+                  </div>
+                )}
+                {item.notes && <div className="text-[10px] text-amber-600 mt-0.5 italic">"Catatan: {item.notes}"</div>}
               </div>
             ))}
             {Number(order.deliveryFee) > 0 && (
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Ongkir</span>
-                <span className="text-gray-700">{formatRp(Number(order.deliveryFee))}</span>
+              <div className="flex justify-between text-xs text-gray-500">
+                <span>Ongkos Kirim</span>
+                <span>{formatRp(Number(order.deliveryFee))}</span>
               </div>
             )}
-            <div className="flex justify-between font-bold text-sm pt-1 border-t">
-              <span>Total</span>
+            <div className="flex justify-between font-black text-sm pt-3 border-t">
+              <span>Total Bayar</span>
               <span style={{ color: primary }}>{formatRp(Number(order.total))}</span>
             </div>
           </div>
         </div>
 
-        <div className="text-center text-xs text-gray-400">
-          Status diperbarui otomatis setiap 5 detik
-        </div>
+        <button onClick={onBack} className="w-full bg-white border border-gray-200 py-3.5 rounded-2xl text-gray-700 font-bold text-sm shadow-sm hover:bg-gray-50 transition-colors">
+          Kembali Belanja
+        </button>
       </div>
     </div>
   );
 }
 
-interface CustomerMenuProps { slug?: string; }
-export default function CustomerMenuPage({ slug: slugProp }: CustomerMenuProps = {}) {
+// ── Main Page Component ──────────────────────────────────────────────────────
+export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } = {}) {
   const params = useParams<{ slug: string }>();
   const slug = slugProp ?? params.slug;
-  const [menuData, setMenuData] = useState<{ tenant: TenantInfo; categories: Category[]; products: Product[] } | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
+  const [loading, setLoading] = useState(true);
+  const [deliveryDistance, setDeliveryDistance] = useState<"near" | "far">("near");
+  const [mapModalOpen, setMapModalOpen] = useState(false);
+  const [tempCoords, setTempCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const [geocoding, setGeocoding] = useState(false);
+  
+  const mapInstanceRef = useRef<any>(null);
+  const markerInstanceRef = useRef<any>(null);
+
+  const handleConfirmLocation = async () => {
+    if (!tempCoords) return;
+    const { lat, lng } = tempCoords;
+    const mapsUrl = `https://www.google.com/maps?q=${lat},${lng}`;
+    setForm(f => ({ ...f, googleMapsLocation: mapsUrl }));
+
+    setGeocoding(true);
+    try {
+      const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`, {
+        headers: { "Accept-Language": "id-ID,id;q=0.9,en;q=0.8" }
+      });
+      if (r.ok) {
+        const d = await r.json();
+        if (d.display_name) {
+          setForm(f => ({ ...f, deliveryAddress: d.display_name }));
+        }
+      }
+    } catch (err) {
+      console.error("Reverse geocoding failed:", err);
+    } finally {
+      setGeocoding(false);
+      setMapModalOpen(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!mapModalOpen) return;
+
+    loadLeaflet(() => {
+      const L = (window as any).L;
+      if (!L) return;
+
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+
+      let defaultLat = -6.2088;
+      let defaultLng = 106.8456;
+      let zoom = 12;
+
+      const map = L.map("leaflet-map").setView([defaultLat, defaultLng], zoom);
+      mapInstanceRef.current = map;
+
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+      }).addTo(map);
+
+      const marker = L.marker([defaultLat, defaultLng], { draggable: true }).addTo(map);
+      markerInstanceRef.current = marker;
+
+      if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition((pos) => {
+          const { latitude, longitude } = pos.coords;
+          map.setView([latitude, longitude], 16);
+          marker.setLatLng([latitude, longitude]);
+          setTempCoords({ lat: latitude, lng: longitude });
+        }, () => {
+          // Geolocation failed
+        });
+      }
+
+      const updatePosition = (lat: number, lng: number) => {
+        marker.setLatLng([lat, lng]);
+        setTempCoords({ lat, lng });
+      };
+
+      marker.on("dragend", () => {
+        const pos = marker.getLatLng();
+        updatePosition(pos.lat, pos.lng);
+      });
+
+      map.on("click", (e: any) => {
+        updatePosition(e.latlng.lat, e.latlng.lng);
+      });
+
+      setTempCoords({ lat: defaultLat, lng: defaultLng });
+    });
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, [mapModalOpen]);
+  const [error, setError] = useState("");
+  const [tenant, setTenant] = useState<TenantInfo | null>(null);
+  const [branch, setBranch] = useState<BranchInfo | null>(null);
+  const [menu, setMenu] = useState<PublicMenuInfo | null>(null);
+
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
   const [activeCat, setActiveCat] = useState<number | null>(null);
   const [search, setSearch] = useState("");
+  const [promoBanners, setPromoBanners] = useState<any[]>([]);
+
   const [cart, setCart] = useState<CartItem[]>([]);
   const [cartOpen, setCartOpen] = useState(false);
   const [step, setStep] = useState<"menu" | "order-type" | "form" | "success">("menu");
   const [trackingId, setTrackingId] = useState<number | null>(null);
 
+  // Selected product for detail modal
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [modalVariant, setModalVariant] = useState("");
+  const [modalToppings, setModalToppings] = useState<string[]>([]);
+  const [modalQty, setModalQty] = useState(1);
+  const [modalNotes, setModalNotes] = useState("");
+
+  // Checkout inputs
   const [orderType, setOrderType] = useState("dine_in");
-  const [form, setForm] = useState({ customerName: "", customerPhone: "", tableNumber: "", deliveryAddress: "", deliveryNotes: "" });
+  const [form, setForm] = useState({
+    customerName: "",
+    customerPhone: "",
+    tableNumber: "",
+    deliveryAddress: "",
+    deliveryNotes: "",
+    googleMapsLocation: ""
+  });
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [orderNotes, setOrderNotes] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
 
+  // Session state
+  const [menuSessionId, setMenuSessionId] = useState<string | null>(null);
+
+  // Parse query parameters
   useEffect(() => {
+    const query = new URLSearchParams(window.location.search);
+    const tableParam = query.get("table_id") || query.get("table");
+    const branchParam = query.get("branch_id") || query.get("branch");
+    const qrCodeParam = query.get("qr_code") || query.get("code");
+
+    if (tableParam) setForm(f => ({ ...f, tableNumber: tableParam }));
+    
+    // Fetch menu details
     (async () => {
       try {
-        const r = await fetch(`${BASE}/api/menu/${slug}`);
+        const url = branchParam ? `${BASE}/api/menu/${slug}?branch_id=${branchParam}` : `${BASE}/api/menu/${slug}`;
+        const r = await fetch(url);
         if (!r.ok) { setError("Menu tidak ditemukan atau tidak aktif"); setLoading(false); return; }
+        
         const data = await r.json();
-        setMenuData(data);
+        setTenant(data.tenant);
+        setBranch(data.branch);
+        setMenu(data.menu);
+
         if (data.tenant.primaryColor) {
           document.documentElement.style.setProperty("--menu-primary", data.tenant.primaryColor);
         }
+
+        // Initialize Customer Session
+        const sessResponse = await fetch(`${BASE}/api/menu/${slug}/sessions/init`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            qrCode: qrCodeParam || null,
+            branchId: data.branch.id,
+            tableId: tableParam || null,
+          }),
+        });
+
+        if (sessResponse.ok) {
+          const session = await sessResponse.json();
+          setMenuSessionId(session.menuSessionId);
+          if (session.tableId) setForm(f => ({ ...f, tableNumber: session.tableId }));
+          
+          // Try to load existing cart for this session
+          const cartRes = await fetch(`${BASE}/api/menu/${slug}/cart?menu_session_id=${session.menuSessionId}`);
+          if (cartRes.ok) {
+            const cartData = await cartRes.json();
+            if (cartData.cartData && Array.isArray(cartData.cartData)) {
+              setCart(cartData.cartData);
+            }
+          }
+        }
+
+        // Load Products & Categories
+        const prodResponse = await fetch(`${BASE}/api/menu/${slug}/products?branch_id=${data.branch.id}`);
+        if (prodResponse.ok) {
+          const prods = await prodResponse.json();
+          setCategories(prods.categories || []);
+          setProducts(prods.products || []);
+        }
+
       } catch { setError("Gagal memuat menu"); }
       setLoading(false);
     })();
   }, [slug]);
 
-  const primary = menuData?.tenant.primaryColor ?? "#1D4EF5";
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("flow_marketing_banners");
+      if (stored) {
+        setPromoBanners(JSON.parse(stored));
+      }
+    } catch (err) {}
+  }, []);
 
-  const addToCart = (product: Product) => {
+  const primary = tenant?.primaryColor ?? "#1D4EF5";
+
+  // Sync cart data to backend on update
+  const syncCartToBackend = async (updatedCart: CartItem[]) => {
+    if (!menuSessionId) return;
+    try {
+      await fetch(`${BASE}/api/menu/${slug}/cart`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          menuSessionId,
+          cartData: updatedCart,
+        }),
+      });
+    } catch {}
+  };
+
+  const handleOpenDetailModal = (product: Product) => {
+    setSelectedProduct(product);
+    setModalQty(1);
+    setModalNotes("");
+    
+    // Parse variants if available
+    if (product.variantSettings) {
+      try {
+        const parsed = JSON.parse(product.variantSettings);
+        if (parsed.variants && parsed.variants.length > 0) {
+          setModalVariant(parsed.variants[0].name);
+        } else {
+          setModalVariant("");
+        }
+      } catch {
+        setModalVariant("");
+      }
+    } else {
+      setModalVariant("");
+    }
+    setModalToppings([]);
+  };
+
+  const handleAddToCart = () => {
+    if (!selectedProduct) return;
+    
+    // Build cart item details
+    const price = selectedProduct.promoPrice ?? selectedProduct.price;
+    const toppingsPrice = modalToppings.length * 2000; // Mock topping flat rate
+    const itemTotalPrice = (price + toppingsPrice) * modalQty;
+    
+    const cartId = `${selectedProduct.id}-${modalVariant}-${modalToppings.sort().join(",")}-${modalNotes}`;
+
+    const newCartItem: CartItem = {
+      id: cartId,
+      product: selectedProduct,
+      quantity: modalQty,
+      notes: modalNotes,
+      selectedVariant: modalVariant,
+      selectedToppings: modalToppings,
+      totalPrice: itemTotalPrice
+    };
+
     setCart(prev => {
-      const ex = prev.find(c => c.product.id === product.id);
-      if (ex) return prev.map(c => c.product.id === product.id ? { ...c, quantity: c.quantity + 1 } : c);
-      return [...prev, { product, quantity: 1, notes: "" }];
+      let updated: CartItem[];
+      const existingIdx = prev.findIndex(item => item.id === cartId);
+      if (existingIdx !== -1) {
+        updated = prev.map((item, idx) => idx === existingIdx ? {
+          ...item,
+          quantity: item.quantity + modalQty,
+          totalPrice: item.totalPrice + itemTotalPrice
+        } : item);
+      } else {
+        updated = [...prev, newCartItem];
+      }
+      syncCartToBackend(updated);
+      return updated;
+    });
+
+    setSelectedProduct(null);
+  };
+
+  const updateQty = (itemId: string, newQuantity: number) => {
+    if (newQuantity <= 0) {
+      setCart(prev => {
+        const updated = prev.filter(c => c.id !== itemId);
+        syncCartToBackend(updated);
+        return updated;
+      });
+      return;
+    }
+    
+    setCart(prev => {
+      const updated = prev.map(item => {
+        if (item.id !== itemId) return item;
+        const basePrice = item.product.promoPrice ?? item.product.price;
+        const toppingsPrice = item.selectedToppings.length * 2000;
+        return {
+          ...item,
+          quantity: newQuantity,
+          totalPrice: (basePrice + toppingsPrice) * newQuantity
+        };
+      });
+      syncCartToBackend(updated);
+      return updated;
     });
   };
 
-  const removeFromCart = (productId: number) => setCart(prev => prev.filter(c => c.product.id !== productId));
-  const updateQty = (productId: number, qty: number) => {
-    if (qty <= 0) { removeFromCart(productId); return; }
-    setCart(prev => prev.map(c => c.product.id === productId ? { ...c, quantity: qty } : c));
-  };
-  const updateItemNotes = (productId: number, notes: string) => {
-    setCart(prev => prev.map(c => c.product.id === productId ? { ...c, notes } : c));
+  const removeFromCart = (itemId: string) => {
+    setCart(prev => {
+      const updated = prev.filter(c => c.id !== itemId);
+      syncCartToBackend(updated);
+      return updated;
+    });
   };
 
-  const cartTotal = cart.reduce((s, c) => s + c.product.price * c.quantity, 0);
+  const cartTotal = cart.reduce((s, c) => s + c.totalPrice, 0);
   const cartCount = cart.reduce((s, c) => s + c.quantity, 0);
 
-  const filteredProducts = menuData?.products.filter(p => {
-    const matchCat = !activeCat || p.categoryId === activeCat;
+  const filteredProducts = products.filter(p => {
+    const matchCat = !activeCat || p.publicMenuCategoryId === activeCat;
     const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase());
     return matchCat && matchSearch;
-  }) ?? [];
+  });
+
+  const bestSellers = products.filter(p => p.isBestSeller === true || p.promoPrice !== null).slice(0, 4);
 
   const availablePayments = (() => {
-    if (!menuData) return [];
-    const t = menuData.tenant;
-    const opts: { value: string; label: string }[] = [];
-    if (t.enableCash) opts.push({ value: "cash", label: "Tunai / Cash" });
-    if (t.enableQris) opts.push({ value: "qris", label: "QRIS" });
-    if (t.enableBankTransfer) opts.push({ value: "bank_transfer", label: "Transfer Bank" });
-    if (t.enableEwallet) opts.push({ value: "ewallet", label: "E-Wallet" });
+    if (!menu) return [];
+    const opts: { value: string; label: string; desc: string }[] = [];
+    if (tenant?.enableCash) opts.push({ value: "cash", label: "Cash on Delivery", desc: "Bayar tunai di kurir saat barang sampai" });
+    if (menu.enableDineIn) opts.push({ value: "cashier", label: "Bayar di Kasir", desc: "Selesaikan pembayaran langsung di kasir toko" });
+    if (tenant?.enableQris) opts.push({ value: "qris", label: "QRIS", desc: "Scan barcode digital secara realtime" });
+    if (tenant?.enableBankTransfer) opts.push({ value: "bank_transfer", label: "Transfer Bank", desc: "Mandiri, BCA, BRI, BNI" });
+    if (tenant?.enableEwallet) opts.push({ value: "ewallet", label: "E-Wallet", desc: "OVO, GoPay, DANA, LinkAja" });
     return opts;
   })();
 
@@ -237,149 +620,273 @@ export default function CustomerMenuPage({ slug: slugProp }: CustomerMenuProps =
     if (!form.customerName.trim()) { setSubmitError("Nama pelanggan wajib diisi"); return; }
     if (orderType === "dine_in" && !form.tableNumber.trim()) { setSubmitError("Nomor meja wajib diisi"); return; }
     if (orderType === "delivery" && !form.deliveryAddress.trim()) { setSubmitError("Alamat pengiriman wajib diisi"); return; }
+    if (orderType !== "dine_in" && !form.customerPhone.trim()) { setSubmitError("Nomor telepon wajib diisi"); return; }
+    
     setSubmitting(true); setSubmitError("");
     try {
+      const feeNear = tenant?.deliveryFeeNear !== undefined ? Number(tenant.deliveryFeeNear) : 0;
+      const feeFar = tenant?.deliveryFeeFar !== undefined ? Number(tenant.deliveryFeeFar) : 5000;
+      const fee = orderType === "delivery" ? (deliveryDistance === "near" ? feeNear : feeFar) : 0;
       const r = await fetch(`${BASE}/api/menu/${slug}/orders`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          menuSessionId,
+          branchId: branch?.id,
           orderType,
           customerName: form.customerName.trim(),
           customerPhone: form.customerPhone.trim() || null,
           tableNumber: form.tableNumber.trim() || null,
           deliveryAddress: form.deliveryAddress.trim() || null,
           deliveryNotes: form.deliveryNotes.trim() || null,
+          deliveryFee: fee,
           paymentMethod,
+          googleMapsLocation: form.googleMapsLocation.trim() || null,
           notes: orderNotes.trim() || null,
-          items: cart.map(c => ({ productId: c.product.id, quantity: c.quantity, price: c.product.price, notes: c.notes || null })),
+          items: cart.map(c => ({
+            productId: c.product.productId,
+            quantity: c.quantity,
+            price: c.product.promoPrice ?? c.product.price,
+            notes: c.notes || null,
+            variantSelection: c.selectedVariant ? `${c.selectedVariant} ${c.selectedToppings.join(", ")}` : null,
+          })),
         }),
       });
-      if (!r.ok) { const e = await r.json(); setSubmitError(e.error ?? "Gagal memesan"); setSubmitting(false); return; }
+
+      if (!r.ok) {
+        const e = await r.json();
+        setSubmitError(e.error ?? "Gagal memproses pesanan");
+        setSubmitting(false);
+        return;
+      }
+      
       const order = await r.json();
       setTrackingId(order.id);
       setCart([]);
+      syncCartToBackend([]);
       setStep("success");
-    } catch { setSubmitError("Terjadi kesalahan, coba lagi"); }
+    } catch {
+      setSubmitError("Terjadi kesalahan sistem, silakan coba lagi");
+    }
     setSubmitting(false);
   };
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="text-center">
-        <div className="w-10 h-10 border-3 border-t-transparent rounded-full animate-spin mx-auto mb-3" style={{ borderColor: "#1D4EF5", borderTopColor: "transparent" }} />
-        <div className="text-sm text-gray-500">Memuat menu...</div>
+        <div className="w-10 h-10 border-3 border-t-transparent rounded-full animate-spin mx-auto mb-3" style={{ borderColor: primary, borderTopColor: "transparent" }} />
+        <div className="text-sm font-bold text-gray-500">Memuat Menu Branded...</div>
       </div>
     </div>
   );
 
-  if (error) return (
+  if (error || !tenant || !menu) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <div className="text-center">
+      <div className="text-center bg-white p-8 rounded-3xl shadow-sm border max-w-sm">
         <div className="text-6xl mb-4">🍽️</div>
-        <div className="text-xl font-bold text-gray-700 mb-2">Menu Tidak Ditemukan</div>
-        <div className="text-gray-400 text-sm">{error}</div>
+        <div className="text-xl font-black text-gray-800 mb-2">Menu Tidak Aktif</div>
+        <div className="text-gray-400 text-sm mb-6">{error || "Menu restoran tidak ditemukan atau sedang dinonaktifkan."}</div>
       </div>
     </div>
   );
-
-  if (!menuData) return null;
-  const { tenant, categories } = menuData;
 
   if (step === "success" && trackingId) {
     return <TrackingView orderId={trackingId} slug={slug!} primary={primary} onBack={() => { setStep("menu"); setTrackingId(null); }} />;
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <div className="sticky top-0 z-20 bg-white shadow-sm">
-        {/* Brand */}
-        <div className="px-4 py-3 flex items-center gap-3 border-b" style={{ background: primary }}>
-          {tenant.logoUrl
-            ? <img src={tenant.logoUrl} alt={tenant.name} className="h-8 w-8 rounded-full object-cover" />
-            : <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-sm">{tenant.name[0]}</div>
-          }
-          <div>
-            <div className="text-white font-bold text-sm leading-none">{tenant.name}</div>
-            {tenant.address && <div className="text-white/70 text-xs mt-0.5 flex items-center gap-1"><MapPin size={10} />{tenant.address}</div>}
+    <div className="min-h-screen bg-gray-50 pb-24 font-sans antialiased">
+      {/* 1. Branded Store Header */}
+      <div className="bg-white border-b shadow-sm">
+        {/* Banner and Logo Wrapper */}
+        <div className="relative">
+          {/* Banner Image */}
+          <div className="h-44 sm:h-56 md:h-68 lg:h-80 xl:h-96 bg-gray-100 overflow-hidden transition-all duration-300">
+            {tenant.coverUrl || menu.bannerUrl ? (
+              <img src={tenant.coverUrl || menu.bannerUrl || ""} alt="Store Banner" className="w-full h-full object-cover object-center" />
+            ) : (
+              <div className="w-full h-full opacity-80" style={{ background: `linear-gradient(135deg, ${primary}, ${primary}cc)` }} />
+            )}
+          </div>
+          {/* Logo overlay */}
+          <div className="absolute -bottom-8 sm:-bottom-10 md:-bottom-12 left-4 w-18 h-18 sm:w-22 sm:h-22 md:w-26 md:h-26 bg-white rounded-2xl sm:rounded-3xl shadow-md p-1 border flex items-center justify-center overflow-hidden transition-all duration-300 z-10">
+            {menu.logoUrl || tenant.logoUrl ? (
+              <img src={menu.logoUrl || tenant.logoUrl || ""} alt="Logo" className="w-full h-full object-cover rounded-xl sm:rounded-2xl" />
+            ) : (
+              <div className="w-full h-full rounded-xl sm:rounded-2xl text-white font-black text-2xl sm:text-3xl flex items-center justify-center" style={{ backgroundColor: primary }}>
+                {tenant.name[0]}
+              </div>
+            )}
           </div>
         </div>
-        {/* Search */}
-        <div className="px-4 py-2 bg-white">
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Cari menu..."
-              className="w-full pl-8 pr-4 py-2 bg-gray-100 rounded-full text-sm text-gray-700 focus:outline-none"
-            />
+
+        {/* Store Name, open/closed, delivery specs */}
+        <div className="pt-10 sm:pt-12 md:pt-14 px-4 pb-4 space-y-3">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h1 className="text-lg sm:text-xl md:text-2xl font-black text-gray-900 leading-tight">{menu.name || tenant.name}</h1>
+              <div className="text-xs text-gray-500 font-semibold mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span className="flex items-center gap-1"><MapPin size={12} className="text-gray-400" /> {branch?.name || "Utama"} • {tenant.address || "Indonesia"}</span>
+              </div>
+              {tenant.bio && (
+                <p className="text-xs text-gray-600 font-normal mt-2 leading-relaxed max-w-2xl italic border-l-2 border-gray-200 pl-2">
+                  {tenant.bio}
+                </p>
+              )}
+            </div>
+            <span className="flex-shrink-0 text-[10px] font-bold bg-green-50 text-green-600 px-3 py-1 rounded-full border border-green-200 uppercase tracking-wide flex items-center gap-1">
+              <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" /> Buka
+            </span>
           </div>
-        </div>
-        {/* Category tabs */}
-        <div className="flex gap-2 px-4 py-2 overflow-x-auto no-scrollbar bg-white border-t">
-          <button
-            onClick={() => setActiveCat(null)}
-            className={`flex-none px-3 py-1 rounded-full text-xs font-medium transition-colors ${!activeCat ? "text-white" : "bg-gray-100 text-gray-600"}`}
-            style={!activeCat ? { backgroundColor: primary } : {}}
-          >Semua</button>
-          {categories.map(c => (
-            <button key={c.id}
-              onClick={() => setActiveCat(activeCat === c.id ? null : c.id)}
-              className={`flex-none px-3 py-1 rounded-full text-xs font-medium transition-colors ${activeCat === c.id ? "text-white" : "bg-gray-100 text-gray-600"}`}
-              style={activeCat === c.id ? { backgroundColor: primary } : {}}
-            >{c.name}</button>
-          ))}
+
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-bold text-gray-700 bg-gray-50 p-3 rounded-2xl">
+            <span className="flex items-center gap-1"><Truck size={13} style={{ color: primary }} /> {(menu.enableDelivery || tenant.enableDelivery) ? "Menerima Pengantaran" : "Hanya Ambil Sendiri"}</span>
+            <span className="text-gray-300 hidden sm:inline">|</span>
+            <span className="flex items-center gap-1"><Clock size={13} style={{ color: primary }} /> {menu.estimatedDeliveryTime || "30 mnt"} ETA</span>
+          </div>
         </div>
       </div>
 
-      {/* Products */}
-      <div className="p-4 pb-32">
+      {/* 2. Marketing Promo Banners */}
+      {promoBanners.length > 0 && (
+        <div className="mt-4 px-4 space-y-3 max-w-7xl mx-auto w-full">
+          <div className="font-black text-gray-900 text-sm flex items-center gap-1.5">
+            <Sparkles size={16} className="text-amber-500" /> Promo Spesial
+          </div>
+          <div className="flex gap-4 overflow-x-auto no-scrollbar py-1">
+            {promoBanners.map(pb => (
+              <div key={pb.id} className="flex-none w-76 sm:w-84 md:w-[350px] h-36 sm:h-40 md:h-[160px] rounded-3xl overflow-hidden shadow-sm border border-gray-100 relative group transition-all duration-300 hover:shadow-md">
+                {pb.imageUrl ? (
+                  <img src={pb.imageUrl} alt="Promo" className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500" />
+                ) : (
+                  <div
+                    style={{ backgroundColor: pb.bgColor, color: pb.textColor }}
+                    className="w-full h-full p-4.5 flex flex-col justify-between"
+                  >
+                    <div className="font-black text-sm sm:text-base leading-snug">{pb.title}</div>
+                    <div className="text-[10px] font-bold uppercase tracking-wider opacity-85">Tunjukkan di Kasir / POS</div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {bestSellers.length > 0 && (
+        <div className="mt-4 px-4 space-y-3 max-w-7xl mx-auto w-full">
+          <div className="font-black text-gray-900 text-sm flex items-center gap-1.5">
+            <Sparkles size={16} className="text-amber-500" /> Promo Rekomendasi
+          </div>
+          <div className="flex gap-3 overflow-x-auto no-scrollbar py-1">
+            {bestSellers.map(p => (
+              <div key={p.id} onClick={() => handleOpenDetailModal(p)} className="flex-none w-64 bg-white border border-gray-100 rounded-3xl p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer flex gap-3">
+                <div className="w-20 h-20 bg-gray-50 rounded-2xl flex-shrink-0 overflow-hidden relative">
+                  {p.imageUrl ? <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" /> : <span className="text-3xl flex items-center justify-center h-full">🍔</span>}
+                  {p.isBestSeller ? (
+                    <span className="absolute top-1 left-1 bg-amber-500 text-black font-extrabold text-[8px] px-1.5 py-0.5 rounded-md flex items-center gap-0.5 leading-none">🔥 BEST</span>
+                  ) : (
+                    <span className="absolute top-1 left-1 bg-red-500 text-white font-bold text-[8px] px-1.5 py-0.5 rounded-md leading-none">PROMO</span>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0 flex flex-col justify-between">
+                  <div>
+                    <div className="font-bold text-xs text-gray-800 truncate">{p.name}</div>
+                    <p className="text-[10px] text-gray-400 line-clamp-2 mt-0.5 leading-relaxed">{p.description || "Rasa lezat tiada tanding."}</p>
+                  </div>
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-xs font-black text-red-500">{formatRp(p.promoPrice || p.price)}</span>
+                    <span className="text-[10px] text-gray-300 line-through">{formatRp(p.price)}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Search and Category Tabs */}
+      <div className="sticky top-0 z-10 bg-white border-y mt-4">
+        <div className="max-w-7xl mx-auto w-full">
+          {/* Search */}
+          <div className="px-4 py-2">
+            <div className="relative">
+              <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Cari makanan & minuman favorit..."
+                className="w-full pl-9 pr-4 py-2.5 bg-gray-100 border border-transparent focus:border-gray-200 rounded-2xl text-xs text-gray-700 focus:outline-none transition-all"
+              />
+            </div>
+          </div>
+
+          {/* Sticky category tabs */}
+          <div className="flex gap-2 px-4 pb-2.5 overflow-x-auto no-scrollbar">
+            <button
+              onClick={() => setActiveCat(null)}
+              className={`flex-none px-4 py-2 rounded-full text-xs font-bold transition-all ${!activeCat ? "text-white shadow-sm" : "bg-gray-50 text-gray-600 border"}`}
+              style={!activeCat ? { backgroundColor: primary } : {}}
+            >Semua Menu</button>
+            {categories.map(c => (
+              <button key={c.id}
+                onClick={() => setActiveCat(c.id)}
+                className={`flex-none px-4 py-2 rounded-full text-xs font-bold transition-all ${activeCat === c.id ? "text-white shadow-sm" : "bg-gray-50 text-gray-600 border"}`}
+                style={activeCat === c.id ? { backgroundColor: primary } : {}}
+              >{c.name}</button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Product Grid */}
+      <div className="p-4 max-w-7xl mx-auto w-full">
         {filteredProducts.length === 0 ? (
-          <div className="text-center py-16 text-gray-400">
-            <div className="text-4xl mb-2">🍽️</div>
-            <div className="text-sm">Tidak ada menu</div>
+          <div className="text-center py-16 text-gray-400 bg-white rounded-3xl border border-gray-100">
+            <div className="text-5xl mb-3">🍽️</div>
+            <div className="text-sm font-semibold">Menu tidak ditemukan</div>
+            <p className="text-xs text-gray-300 mt-1">Coba gunakan kata kunci pencarian lain.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3.5 sm:gap-4 md:gap-5">
             {filteredProducts.map(p => {
-              const inCart = cart.find(c => c.product.id === p.id);
+              const countInCart = cart.filter(c => c.product.id === p.id).reduce((s, c) => s + c.quantity, 0);
               return (
-                <div key={p.id} className="bg-white rounded-2xl overflow-hidden shadow-sm">
-                  <div className="aspect-[4/3] bg-gray-100 flex items-center justify-center relative">
-                    {p.imageUrl
-                      ? <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
-                      : <span className="text-3xl">🍽️</span>
-                    }
-                    {inCart && (
-                      <div className="absolute top-2 right-2 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold text-white" style={{ backgroundColor: primary }}>
-                        {inCart.quantity}
+                <div key={p.id} onClick={() => handleOpenDetailModal(p)} className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-md hover:border-gray-200 transition-all duration-200 cursor-pointer flex flex-col justify-between group">
+                  <div className="aspect-square bg-gray-50 flex items-center justify-center relative overflow-hidden">
+                    {p.imageUrl ? (
+                      <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" />
+                    ) : (
+                      <span className="text-4xl">🍕</span>
+                    )}
+                    {p.isBestSeller && (
+                      <span className="absolute top-2 left-2 bg-amber-500 text-black font-black text-[9px] px-2 py-0.5 rounded-lg shadow-sm uppercase tracking-wide">
+                        🔥 Best
+                      </span>
+                    )}
+                    {countInCart > 0 && (
+                      <div className="absolute top-2 right-2 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black text-white shadow-sm" style={{ backgroundColor: primary }}>
+                        {countInCart}
                       </div>
                     )}
                   </div>
-                  <div className="p-3">
-                    <div className="font-semibold text-gray-900 text-sm leading-tight mb-0.5 line-clamp-2">{p.name}</div>
-                    {p.description && <div className="text-xs text-gray-400 mb-2 line-clamp-1">{p.description}</div>}
-                    <div className="flex items-center justify-between">
-                      <div className="font-bold text-sm" style={{ color: primary }}>{formatRp(p.price)}</div>
-                      {inCart ? (
-                        <div className="flex items-center gap-1">
-                          <button onClick={() => updateQty(p.id, inCart.quantity - 1)}
-                            className="w-6 h-6 rounded-full flex items-center justify-center text-white text-sm" style={{ backgroundColor: primary }}>
-                            <Minus size={12} />
-                          </button>
-                          <span className="text-xs font-bold w-4 text-center">{inCart.quantity}</span>
-                          <button onClick={() => addToCart(p)}
-                            className="w-6 h-6 rounded-full flex items-center justify-center text-white text-sm" style={{ backgroundColor: primary }}>
-                            <Plus size={12} />
-                          </button>
-                        </div>
-                      ) : (
-                        <button onClick={() => addToCart(p)}
-                          className="w-7 h-7 rounded-full flex items-center justify-center text-white shadow" style={{ backgroundColor: primary }}>
-                          <Plus size={14} />
-                        </button>
-                      )}
+                  <div className="p-3 space-y-1">
+                    <div className="font-bold text-gray-800 text-xs sm:text-sm line-clamp-1 group-hover:text-gray-900 transition-colors" title={p.name}>{p.name}</div>
+                    {p.description && <div className="text-[10px] text-gray-400 line-clamp-2 leading-relaxed h-7.5 overflow-hidden">{p.description}</div>}
+                    <div className="flex items-center justify-between pt-1">
+                      <div className="flex flex-col">
+                        {p.promoPrice ? (
+                          <>
+                            <span className="text-xs sm:text-sm font-black text-red-500">{formatRp(p.promoPrice)}</span>
+                            <span className="text-[9px] text-gray-300 line-through leading-none">{formatRp(p.price)}</span>
+                          </>
+                        ) : (
+                          <span className="text-xs sm:text-sm font-black" style={{ color: primary }}>{formatRp(p.price)}</span>
+                        )}
+                      </div>
+                      <button className="w-8 h-8 rounded-xl flex items-center justify-center text-white shadow hover:scale-105 active:scale-95 transition-all" style={{ backgroundColor: primary }}>
+                        <Plus size={16} />
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -389,235 +896,470 @@ export default function CustomerMenuPage({ slug: slugProp }: CustomerMenuProps =
         )}
       </div>
 
-      {/* Cart fab */}
+      {/* 4. Sticky Bottom Cart Bar */}
       {cartCount > 0 && step === "menu" && (
-        <div className="fixed bottom-6 left-4 right-4 z-30">
+        <div className="fixed bottom-6 left-4 right-4 z-30 max-w-md mx-auto w-full animate-slide-up">
           <button
             onClick={() => setCartOpen(true)}
-            className="w-full flex items-center justify-between px-5 py-3.5 rounded-2xl text-white shadow-xl"
+            className="w-full flex items-center justify-between px-5 py-4 rounded-3xl text-white shadow-xl hover:opacity-95 transition-opacity"
             style={{ backgroundColor: primary }}
           >
-            <div className="flex items-center gap-2">
-              <div className="bg-white/20 rounded-lg px-2 py-0.5 text-xs font-bold">{cartCount}</div>
-              <span className="font-semibold text-sm">Lihat Pesanan</span>
+            <div className="flex items-center gap-2.5">
+              <div className="bg-white/20 rounded-xl px-2.5 py-1 text-xs font-black">{cartCount}</div>
+              <span className="font-bold text-sm">Lihat Keranjang</span>
             </div>
-            <span className="font-bold text-sm">{formatRp(cartTotal)}</span>
+            <span className="font-black text-sm">{formatRp(cartTotal)}</span>
           </button>
         </div>
       )}
 
-      {/* Cart drawer */}
-      {cartOpen && (
-        <div className="fixed inset-0 z-50 flex flex-col justify-end">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setCartOpen(false)} />
-          <div className="relative bg-white rounded-t-3xl max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between px-5 pt-5 pb-3">
-              <div className="font-bold text-gray-900">Pesanan Saya ({cartCount} item)</div>
-              <button onClick={() => setCartOpen(false)} className="text-gray-400 p-1"><X size={20} /></button>
+      {/* 5. Product Detail Modal */}
+      {selectedProduct && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setSelectedProduct(null)} />
+          <div className="relative bg-white rounded-t-3xl sm:rounded-3xl max-h-[90vh] sm:max-h-[85vh] w-full max-w-md sm:max-w-lg flex flex-col overflow-hidden animate-slide-up shadow-2xl">
+            <button onClick={() => setSelectedProduct(null)} className="absolute top-4 right-4 z-10 bg-white/80 backdrop-blur rounded-full p-2 border shadow-sm text-gray-500 hover:bg-gray-100">
+              <X size={16} />
+            </button>
+            <div className="overflow-y-auto flex-1 pb-4">
+              <div className="h-56 bg-gray-50 flex items-center justify-center overflow-hidden">
+                {selectedProduct.imageUrl ? (
+                  <img src={selectedProduct.imageUrl} alt={selectedProduct.name} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-6xl">🍛</span>
+                )}
+              </div>
+              <div className="p-5 space-y-4">
+                <div>
+                  <h2 className="text-lg font-black text-gray-900 leading-tight">{selectedProduct.name}</h2>
+                  <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">{selectedProduct.description || "Menu istimewa yang dibuat dengan bahan segar berkualitas tinggi."}</p>
+                </div>
+
+                {/* Variant selection */}
+                <div className="space-y-2">
+                  <div className="text-xs font-black text-gray-700 uppercase tracking-wide">Pilihan Ukuran / Varian</div>
+                  <div className="flex gap-2">
+                    {["Regular", "Large"].map(v => (
+                      <button key={v} onClick={() => setModalVariant(v)}
+                        className={`px-4 py-2.5 rounded-2xl text-xs font-bold border transition-all ${modalVariant === v ? "text-white shadow-sm" : "bg-gray-50 text-gray-600"}`}
+                        style={modalVariant === v ? { backgroundColor: primary, borderColor: primary } : {}}>
+                        {v}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Toppings selection */}
+                <div className="space-y-2">
+                  <div className="text-xs font-black text-gray-700 uppercase tracking-wide">Topping / Tambahan (+Rp 2.000)</div>
+                  <div className="grid grid-cols-2 gap-2">
+                    {["Ekstra Sambal", "Telur Mata Sapi", "Keju Parut", "Kerupuk Bawang"].map(t => {
+                      const selected = modalToppings.includes(t);
+                      return (
+                        <button key={t}
+                          onClick={() => setModalToppings(prev => selected ? prev.filter(x => x !== t) : [...prev, t])}
+                          className={`px-3 py-2 rounded-2xl text-xs font-bold text-left border flex items-center justify-between transition-all ${selected ? "bg-blue-50/50" : "bg-gray-50"}`}
+                          style={selected ? { borderColor: primary, color: primary } : {}}>
+                          <span>{t}</span>
+                          {selected && <CheckCircle2 size={14} style={{ color: primary }} />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Notes Input */}
+                <div className="space-y-1.5">
+                  <div className="text-xs font-black text-gray-700 uppercase tracking-wide">Catatan Pesanan</div>
+                  <input
+                    value={modalNotes}
+                    onChange={e => setModalNotes(e.target.value)}
+                    placeholder="Contoh: Tidak pedas, kuah dipisah..."
+                    className="w-full px-4 py-3 bg-gray-50 border rounded-2xl text-xs focus:outline-none focus:border-gray-300"
+                  />
+                </div>
+              </div>
             </div>
-            <div className="flex-1 overflow-y-auto px-5 pb-2 space-y-3">
+
+            {/* Sticky Modal Bottom */}
+            <div className="border-t p-4 bg-white flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 bg-gray-100 rounded-2xl p-1.5">
+                <button onClick={() => setModalQty(q => Math.max(1, q - 1))} className="w-8 h-8 rounded-xl bg-white border flex items-center justify-center text-gray-600 hover:bg-gray-50">
+                  <Minus size={14} />
+                </button>
+                <span className="font-black text-sm w-6 text-center">{modalQty}</span>
+                <button onClick={() => setModalQty(q => q + 1)} className="w-8 h-8 rounded-xl bg-white border flex items-center justify-center text-gray-600 hover:bg-gray-50">
+                  <Plus size={14} />
+                </button>
+              </div>
+              <button
+                onClick={handleAddToCart}
+                className="flex-1 py-3.5 rounded-2xl text-white font-bold text-xs flex items-center justify-center gap-2"
+                style={{ backgroundColor: primary }}
+              >
+                <span>Masukkan Keranjang • {formatRp(( (selectedProduct.promoPrice ?? selectedProduct.price) + (modalToppings.length * 2000) ) * modalQty)}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 6. Shopping Cart Drawer */}
+      {cartOpen && (
+        <div className="fixed inset-0 z-50 flex flex-col justify-end sm:justify-center sm:items-center p-0 sm:p-4 animate-fade-in">
+          <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setCartOpen(false)} />
+          <div className="relative bg-white rounded-t-3xl sm:rounded-3xl max-h-[85vh] sm:max-h-[80vh] w-full max-w-md flex flex-col shadow-2xl animate-slide-up">
+            <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b">
+              <div className="font-black text-gray-900">Keranjang Belanja ({cartCount} item)</div>
+              <button onClick={() => setCartOpen(false)} className="text-gray-400 hover:bg-gray-100 p-2 rounded-full"><X size={18} /></button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
               {cart.map(c => (
-                <div key={c.product.id} className="flex gap-3">
-                  <div className="w-14 h-14 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                    {c.product.imageUrl ? <img src={c.product.imageUrl} className="w-full h-full object-cover" alt={c.product.name} /> : <span className="text-xl">🍽️</span>}
+                <div key={c.id} className="flex gap-3.5 border-b pb-4 last:border-b-0 last:pb-0">
+                  <div className="w-16 h-16 rounded-2xl bg-gray-50 border flex items-center justify-center flex-shrink-0 overflow-hidden">
+                    {c.product.imageUrl ? <img src={c.product.imageUrl} className="w-full h-full object-cover" alt={c.product.name} /> : <span className="text-2xl">🍔</span>}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="font-semibold text-sm text-gray-900 truncate">{c.product.name}</div>
-                    <div className="text-xs text-gray-400">{formatRp(c.product.price)}</div>
-                    <input
-                      value={c.notes}
-                      onChange={e => updateItemNotes(c.product.id, e.target.value)}
-                      placeholder="Catatan (opsional)..."
-                      className="mt-1 w-full text-xs bg-gray-50 rounded-lg px-2 py-1 border border-gray-100 focus:outline-none"
-                    />
+                    <div className="font-bold text-xs text-gray-900 truncate">{c.product.name}</div>
+                    <div className="text-[10px] text-gray-400 font-semibold mt-0.5">
+                      {c.selectedVariant} {c.selectedToppings.length > 0 ? `+ Toppings: ${c.selectedToppings.join(", ")}` : ""}
+                    </div>
+                    {c.notes && <div className="text-[10px] text-amber-600 bg-amber-50 rounded-lg px-2 py-0.5 border border-amber-100 inline-block mt-1 italic">"{c.notes}"</div>}
                   </div>
-                  <div className="flex flex-col items-end gap-2">
-                    <button onClick={() => removeFromCart(c.product.id)} className="text-gray-300 hover:text-red-400"><Trash2 size={14} /></button>
-                    <div className="flex items-center gap-2">
-                      <button onClick={() => updateQty(c.product.id, c.quantity - 1)}
-                        className="w-6 h-6 rounded-full flex items-center justify-center text-white" style={{ backgroundColor: primary }}>
+                  <div className="flex flex-col items-end justify-between flex-shrink-0">
+                    <button onClick={() => removeFromCart(c.id)} className="text-gray-300 hover:text-red-500 transition-colors p-1"><Trash2 size={13} /></button>
+                    <div className="flex items-center gap-2.5 bg-gray-50 rounded-xl p-1 border">
+                      <button onClick={() => updateQty(c.id, c.quantity - 1)} className="w-5 h-5 rounded-lg bg-white border flex items-center justify-center text-gray-500">
                         <Minus size={10} />
                       </button>
-                      <span className="text-sm font-bold w-4 text-center">{c.quantity}</span>
-                      <button onClick={() => updateQty(c.product.id, c.quantity + 1)}
-                        className="w-6 h-6 rounded-full flex items-center justify-center text-white" style={{ backgroundColor: primary }}>
+                      <span className="text-xs font-black w-4 text-center">{c.quantity}</span>
+                      <button onClick={() => updateQty(c.id, c.quantity + 1)} className="w-5 h-5 rounded-lg bg-white border flex items-center justify-center text-gray-500">
                         <Plus size={10} />
                       </button>
                     </div>
-                    <div className="text-xs font-bold" style={{ color: primary }}>{formatRp(c.product.price * c.quantity)}</div>
+                    <div className="text-xs font-black mt-1" style={{ color: primary }}>{formatRp(c.totalPrice)}</div>
                   </div>
                 </div>
               ))}
             </div>
-            <div className="px-5 py-4 border-t space-y-3">
-              <div className="flex justify-between text-sm font-bold text-gray-900">
-                <span>Total</span><span style={{ color: primary }}>{formatRp(cartTotal)}</span>
+
+            {/* Cart summary and checkout trigger */}
+            <div className="p-5 border-t bg-gray-50 space-y-3.5">
+              <div className="space-y-1.5 text-xs text-gray-600">
+                <div className="flex justify-between"><span>Subtotal</span><span className="font-bold text-gray-900">{formatRp(cartTotal)}</span></div>
+                <div className="flex justify-between"><span>Pajak (10%)</span><span className="font-bold text-gray-900">{formatRp(cartTotal * 0.1)}</span></div>
+              </div>
+              <div className="flex justify-between font-black text-sm pt-2 border-t text-gray-900">
+                <span>Total Estimasi</span><span style={{ color: primary }}>{formatRp(cartTotal * 1.1)}</span>
               </div>
               <button
                 onClick={() => { setCartOpen(false); setStep("order-type"); }}
-                className="w-full py-3.5 rounded-2xl text-white font-semibold flex items-center justify-center gap-2"
+                className="w-full py-4 rounded-3xl text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-primary/20 hover:opacity-95"
                 style={{ backgroundColor: primary }}>
-                Lanjut ke Pemesanan <ChevronRight size={18} />
+                Lanjut Pilih Jenis Pesanan <ChevronRight size={16} />
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Order type selection */}
+      {/* 7. Order Type Selection */}
       {step === "order-type" && (
-        <div className="fixed inset-0 z-50 bg-gray-50 flex flex-col">
-          <div className="bg-white border-b px-4 py-3 flex items-center gap-3">
-            <button onClick={() => setStep("menu")} className="text-gray-500"><ArrowLeft size={20} /></button>
-            <div className="font-bold text-gray-900">Pilih Jenis Pesanan</div>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
-            {tenant.enableDineIn && (
-              <button
-                onClick={() => { setOrderType("dine_in"); setStep("form"); }}
-                className={`w-full p-5 rounded-2xl border-2 text-left transition-colors ${orderType === "dine_in" ? "border-2 bg-blue-50" : "border-gray-100 bg-white"}`}
-                style={orderType === "dine_in" ? { borderColor: primary } : {}}
-              >
-                <div className="text-2xl mb-2">🪑</div>
-                <div className="font-bold text-gray-900">Makan di Tempat</div>
-                <div className="text-sm text-gray-500">Pesan dan makan langsung di restoran</div>
-              </button>
-            )}
-            {tenant.enableTakeAway && (
-              <button
-                onClick={() => { setOrderType("take_away"); setStep("form"); }}
-                className={`w-full p-5 rounded-2xl border-2 text-left transition-colors ${orderType === "take_away" ? "bg-blue-50" : "border-gray-100 bg-white"}`}
-                style={orderType === "take_away" ? { borderColor: primary, borderWidth: 2 } : {}}
-              >
-                <div className="text-2xl mb-2">🛍️</div>
-                <div className="font-bold text-gray-900">Bawa Pulang</div>
-                <div className="text-sm text-gray-500">Pesan sekarang, ambil langsung di kasir</div>
-              </button>
-            )}
-            {tenant.enableDelivery && (
-              <button
-                onClick={() => { setOrderType("delivery"); setStep("form"); }}
-                className={`w-full p-5 rounded-2xl border-2 text-left transition-colors ${orderType === "delivery" ? "bg-blue-50" : "border-gray-100 bg-white"}`}
-                style={orderType === "delivery" ? { borderColor: primary, borderWidth: 2 } : {}}
-              >
-                <div className="text-2xl mb-2">🛵</div>
-                <div className="font-bold text-gray-900">Antar ke Alamat</div>
-                <div className="text-sm text-gray-500">Kami antar pesanan ke lokasi Anda</div>
-              </button>
-            )}
+        <div className="fixed inset-0 z-50 bg-gray-50 sm:bg-black/60 sm:backdrop-blur-sm flex items-center justify-center p-0 sm:p-4 animate-fade-in">
+          <div className="absolute inset-0 sm:bg-transparent" onClick={() => setStep("menu")} />
+          <div className="relative bg-white rounded-none sm:rounded-3xl h-full sm:h-auto sm:max-h-[85vh] w-full max-w-md flex flex-col shadow-2xl animate-slide-up overflow-hidden">
+            <div className="bg-white border-b px-4 py-3.5 flex items-center gap-3 shadow-sm">
+              <button onClick={() => setStep("menu")} className="text-gray-500 hover:bg-gray-100 p-1.5 rounded-full"><ArrowLeft size={18} /></button>
+              <div className="font-black text-gray-900 text-sm">Pilih Jenis Pesanan</div>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-5 space-y-4 w-full">
+              {(menu.enableDineIn || tenant?.enableDineIn) && (
+                <button
+                  onClick={() => { setOrderType("dine_in"); setStep("form"); }}
+                  className={`w-full p-5 rounded-3xl border text-left flex gap-4 transition-all hover:bg-white hover:shadow-sm ${orderType === "dine_in" ? "bg-white border-2" : "bg-white/60"}`}
+                  style={orderType === "dine_in" ? { borderColor: primary } : {}}
+                >
+                  <div className="text-3xl bg-blue-50 p-3 rounded-2xl">🪑</div>
+                  <div>
+                    <div className="font-bold text-gray-900 text-sm">Makan di Tempat</div>
+                    <p className="text-xs text-gray-400 mt-1 leading-relaxed">Pesan dan makan langsung di meja restoran</p>
+                  </div>
+                </button>
+              )}
+              
+              {(menu.enableTakeAway || tenant?.enableTakeAway) && (
+                <button
+                  onClick={() => { setOrderType("take_away"); setStep("form"); }}
+                  className={`w-full p-5 rounded-3xl border text-left flex gap-4 transition-all hover:bg-white hover:shadow-sm ${orderType === "take_away" ? "bg-white border-2" : "bg-white/60"}`}
+                  style={orderType === "take_away" ? { borderColor: primary } : {}}
+                >
+                  <div className="text-3xl bg-amber-50 p-3 rounded-2xl">🛍️</div>
+                  <div>
+                    <div className="font-bold text-gray-900 text-sm">Bawa Pulang</div>
+                    <p className="text-xs text-gray-400 mt-1 leading-relaxed">Pesan online, ambil langsung di outlet kasir</p>
+                  </div>
+                </button>
+              )}
+              
+              {(menu.enableDelivery || tenant?.enableDelivery) && (
+                <button
+                  onClick={() => { setOrderType("delivery"); setStep("form"); }}
+                  className={`w-full p-5 rounded-3xl border text-left flex gap-4 transition-all hover:bg-white hover:shadow-sm ${orderType === "delivery" ? "bg-white border-2" : "bg-white/60"}`}
+                  style={orderType === "delivery" ? { borderColor: primary } : {}}
+                >
+                  <div className="text-3xl bg-purple-50 p-3 rounded-2xl">🛵</div>
+                  <div>
+                    <div className="font-bold text-gray-900 text-sm">Antar ke Alamat</div>
+                    <p className="text-xs text-gray-400 mt-1 leading-relaxed">Kurir kami akan mengantarkan pesanan langsung ke pintu Anda</p>
+                  </div>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}
 
-      {/* Order form */}
+      {/* 8. Checkout Form */}
       {step === "form" && (
-        <div className="fixed inset-0 z-50 bg-gray-50 flex flex-col">
-          <div className="bg-white border-b px-4 py-3 flex items-center gap-3">
-            <button onClick={() => setStep("order-type")} className="text-gray-500"><ArrowLeft size={20} /></button>
-            <div>
-              <div className="font-bold text-gray-900">Detail Pesanan</div>
-              <div className="text-xs text-gray-400">{ORDER_TYPE_LABELS[orderType]}</div>
-            </div>
-          </div>
-          <div className="flex-1 overflow-y-auto p-4 space-y-4">
-            {/* Items summary */}
-            <div className="bg-white rounded-2xl p-4 shadow-sm">
-              <div className="font-semibold text-sm text-gray-700 mb-3">Ringkasan Pesanan</div>
-              {cart.map(c => (
-                <div key={c.product.id} className="flex justify-between text-sm py-1">
-                  <span className="text-gray-600">{c.product.name} ×{c.quantity}</span>
-                  <span className="font-medium text-gray-900">{formatRp(c.product.price * c.quantity)}</span>
-                </div>
-              ))}
-              <div className="flex justify-between font-bold text-sm pt-2 border-t mt-2">
-                <span>Total</span><span style={{ color: primary }}>{formatRp(cartTotal)}</span>
+        <div className="fixed inset-0 z-50 bg-gray-50 sm:bg-black/60 sm:backdrop-blur-sm flex items-center justify-center p-0 sm:p-4 animate-fade-in">
+          <div className="absolute inset-0 sm:bg-transparent" onClick={() => setStep("order-type")} />
+          <div className="relative bg-white rounded-none sm:rounded-3xl h-full sm:h-auto sm:max-h-[90vh] w-full max-w-lg flex flex-col shadow-2xl animate-slide-up overflow-hidden">
+            <div className="bg-white border-b px-4 py-3.5 flex items-center gap-3 shadow-sm">
+              <button onClick={() => setStep("order-type")} className="text-gray-500 hover:bg-gray-100 p-1.5 rounded-full"><ArrowLeft size={18} /></button>
+              <div>
+                <div className="font-black text-gray-900 text-sm">Lengkapi Data Pemesanan</div>
+                <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{ORDER_TYPE_LABELS[orderType]}</div>
               </div>
             </div>
 
-            {/* Customer info */}
-            <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3">
-              <div className="font-semibold text-sm text-gray-700">Informasi Pelanggan</div>
-              <div>
-                <label className="text-xs text-gray-500 flex items-center gap-1 mb-1"><User size={11} /> Nama Lengkap *</label>
-                <input value={form.customerName} onChange={e => setForm(f => ({ ...f, customerName: e.target.value }))}
-                  placeholder="Nama Anda"
-                  className="w-full px-3 py-2.5 bg-gray-50 rounded-xl text-sm border border-gray-100 focus:outline-none focus:border-gray-300" />
-              </div>
-              <div>
-                <label className="text-xs text-gray-500 flex items-center gap-1 mb-1"><Phone size={11} /> Nomor Telepon {orderType !== "dine_in" ? "*" : "(opsional)"}</label>
-                <input value={form.customerPhone} onChange={e => setForm(f => ({ ...f, customerPhone: e.target.value }))}
-                  placeholder="08xxxxxxxxxx" type="tel"
-                  className="w-full px-3 py-2.5 bg-gray-50 rounded-xl text-sm border border-gray-100 focus:outline-none focus:border-gray-300" />
-              </div>
-              {orderType === "dine_in" && (
+            <div className="flex-1 overflow-y-auto p-4 space-y-4 w-full">
+              {/* Customer Inputs */}
+              <div className="bg-white rounded-2xl p-5 shadow-sm space-y-4 border border-gray-100">
+                <div className="font-bold text-xs text-gray-400 uppercase tracking-wide">Informasi Kontak</div>
                 <div>
-                  <label className="text-xs text-gray-500 flex items-center gap-1 mb-1"><QrCode size={11} /> Nomor Meja *</label>
-                  <input value={form.tableNumber} onChange={e => setForm(f => ({ ...f, tableNumber: e.target.value }))}
-                    placeholder="Contoh: 5"
-                    className="w-full px-3 py-2.5 bg-gray-50 rounded-xl text-sm border border-gray-100 focus:outline-none focus:border-gray-300" />
+                  <label className="text-xs font-bold text-gray-600 block mb-1">Nama Lengkap *</label>
+                  <input value={form.customerName} onChange={e => setForm(f => ({ ...f, customerName: e.target.value }))}
+                    placeholder="Masukkan nama Anda"
+                    className="w-full px-4 py-3 bg-gray-50 rounded-2xl text-xs border border-transparent focus:border-gray-200 focus:bg-white focus:outline-none transition-all" />
+                </div>
+                
+                {orderType !== "dine_in" && (
+                  <div>
+                    <label className="text-xs font-bold text-gray-600 block mb-1">Nomor Telepon / WhatsApp *</label>
+                    <input value={form.customerPhone} onChange={e => setForm(f => ({ ...f, customerPhone: e.target.value }))}
+                      placeholder="Contoh: 081234567890" type="tel"
+                      className="w-full px-4 py-3 bg-gray-50 rounded-2xl text-xs border border-transparent focus:border-gray-200 focus:bg-white focus:outline-none transition-all" />
+                  </div>
+                )}
+
+                {orderType === "dine_in" && (
+                  <div>
+                    <label className="text-xs font-bold text-gray-600 block mb-1">Nomor Meja *</label>
+                    <input value={form.tableNumber} onChange={e => setForm(f => ({ ...f, tableNumber: e.target.value }))}
+                      placeholder="Nomor meja yang Anda duduki"
+                      className="w-full px-4 py-3 bg-gray-50 rounded-2xl text-xs border border-transparent focus:border-gray-200 focus:bg-white focus:outline-none transition-all" />
+                  </div>
+                )}
+
+                {orderType === "delivery" && (
+                  <>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-gray-600 block">Jarak Pengiriman *</label>
+                      <div className="grid grid-cols-2 gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setDeliveryDistance("near")}
+                          className={`p-3 rounded-2xl border text-center transition-all ${
+                            deliveryDistance === "near"
+                              ? "bg-blue-50/20 border-2"
+                              : "bg-gray-50"
+                          }`}
+                          style={deliveryDistance === "near" ? { borderColor: primary } : {}}
+                        >
+                          <div className="text-xl mb-0.5">📍</div>
+                          <div className="font-bold text-gray-900 text-xs">Jarak Dekat</div>
+                          <div className="text-[10px] text-green-600 font-semibold mt-0.5">
+                            {tenant?.deliveryFeeNear === 0 || tenant?.deliveryFeeNear === undefined ? "Gratis" : formatRp(Number(tenant.deliveryFeeNear))}
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeliveryDistance("far")}
+                          className={`p-3 rounded-2xl border text-center transition-all ${
+                            deliveryDistance === "far"
+                              ? "bg-blue-50/20 border-2"
+                              : "bg-gray-50"
+                          }`}
+                          style={deliveryDistance === "far" ? { borderColor: primary } : {}}
+                        >
+                          <div className="text-xl mb-0.5">🚀</div>
+                          <div className="font-bold text-gray-900 text-xs">Jarak Jauh</div>
+                          <div className="text-[10px] text-primary font-semibold mt-0.5">
+                            {formatRp(Number(tenant?.deliveryFeeFar ?? 5000))}
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-gray-600 block mb-1">Alamat Lengkap Pengantaran *</label>
+                      <textarea value={form.deliveryAddress} onChange={e => setForm(f => ({ ...f, deliveryAddress: e.target.value }))}
+                        placeholder="Tuliskan nama jalan, nomor rumah, RT/RW, kelurahan, kecamatan"
+                        rows={3}
+                        className="w-full px-4 py-3 bg-gray-50 rounded-2xl text-xs border border-transparent focus:border-gray-200 focus:bg-white focus:outline-none transition-all resize-none text-foreground" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-gray-600 block mb-1">Patokan Alamat / Catatan Pengiriman</label>
+                      <input value={form.deliveryNotes} onChange={e => setForm(f => ({ ...f, deliveryNotes: e.target.value }))}
+                        placeholder="Contoh: Rumah warna biru pagar besi hitam"
+                        className="w-full px-4 py-3 bg-gray-50 rounded-2xl text-xs border border-transparent focus:border-gray-200 focus:bg-white focus:outline-none transition-all text-foreground" />
+                    </div>
+                    <div>
+                      <label className="text-xs font-bold text-gray-600 block mb-1">Link Google Maps (Opsional)</label>
+                      <div className="flex gap-2">
+                        <input value={form.googleMapsLocation} onChange={e => setForm(f => ({ ...f, googleMapsLocation: e.target.value }))}
+                          placeholder="Tempel link share lokasi Google Maps Anda"
+                          className="flex-1 px-4 py-3 bg-gray-50 rounded-2xl text-xs border border-transparent focus:border-gray-200 focus:bg-white focus:outline-none transition-all text-foreground" />
+                        <button
+                          type="button"
+                          onClick={() => setMapModalOpen(true)}
+                          className="px-4 py-3 bg-primary/10 text-primary hover:bg-primary/20 text-xs font-bold rounded-2xl transition-colors whitespace-nowrap flex items-center gap-1.5"
+                          style={{ color: primary, backgroundColor: `${primary}15` }}
+                        >
+                          <MapPin size={14} />
+                          <span>Pin Lokasi</span>
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                <div>
+                  <label className="text-xs font-bold text-gray-600 block mb-1">Catatan Tambahan Pesanan</label>
+                  <input value={orderNotes} onChange={e => setOrderNotes(e.target.value)}
+                    placeholder="Alergi, permintaan khusus, sendok garpu..."
+                    className="w-full px-4 py-3 bg-gray-50 rounded-2xl text-xs border border-transparent focus:border-gray-200 focus:bg-white focus:outline-none transition-all" />
+                </div>
+              </div>
+
+              {/* Payment Method Selector */}
+              <div className="bg-white rounded-2xl p-5 shadow-sm space-y-4 border border-gray-100">
+                <div className="font-bold text-xs text-gray-400 uppercase tracking-wide">Metode Pembayaran</div>
+                <div className="space-y-2">
+                  {availablePayments.map(pm => (
+                    <button key={pm.value} onClick={() => setPaymentMethod(pm.value)}
+                      className={`w-full flex items-start gap-3 p-3.5 rounded-2xl border transition-all text-left ${paymentMethod === pm.value ? "bg-blue-50/50 border-2" : "bg-gray-50/50 border-transparent hover:bg-gray-100/50"}`}
+                      style={paymentMethod === pm.value ? { borderColor: primary } : {}}>
+                      <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5 ${paymentMethod === pm.value ? "" : "border-gray-300"}`}
+                        style={paymentMethod === pm.value ? { borderColor: primary } : {}}>
+                        {paymentMethod === pm.value && <div className="w-2 h-2 rounded-full" style={{ backgroundColor: primary }} />}
+                      </div>
+                      <div>
+                        <div className="font-bold text-xs text-gray-800">{pm.label}</div>
+                        <div className="text-[10px] text-gray-400 mt-0.5">{pm.desc}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {submitError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-2xl px-4 py-3">{submitError}</div>
+              )}
+            </div>
+
+            {/* Sticky checkout bottom */}
+            <div className="p-4 bg-white border-t">
+              <div className="w-full flex items-center justify-between gap-4">
+                <div className="flex flex-col">
+                  <span className="text-[10px] text-gray-400 font-bold uppercase">Total Bayar</span>
+                  <span className="text-base font-black" style={{ color: primary }}>
+                    {formatRp( (cartTotal * 1.1) + (orderType === "delivery" ? (deliveryDistance === "near" ? (tenant?.deliveryFeeNear !== undefined ? Number(tenant.deliveryFeeNear) : 0) : (tenant?.deliveryFeeFar !== undefined ? Number(tenant.deliveryFeeFar) : 5000)) : 0) )}
+                  </span>
+                </div>
+                
+                <button
+                  onClick={handleSubmitOrder}
+                  disabled={submitting}
+                  className="flex-1 py-4 rounded-3xl text-white font-bold text-xs flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg shadow-primary/25"
+                  style={{ backgroundColor: primary }}>
+                  {submitting ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <>Konfirmasi & Kirim Pesanan</>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Google Maps Pin Location Modal */}
+      {mapModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="relative bg-white rounded-3xl w-full max-w-md flex flex-col shadow-2xl overflow-hidden animate-slide-up border">
+            <div className="bg-white border-b px-5 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <MapPin size={18} style={{ color: primary }} />
+                <span className="font-black text-gray-900 text-sm">Pin Lokasi Pengiriman</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setMapModalOpen(false)}
+                className="text-gray-400 hover:bg-gray-100 p-1.5 rounded-full"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            
+            <div className="p-4 space-y-4">
+              <div className="text-xs text-gray-500 leading-relaxed">
+                Silakan geser pin merah atau klik peta untuk menentukan lokasi rumah Anda secara tepat di peta.
+              </div>
+              
+              {/* Map Container */}
+              <div
+                id="leaflet-map"
+                className="h-68 sm:h-80 w-full rounded-2xl border border-gray-200 bg-gray-50 relative overflow-hidden shadow-inner animate-fade-in"
+              />
+              
+              {tempCoords && (
+                <div className="text-[10px] text-gray-400 bg-gray-50 p-2.5 rounded-xl border font-mono">
+                  Koordinat: {tempCoords.lat.toFixed(6)}, {tempCoords.lng.toFixed(6)}
                 </div>
               )}
-              {orderType === "delivery" && (
-                <>
-                  <div>
-                    <label className="text-xs text-gray-500 flex items-center gap-1 mb-1"><MapPin size={11} /> Alamat Lengkap *</label>
-                    <textarea value={form.deliveryAddress} onChange={e => setForm(f => ({ ...f, deliveryAddress: e.target.value }))}
-                      placeholder="Jl. Contoh No. 1, RT/RW, Kelurahan, Kecamatan, Kota"
-                      rows={3}
-                      className="w-full px-3 py-2.5 bg-gray-50 rounded-xl text-sm border border-gray-100 focus:outline-none focus:border-gray-300 resize-none" />
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-500 mb-1 block">Catatan Pengiriman (opsional)</label>
-                    <input value={form.deliveryNotes} onChange={e => setForm(f => ({ ...f, deliveryNotes: e.target.value }))}
-                      placeholder="Patokan lokasi, instruksi pintu, dll."
-                      className="w-full px-3 py-2.5 bg-gray-50 rounded-xl text-sm border border-gray-100 focus:outline-none focus:border-gray-300" />
-                  </div>
-                </>
-              )}
-              <div>
-                <label className="text-xs text-gray-500 flex items-center gap-1 mb-1"><FileText size={11} /> Catatan Pesanan (opsional)</label>
-                <input value={orderNotes} onChange={e => setOrderNotes(e.target.value)}
-                  placeholder="Alergi, permintaan khusus, dll."
-                  className="w-full px-3 py-2.5 bg-gray-50 rounded-xl text-sm border border-gray-100 focus:outline-none focus:border-gray-300" />
-              </div>
             </div>
 
-            {/* Payment method */}
-            <div className="bg-white rounded-2xl p-4 shadow-sm">
-              <div className="font-semibold text-sm text-gray-700 mb-3">Metode Pembayaran</div>
-              <div className="space-y-2">
-                {availablePayments.map(pm => (
-                  <button key={pm.value} onClick={() => setPaymentMethod(pm.value)}
-                    className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 transition-colors ${paymentMethod === pm.value ? "bg-blue-50" : "border-gray-100 bg-gray-50"}`}
-                    style={paymentMethod === pm.value ? { borderColor: primary } : {}}>
-                    <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${paymentMethod === pm.value ? "" : "border-gray-300"}`}
-                      style={paymentMethod === pm.value ? { borderColor: primary } : {}}>
-                      {paymentMethod === pm.value && <div className="w-2 h-2 rounded-full" style={{ backgroundColor: primary }} />}
-                    </div>
-                    <span className={`text-sm font-medium ${paymentMethod === pm.value ? "text-gray-900" : "text-gray-500"}`}>{pm.label}</span>
-                  </button>
-                ))}
-                {availablePayments.length === 0 && <div className="text-sm text-gray-400 text-center py-2">Tidak ada metode pembayaran tersedia</div>}
-              </div>
+            <div className="border-t p-4 bg-gray-50 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setMapModalOpen(false)}
+                className="flex-1 py-3 border rounded-2xl text-xs font-bold text-gray-600 bg-white hover:bg-gray-50 transition-colors"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmLocation}
+                disabled={geocoding || !tempCoords}
+                className="flex-1 py-3 text-white rounded-2xl text-xs font-bold flex items-center justify-center gap-1.5 shadow-md hover:opacity-95 transition-opacity disabled:opacity-50"
+                style={{ backgroundColor: primary }}
+              >
+                {geocoding ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Mencari Alamat...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 size={14} />
+                    <span>Konfirmasi Lokasi</span>
+                  </>
+                )}
+              </button>
             </div>
-
-            {submitError && (
-              <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">{submitError}</div>
-            )}
-          </div>
-
-          <div className="p-4 bg-white border-t">
-            <button
-              onClick={handleSubmitOrder}
-              disabled={submitting || availablePayments.length === 0}
-              className="w-full py-4 rounded-2xl text-white font-bold text-base flex items-center justify-center gap-2 disabled:opacity-60"
-              style={{ backgroundColor: primary }}>
-              {submitting ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <>Pesan Sekarang • {formatRp(cartTotal)}</>
-              )}
-            </button>
           </div>
         </div>
       )}

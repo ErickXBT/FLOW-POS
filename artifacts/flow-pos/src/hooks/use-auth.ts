@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from "react";
 import { setAuthTokenGetter } from "@workspace/api-client-react";
 
 const TOKEN_KEY = "flow_token";
+const ADMIN_TOKEN_KEY = "admin_token";
 
 export type UserRole =
   | "super_admin"
@@ -19,6 +20,9 @@ export interface AuthUser {
   role: UserRole;
   tenantId: number | null;
   createdAt: string;
+  permissions?: string[];
+  branchId?: number | null;
+  branchName?: string | null;
 }
 
 export function getStoredToken(): string | null {
@@ -41,8 +45,16 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   staff: "Staff",
 };
 
-export function hasPermission(role: UserRole, permission: string): boolean {
+export function hasPermission(user: AuthUser | null, permission: string): boolean {
+  if (!user) return false;
+  if (user.role === "super_admin") return true;
+  if (user.role === "owner") return true;
+  if (user.permissions && Array.isArray(user.permissions)) {
+    return user.permissions.includes(permission);
+  }
+
   const perms: Record<string, UserRole[]> = {
+    view_dashboard: ["owner", "manager", "super_admin"],
     view_reports: ["owner", "manager", "super_admin"],
     manage_employees: ["owner", "manager", "super_admin"],
     manage_products: ["owner", "manager", "super_admin"],
@@ -55,8 +67,9 @@ export function hasPermission(role: UserRole, permission: string): boolean {
     manage_settings: ["owner", "super_admin"],
     manage_qr_menu: ["owner", "super_admin"],
     view_activity_logs: ["owner", "manager", "super_admin"],
+    view_sessions: ["owner", "manager", "super_admin"],
   };
-  return (perms[permission] ?? []).includes(role);
+  return (perms[permission] ?? []).includes(user.role);
 }
 
 // Register auth token getter on module load
@@ -68,7 +81,7 @@ export function useAuth() {
 
   const loadUser = useCallback(async () => {
     const token = getStoredToken();
-    if (!token) { setLoading(false); return; }
+    if (!token) { setUser(null); setLoading(false); return; }
     try {
       const res = await fetch("/api/auth/me", {
         headers: { Authorization: `Bearer ${token}` },
@@ -78,9 +91,11 @@ export function useAuth() {
         setUser(data);
       } else {
         setStoredToken(null);
+        setUser(null);
       }
     } catch {
       setStoredToken(null);
+      setUser(null);
     } finally {
       setLoading(false);
     }
@@ -104,8 +119,39 @@ export function useAuth() {
       } catch {}
     }
     setStoredToken(null);
+    localStorage.removeItem(ADMIN_TOKEN_KEY);
     setUser(null);
   }, []);
 
-  return { user, loading, login, logout, refetch: loadUser };
+  const impersonate = useCallback((token: string, userData: AuthUser) => {
+    const currentToken = getStoredToken();
+    if (currentToken) {
+      localStorage.setItem(ADMIN_TOKEN_KEY, currentToken);
+    }
+    setStoredToken(token);
+    setUser(userData);
+  }, []);
+
+  const exitImpersonate = useCallback(async () => {
+    const adminToken = localStorage.getItem(ADMIN_TOKEN_KEY);
+    if (adminToken) {
+      setStoredToken(adminToken);
+      localStorage.removeItem(ADMIN_TOKEN_KEY);
+      setLoading(true);
+      await loadUser();
+    }
+  }, [loadUser]);
+
+  const isImpersonating = !!localStorage.getItem(ADMIN_TOKEN_KEY);
+
+  return {
+    user,
+    loading,
+    login,
+    logout,
+    impersonate,
+    exitImpersonate,
+    isImpersonating,
+    refetch: loadUser
+  };
 }

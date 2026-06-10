@@ -29,6 +29,9 @@ const queryClient = new QueryClient({
   },
 });
 
+import BranchesPage from "@/pages/branches";
+import RolesPage from "@/pages/roles";
+
 // Default landing page per role after login
 function defaultRoute(role: UserRole): string {
   switch (role) {
@@ -49,7 +52,7 @@ function PublicMenu() {
 
 function AppRoutes() {
   const [location, setLocation] = useLocation();
-  const { user, loading, login, logout } = useAuth();
+  const { user, loading, login, logout, isImpersonating, exitImpersonate } = useAuth();
 
   const isMenuPage = location.startsWith("/menu/");
 
@@ -90,12 +93,14 @@ function AppRoutes() {
   }
 
   return (
-    <Layout user={user} onLogout={logout}>
+    <Layout user={user} onLogout={logout} isImpersonating={isImpersonating} exitImpersonate={exitImpersonate}>
       <Switch>
         {/* Owner / Manager */}
         <Route path="/dashboard"><DashboardPage /></Route>
         <Route path="/reports"><ReportsPage /></Route>
         <Route path="/employees"><EmployeesPage /></Route>
+        <Route path="/branches"><BranchesPage /></Route>
+        <Route path="/roles"><RolesPage /></Route>
         <Route path="/categories"><CategoriesPage /></Route>
         <Route path="/inventory"><InventoryPage /></Route>
         <Route path="/settings"><SettingsPage /></Route>

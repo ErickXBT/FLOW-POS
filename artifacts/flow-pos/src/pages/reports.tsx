@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { useGetSalesReport, useGetSalesChartData } from "@workspace/api-client-react";
+import { useGetSalesReport, useGetSalesChartData, useListBranches, getListBranchesQueryKey } from "@workspace/api-client-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from "recharts";
 import { TrendingUp, ShoppingCart, Package, CreditCard } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 
 function formatRp(v: number) { return `Rp ${v.toLocaleString("id-ID")}`; }
 
@@ -19,28 +20,49 @@ const PAY_LABELS: Record<string, string> = {
 };
 
 export default function ReportsPage() {
+  const { user } = useAuth();
+  const isOwnerOrAdmin = user?.role === "owner" || user?.role === "super_admin";
   const [period, setPeriod] = useState("month");
-  const { data: report, isLoading } = useGetSalesReport({ period: period as any });
-  const { data: chartData } = useGetSalesChartData({ period: period === "today" ? "week" : (period as any) });
+  const [selectedBranchId, setSelectedBranchId] = useState<number | undefined>(undefined);
+
+  const { data: branches } = useListBranches({ query: { enabled: isOwnerOrAdmin, queryKey: getListBranchesQueryKey() } });
+  const { data: report, isLoading } = useGetSalesReport({ period: period as any, branchId: selectedBranchId });
+  const { data: chartData } = useGetSalesChartData({ period: period === "today" ? "week" : (period as any), branchId: selectedBranchId });
 
   const r = report || { totalRevenue: 0, totalOrders: 0, totalItems: 0, averageOrderValue: 0, topProducts: [], byPaymentMethod: [] };
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold">Laporan Penjualan</h1>
           <p className="text-muted-foreground text-sm">Analisis performa bisnis Anda</p>
         </div>
-        <div className="flex gap-1 bg-muted rounded-lg p-1">
-          {PERIODS.map(p => (
-            <button key={p.value} onClick={() => setPeriod(p.value)}
-              className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                period === p.value ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
-              }`}>
-              {p.label}
-            </button>
-          ))}
+        <div className="flex flex-wrap items-center gap-3">
+          {isOwnerOrAdmin && (
+            <div className="flex items-center gap-2">
+              <label className="text-sm font-medium text-muted-foreground">Cabang:</label>
+              <select
+                value={selectedBranchId || ""}
+                onChange={e => setSelectedBranchId(e.target.value ? Number(e.target.value) : undefined)}
+                className="px-3 py-1.5 border border-input rounded-xl bg-card text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium min-w-[160px]"
+              >
+                <option value="">Semua Cabang</option>
+                {(branches || []).map(b => (
+                  <option key={b.id} value={b.id}>{b.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          <div className="flex gap-1 bg-muted rounded-lg p-1">
+            {PERIODS.map(p => (
+              <button key={p.value} onClick={() => setPeriod(p.value)}
+                className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${period === p.value ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                  }`}>
+                {p.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

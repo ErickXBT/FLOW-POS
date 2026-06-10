@@ -3,8 +3,8 @@ import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, ShoppingCart, Package, Tag, ClipboardList,
   Users, UserCheck, BarChart3, Warehouse, Settings,
-  Shield, LogOut, Menu, X, Sun, Moon, QrCode, Smartphone,
-  ChefHat, Truck, Activity
+  Shield, LogOut, Menu, X, Sun, Moon, Smartphone,
+  ChefHat, Truck, Activity, MapPin, ShieldCheck, QrCode
 } from "lucide-react";
 import flowLogo from "@assets/FLOW_LOGO_1780799864457.png";
 import type { AuthUser } from "@/hooks/use-auth";
@@ -14,80 +14,6 @@ interface NavItem {
   href: string;
   label: string;
   icon: React.ReactNode;
-}
-
-// Navigation per role
-function getNavItems(role: string): NavItem[] {
-  switch (role) {
-    case "super_admin":
-      return [
-        { href: "/admin", label: "Super Admin", icon: <Shield size={18} /> },
-      ];
-
-    case "owner":
-      return [
-        { href: "/dashboard", label: "Dashboard", icon: <LayoutDashboard size={18} /> },
-        { href: "/pos", label: "Kasir (POS)", icon: <ShoppingCart size={18} /> },
-        { href: "/customer-orders", label: "Pesanan Online", icon: <Smartphone size={18} /> },
-        { href: "/kitchen", label: "Display Dapur", icon: <ChefHat size={18} /> },
-        { href: "/delivery", label: "Delivery", icon: <Truck size={18} /> },
-        { href: "/orders", label: "Transaksi", icon: <ClipboardList size={18} /> },
-        { href: "/products", label: "Produk", icon: <Package size={18} /> },
-        { href: "/categories", label: "Kategori", icon: <Tag size={18} /> },
-        { href: "/inventory", label: "Inventori", icon: <Warehouse size={18} /> },
-        { href: "/customers", label: "Pelanggan", icon: <Users size={18} /> },
-        { href: "/employees", label: "Karyawan", icon: <UserCheck size={18} /> },
-        { href: "/reports", label: "Laporan", icon: <BarChart3 size={18} /> },
-        { href: "/qr-menu", label: "QR Menu", icon: <QrCode size={18} /> },
-        { href: "/activity-logs", label: "Log Aktivitas", icon: <Activity size={18} /> },
-        { href: "/settings", label: "Pengaturan", icon: <Settings size={18} /> },
-      ];
-
-    case "manager":
-      return [
-        { href: "/dashboard", label: "Dashboard", icon: <LayoutDashboard size={18} /> },
-        { href: "/pos", label: "Kasir (POS)", icon: <ShoppingCart size={18} /> },
-        { href: "/customer-orders", label: "Pesanan Online", icon: <Smartphone size={18} /> },
-        { href: "/kitchen", label: "Display Dapur", icon: <ChefHat size={18} /> },
-        { href: "/delivery", label: "Delivery", icon: <Truck size={18} /> },
-        { href: "/orders", label: "Transaksi", icon: <ClipboardList size={18} /> },
-        { href: "/products", label: "Produk", icon: <Package size={18} /> },
-        { href: "/inventory", label: "Inventori", icon: <Warehouse size={18} /> },
-        { href: "/customers", label: "Pelanggan", icon: <Users size={18} /> },
-        { href: "/employees", label: "Karyawan", icon: <UserCheck size={18} /> },
-        { href: "/reports", label: "Laporan", icon: <BarChart3 size={18} /> },
-        { href: "/activity-logs", label: "Log Aktivitas", icon: <Activity size={18} /> },
-      ];
-
-    case "cashier":
-      return [
-        { href: "/pos", label: "Kasir (POS)", icon: <ShoppingCart size={18} /> },
-        { href: "/customer-orders", label: "Pesanan Online", icon: <Smartphone size={18} /> },
-        { href: "/orders", label: "Transaksi Hari Ini", icon: <ClipboardList size={18} /> },
-        { href: "/customers", label: "Pelanggan", icon: <Users size={18} /> },
-      ];
-
-    case "kitchen_staff":
-      return [
-        { href: "/kitchen", label: "Display Dapur", icon: <ChefHat size={18} /> },
-      ];
-
-    case "delivery_staff":
-      return [
-        { href: "/delivery", label: "Pesanan Delivery", icon: <Truck size={18} /> },
-      ];
-
-    case "staff":
-      return [
-        { href: "/pos", label: "Kasir (POS)", icon: <ShoppingCart size={18} /> },
-        { href: "/orders", label: "Transaksi", icon: <ClipboardList size={18} /> },
-      ];
-
-    default:
-      return [
-        { href: "/dashboard", label: "Dashboard", icon: <LayoutDashboard size={18} /> },
-      ];
-  }
 }
 
 // Role color badges
@@ -104,10 +30,12 @@ const ROLE_COLORS: Record<string, string> = {
 interface LayoutProps {
   user: AuthUser;
   onLogout: () => void;
+  isImpersonating?: boolean;
+  exitImpersonate?: () => void;
   children: React.ReactNode;
 }
 
-export default function Layout({ user, onLogout, children }: LayoutProps) {
+export default function Layout({ user, onLogout, isImpersonating, exitImpersonate, children }: LayoutProps) {
   const [location] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
@@ -117,33 +45,64 @@ export default function Layout({ user, onLogout, children }: LayoutProps) {
     setDark(d => !d);
   };
 
-  const navItems = getNavItems(user.role);
+  const navItems: NavItem[] = [];
+
+  if (user.role === "super_admin") {
+    navItems.push({ href: "/admin", label: "Super Admin", icon: <Shield size={18} /> });
+  } else {
+    // Normal / Custom tenant users
+    if (hasPermission(user, "view_dashboard")) {
+      navItems.push({ href: "/dashboard", label: "Dashboard", icon: <LayoutDashboard size={18} /> });
+    }
+    if (hasPermission(user, "view_pos")) {
+      navItems.push({ href: "/pos", label: "Kasir (POS)", icon: <ShoppingCart size={18} /> });
+    }
+    if (hasPermission(user, "manage_orders")) {
+      navItems.push({ href: "/customer-orders", label: "Pesanan Online", icon: <Smartphone size={18} /> });
+    }
+    if (hasPermission(user, "view_kitchen")) {
+      navItems.push({ href: "/kitchen", label: "Display Dapur", icon: <ChefHat size={18} /> });
+    }
+    if (hasPermission(user, "view_delivery")) {
+      navItems.push({ href: "/delivery", label: "Delivery", icon: <Truck size={18} /> });
+    }
+    if (hasPermission(user, "manage_orders")) {
+      navItems.push({ href: "/orders", label: "Transaksi", icon: <ClipboardList size={18} /> });
+    }
+    if (hasPermission(user, "manage_products")) {
+      navItems.push({ href: "/products", label: "Produk", icon: <Package size={18} /> });
+      navItems.push({ href: "/categories", label: "Kategori", icon: <Tag size={18} /> });
+    }
+    if (hasPermission(user, "manage_inventory")) {
+      navItems.push({ href: "/inventory", label: "Inventori", icon: <Warehouse size={18} /> });
+    }
+    if (hasPermission(user, "manage_customers")) {
+      navItems.push({ href: "/customers", label: "Pelanggan", icon: <Users size={18} /> });
+    }
+    if (hasPermission(user, "manage_employees")) {
+      navItems.push({ href: "/employees", label: "Karyawan", icon: <UserCheck size={18} /> });
+    }
+    // Only owners can manage branches and roles
+    if (user.role === "owner") {
+      navItems.push({ href: "/branches", label: "Cabang (Branch)", icon: <MapPin size={18} /> });
+      navItems.push({ href: "/roles", label: "Role & Hak Akses", icon: <ShieldCheck size={18} /> });
+    }
+    if (hasPermission(user, "view_reports")) {
+      navItems.push({ href: "/reports", label: "Laporan", icon: <BarChart3 size={18} /> });
+    }
+    if (hasPermission(user, "manage_qr_menu")) {
+      navItems.push({ href: "/qr-menu", label: "QR Menu", icon: <QrCode size={18} /> });
+    }
+    if (hasPermission(user, "view_activity_logs")) {
+      navItems.push({ href: "/activity-logs", label: "Log Aktivitas", icon: <Activity size={18} /> });
+    }
+    if (hasPermission(user, "manage_settings")) {
+      navItems.push({ href: "/settings", label: "Pengaturan", icon: <Settings size={18} /> });
+    }
+  }
 
   // Kitchen/Delivery staff get full-screen layout (no sidebar)
   const isFullscreen = user.role === "kitchen_staff" || user.role === "delivery_staff";
-
-  if (isFullscreen) {
-    return (
-      <div className="flex flex-col h-screen overflow-hidden">
-        {user.role !== "kitchen_staff" && (
-          <header className="h-12 bg-card border-b border-border flex items-center px-4 gap-3 flex-shrink-0">
-            <img src={flowLogo} alt="Flow" className="h-5 brightness-0 dark:invert opacity-60" />
-            <div className="flex-1" />
-            <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_COLORS[user.role] ?? ""}`}>
-              {ROLE_LABELS[user.role as keyof typeof ROLE_LABELS]}
-            </span>
-            <span className="text-sm font-medium text-foreground">{user.name}</span>
-            <button onClick={onLogout} className="text-muted-foreground hover:text-foreground p-1.5 hover:bg-muted rounded-lg transition-colors">
-              <LogOut size={16} />
-            </button>
-          </header>
-        )}
-        <main className="flex-1 overflow-hidden">
-          {children}
-        </main>
-      </div>
-    );
-  }
 
   const SidebarContent = () => (
     <div className="flex flex-col h-full">
@@ -170,7 +129,7 @@ export default function Layout({ user, onLogout, children }: LayoutProps) {
           );
         })}
       </nav>
-      <div className="px-4 py-4 border-t border-sidebar-border space-y-2">
+      <div className="px-4 py-4 border-t border-sidebar-border space-y-2 flex-shrink-0">
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-sidebar-primary flex items-center justify-center text-sm font-bold text-sidebar-primary-foreground flex-shrink-0">
             {user.name.charAt(0).toUpperCase()}
@@ -178,7 +137,7 @@ export default function Layout({ user, onLogout, children }: LayoutProps) {
           <div className="flex-1 min-w-0">
             <div className="text-sidebar-foreground text-sm font-medium truncate">{user.name}</div>
             <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium mt-0.5 ${ROLE_COLORS[user.role] ?? ""}`}>
-              {ROLE_LABELS[user.role as keyof typeof ROLE_LABELS]}
+              {ROLE_LABELS[user.role as keyof typeof ROLE_LABELS] ?? user.role}
             </span>
           </div>
         </div>
@@ -193,35 +152,72 @@ export default function Layout({ user, onLogout, children }: LayoutProps) {
   );
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
-      <aside className="hidden lg:flex flex-col w-60 bg-sidebar flex-shrink-0 border-r border-sidebar-border">
-        <SidebarContent />
-      </aside>
-      {sidebarOpen && (
-        <div className="lg:hidden fixed inset-0 z-50 flex">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setSidebarOpen(false)} />
-          <aside className="relative w-60 bg-sidebar flex flex-col z-10">
-            <button className="absolute top-4 right-4 text-sidebar-foreground" onClick={() => setSidebarOpen(false)}>
-              <X size={20} />
-            </button>
-            <SidebarContent />
-          </aside>
+    <div className="flex flex-col h-screen overflow-hidden">
+      {isImpersonating && (
+        <div className="bg-amber-500 text-amber-950 font-bold px-4 py-2.5 text-center text-xs flex items-center justify-center gap-3 select-none flex-shrink-0 shadow-md z-50 animate-bounce">
+          <span>⚠️ Anda sedang menguji coba dasbor {user.branchName ? `Cabang ${user.branchName}` : "Tenant"} sebagai Super Admin</span>
+          <button onClick={exitImpersonate} className="bg-amber-950 text-white rounded-lg px-3 py-1 font-semibold hover:bg-black transition-all">
+            Keluar Preview
+          </button>
         </div>
       )}
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <header className="h-14 bg-card border-b border-border flex items-center px-4 gap-4 flex-shrink-0">
-          <button className="lg:hidden text-foreground" onClick={() => setSidebarOpen(true)}>
-            <Menu size={20} />
-          </button>
-          <div className="flex-1" />
-          <button onClick={toggleDark} className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-muted">
-            {dark ? <Sun size={18} /> : <Moon size={18} />}
-          </button>
-        </header>
-        <main className="flex-1 overflow-y-auto">
-          {children}
-        </main>
-      </div>
+      
+      {isFullscreen ? (
+        <div className="flex flex-col flex-1 overflow-hidden">
+          {user.role !== "kitchen_staff" && (
+            <header className="h-12 bg-card border-b border-border flex items-center px-4 gap-3 flex-shrink-0">
+              <img src={flowLogo} alt="Flow" className="h-5 brightness-0 dark:invert opacity-60" />
+              <div className="flex-1" />
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_COLORS[user.role] ?? ""}`}>
+                {ROLE_LABELS[user.role as keyof typeof ROLE_LABELS] ?? user.role}
+              </span>
+              <span className="text-sm font-medium text-foreground">{user.name}</span>
+              <button onClick={onLogout} className="text-muted-foreground hover:text-foreground p-1.5 hover:bg-muted rounded-lg transition-colors">
+                <LogOut size={16} />
+              </button>
+            </header>
+          )}
+          <main className="flex-1 overflow-hidden">
+            {children}
+          </main>
+        </div>
+      ) : (
+        <div className="flex flex-1 overflow-hidden">
+          <aside className="hidden lg:flex flex-col w-60 bg-sidebar flex-shrink-0 border-r border-sidebar-border">
+            <SidebarContent />
+          </aside>
+          {sidebarOpen && (
+            <div className="lg:hidden fixed inset-0 z-50 flex">
+              <div className="absolute inset-0 bg-black/50" onClick={() => setSidebarOpen(false)} />
+              <aside className="relative w-60 bg-sidebar flex flex-col z-10">
+                <button className="absolute top-4 right-4 text-sidebar-foreground" onClick={() => setSidebarOpen(false)}>
+                  <X size={20} />
+                </button>
+                <SidebarContent />
+              </aside>
+            </div>
+          )}
+          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+            <header className="h-14 bg-card border-b border-border flex items-center px-4 gap-4 flex-shrink-0">
+              <button className="lg:hidden text-foreground" onClick={() => setSidebarOpen(true)}>
+                <Menu size={20} />
+              </button>
+              {user.branchName && (
+                <div className="flex items-center gap-1.5 text-xs font-semibold bg-primary/10 text-primary px-3 py-1.5 rounded-lg border border-primary/25">
+                  <MapPin size={12} /> Cabang: {user.branchName}
+                </div>
+              )}
+              <div className="flex-1" />
+              <button onClick={toggleDark} className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-muted">
+                {dark ? <Sun size={18} /> : <Moon size={18} />}
+              </button>
+            </header>
+            <main className="flex-1 overflow-y-auto">
+              {children}
+            </main>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

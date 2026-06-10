@@ -18,4 +18,5 @@ export interface OrderInput {
   notes?: string;
   customerId?: number;
   employeeId?: number;
+  branchId?: number;
 }

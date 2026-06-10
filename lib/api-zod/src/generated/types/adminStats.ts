@@ -10,9 +10,15 @@ import type { BusinessTypeCount } from './businessTypeCount';
 export interface AdminStats {
   totalTenants: number;
   activeTenants: number;
-  suspendedTenants?: number;
+  suspendedTenants: number;
+  trialUsers: number;
   expiredSubscriptions: number;
   monthlyRevenue: number;
+  annualRevenue: number;
+  totalOrders: number;
+  totalCustomers: number;
+  totalEmployees: number;
+  totalBranches: number;
   totalTransactions: number;
   totalUsers: number;
   byBusinessType?: BusinessTypeCount[];

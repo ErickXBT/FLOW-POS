@@ -12,5 +12,11 @@ export interface TenantUpdate {
   phone?: string;
   email?: string;
   primaryColor?: string;
+  logoUrl?: string;
+  coverUrl?: string;
+  bio?: string;
   receiptFooter?: string;
+  enableDelivery?: boolean;
+  deliveryFeeNear?: number;
+  deliveryFeeFar?: number;
 }

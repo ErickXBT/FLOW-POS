@@ -25,6 +25,17 @@ export const RegisterInputBusinessType = {
   minimarket: 'minimarket',
 } as const;
 
+export type RegisterInputPlan = typeof RegisterInputPlan[keyof typeof RegisterInputPlan];
+
+
+export const RegisterInputPlan = {
+  starter: 'starter',
+  business: 'business',
+  pro: 'pro',
+  custom: 'custom',
+  trial: 'trial',
+} as const;
+
 export interface RegisterInput {
   name: string;
   email: string;
@@ -35,6 +46,7 @@ export interface RegisterInput {
   phone?: string | null;
   /** @nullable */
   address?: string | null;
+  plan?: RegisterInputPlan;
 }
 
 export type UserRole = typeof UserRole[keyof typeof UserRole];
@@ -45,7 +57,9 @@ export const UserRole = {
   owner: 'owner',
   manager: 'manager',
   cashier: 'cashier',
+  kitchen_staff: 'kitchen_staff',
   staff: 'staff',
+  delivery_staff: 'delivery_staff',
 } as const;
 
 export interface User {
@@ -71,9 +85,15 @@ export interface BusinessTypeCount {
 export interface AdminStats {
   totalTenants: number;
   activeTenants: number;
-  suspendedTenants?: number;
+  suspendedTenants: number;
+  trialUsers: number;
   expiredSubscriptions: number;
   monthlyRevenue: number;
+  annualRevenue: number;
+  totalOrders: number;
+  totalCustomers: number;
+  totalEmployees: number;
+  totalBranches: number;
   totalTransactions: number;
   totalUsers: number;
   byBusinessType?: BusinessTypeCount[];
@@ -116,9 +136,16 @@ export interface Tenant {
   /** @nullable */
   primaryColor?: string | null;
   /** @nullable */
+  coverUrl?: string | null;
+  /** @nullable */
+  bio?: string | null;
+  /** @nullable */
   subscriptionPlan?: string | null;
   /** @nullable */
   subscriptionExpiresAt?: string | null;
+  enableDelivery?: boolean;
+  deliveryFeeNear?: number;
+  deliveryFeeFar?: number;
   createdAt: string;
 }
 
@@ -147,7 +174,13 @@ export interface TenantUpdate {
   phone?: string;
   email?: string;
   primaryColor?: string;
+  logoUrl?: string;
+  coverUrl?: string;
+  bio?: string;
   receiptFooter?: string;
+  enableDelivery?: boolean;
+  deliveryFeeNear?: number;
+  deliveryFeeFar?: number;
 }
 
 export type SubscriptionPlanProperty = typeof SubscriptionPlanProperty[keyof typeof SubscriptionPlanProperty];
@@ -229,6 +262,7 @@ export interface Product {
   categoryName?: string | null;
   tenantId: number;
   isActive?: boolean;
+  isBestSeller?: boolean;
   createdAt?: string;
 }
 
@@ -250,6 +284,7 @@ export interface ProductInput {
   minStock?: number;
   imageUrl?: string;
   categoryId?: number;
+  isBestSeller?: boolean;
 }
 
 export interface ProductUpdate {
@@ -265,6 +300,7 @@ export interface ProductUpdate {
   /** @nullable */
   categoryId?: number | null;
   isActive?: boolean;
+  isBestSeller?: boolean;
 }
 
 export interface TopProduct {
@@ -326,6 +362,8 @@ export interface Order {
   /** @nullable */
   employeeName?: string | null;
   tenantId: number;
+  /** @nullable */
+  branchId?: number | null;
   items?: OrderItem[];
   createdAt: string;
 }
@@ -364,6 +402,7 @@ export interface OrderInput {
   notes?: string;
   customerId?: number;
   employeeId?: number;
+  branchId?: number;
 }
 
 export type OrderStatusUpdateStatus = typeof OrderStatusUpdateStatus[keyof typeof OrderStatusUpdateStatus];
@@ -432,15 +471,6 @@ export interface CustomerUpdate {
   notes?: string;
 }
 
-export type EmployeeRole = typeof EmployeeRole[keyof typeof EmployeeRole];
-
-
-export const EmployeeRole = {
-  manager: 'manager',
-  cashier: 'cashier',
-  staff: 'staff',
-} as const;
-
 export interface Employee {
   id: number;
   name: string;
@@ -448,43 +478,37 @@ export interface Employee {
   email?: string | null;
   /** @nullable */
   phone?: string | null;
-  role: EmployeeRole;
+  role: string;
   isActive?: boolean;
   tenantId: number;
+  /** @nullable */
+  branchId?: number | null;
+  /** @nullable */
+  customRoleId?: number | null;
   createdAt: string;
 }
-
-export type EmployeeInputRole = typeof EmployeeInputRole[keyof typeof EmployeeInputRole];
-
-
-export const EmployeeInputRole = {
-  manager: 'manager',
-  cashier: 'cashier',
-  staff: 'staff',
-} as const;
 
 export interface EmployeeInput {
   name: string;
   email?: string;
   phone?: string;
-  role: EmployeeInputRole;
+  role: string;
+  /** @nullable */
+  branchId?: number | null;
+  /** @nullable */
+  customRoleId?: number | null;
 }
-
-export type EmployeeUpdateRole = typeof EmployeeUpdateRole[keyof typeof EmployeeUpdateRole];
-
-
-export const EmployeeUpdateRole = {
-  manager: 'manager',
-  cashier: 'cashier',
-  staff: 'staff',
-} as const;
 
 export interface EmployeeUpdate {
   name?: string;
   email?: string;
   phone?: string;
-  role?: EmployeeUpdateRole;
+  role?: string;
   isActive?: boolean;
+  /** @nullable */
+  branchId?: number | null;
+  /** @nullable */
+  customRoleId?: number | null;
 }
 
 export interface InventoryItem {
@@ -570,6 +594,133 @@ export interface SalesChartPoint {
   orders: number;
 }
 
+export interface Branch {
+  id: number;
+  tenantId: number;
+  name: string;
+  /** @nullable */
+  address?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  createdAt: string;
+}
+
+export interface BranchInput {
+  name: string;
+  address?: string;
+  phone?: string;
+}
+
+export interface BranchUpdate {
+  name?: string;
+  address?: string;
+  phone?: string;
+}
+
+export interface CustomRole {
+  id: number;
+  tenantId: number;
+  name: string;
+  permissions: string[];
+  createdAt: string;
+}
+
+export interface CustomRoleInput {
+  name: string;
+  permissions: string[];
+}
+
+export interface Announcement {
+  id: number;
+  title: string;
+  content: string;
+  type: string;
+  createdAt: string;
+}
+
+export interface AnnouncementInput {
+  title: string;
+  content: string;
+  type: string;
+}
+
+export interface SupportTicket {
+  id: number;
+  tenantId: number;
+  /** @nullable */
+  tenantName?: string | null;
+  title: string;
+  description: string;
+  status: string;
+  category: string;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface SupportTicketInput {
+  title: string;
+  description: string;
+  category: string;
+}
+
+export interface TicketReply {
+  id: number;
+  ticketId: number;
+  senderId: number;
+  senderRole: string;
+  senderName: string;
+  message: string;
+  createdAt: string;
+}
+
+export interface TicketReplyInput {
+  message: string;
+}
+
+export type PlatformSettingsValue = { [key: string]: unknown };
+
+export interface PlatformSettings {
+  key: string;
+  value: PlatformSettingsValue;
+}
+
+export type PlatformSettingsInputValue = { [key: string]: unknown };
+
+export interface PlatformSettingsInput {
+  value: PlatformSettingsInputValue;
+}
+
+export type SecurityLogUserRole = typeof SecurityLogUserRole[keyof typeof SecurityLogUserRole];
+
+
+export const SecurityLogUserRole = {
+  super_admin: 'super_admin',
+  owner: 'owner',
+  manager: 'manager',
+  cashier: 'cashier',
+  kitchen_staff: 'kitchen_staff',
+  staff: 'staff',
+  delivery_staff: 'delivery_staff',
+} as const;
+
+export type SecurityLogDetails = { [key: string]: unknown };
+
+export interface SecurityLog {
+  id: number;
+  /** @nullable */
+  tenantId?: number | null;
+  userId: number;
+  userName: string;
+  userRole: SecurityLogUserRole;
+  action: string;
+  /** @nullable */
+  module?: string | null;
+  details?: SecurityLogDetails;
+  /** @nullable */
+  ipAddress?: string | null;
+  createdAt: string;
+}
+
 export type ListAdminTenantsParams = {
 search?: string;
 status?: string;
@@ -586,6 +737,7 @@ limit?: number;
 
 export type GetTopProductsParams = {
 limit?: number;
+branchId?: number;
 };
 
 export type ListOrdersParams = {
@@ -598,6 +750,7 @@ limit?: number;
 
 export type GetRecentOrdersParams = {
 limit?: number;
+branchId?: number;
 };
 
 export type ListCustomersParams = {
@@ -621,10 +774,15 @@ page?: number;
 limit?: number;
 };
 
+export type GetDashboardStatsParams = {
+branchId?: number;
+};
+
 export type GetSalesReportParams = {
 period?: GetSalesReportPeriod;
 dateFrom?: string;
 dateTo?: string;
+branchId?: number;
 };
 
 export type GetSalesReportPeriod = typeof GetSalesReportPeriod[keyof typeof GetSalesReportPeriod];
@@ -639,6 +797,7 @@ export const GetSalesReportPeriod = {
 
 export type GetSalesChartDataParams = {
 period?: GetSalesChartDataPeriod;
+branchId?: number;
 };
 
 export type GetSalesChartDataPeriod = typeof GetSalesChartDataPeriod[keyof typeof GetSalesChartDataPeriod];

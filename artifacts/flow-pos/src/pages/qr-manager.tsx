@@ -1,14 +1,13 @@
 import { useState, useEffect, useRef } from "react";
-import { QrCode, Plus, Trash2, Download, Copy, Check, ExternalLink, RefreshCw, Globe } from "lucide-react";
+import { QrCode, Plus, Trash2, Download, Copy, Check, ExternalLink, Globe, MapPin } from "lucide-react";
 import QRCode from "qrcode";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-function getMenuUrl(slug: string, table?: string) {
+function getMenuUrl(slug: string, qrCodeValue: string) {
   const origin = window.location.origin;
   const base = BASE ? `${origin}${BASE}` : origin;
-  const url = `${base}/menu/${slug}`;
-  return table ? `${url}?table=${encodeURIComponent(table)}` : url;
+  return `${base}/menu/${slug}?qr_code=${encodeURIComponent(qrCodeValue)}`;
 }
 
 async function generateQR(url: string): Promise<string> {
@@ -20,17 +19,25 @@ export default function QrManagerPage() {
   const [slugInput, setSlugInput] = useState("");
   const [slugSaving, setSlugSaving] = useState(false);
   const [slugError, setSlugError] = useState("");
+  
   const [qrCodes, setQrCodes] = useState<any[]>([]);
+  const [branches, setBranches] = useState<any[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  // New QR Code Form inputs
+  const [selectedBranchId, setSelectedBranchId] = useState<number | "">("");
   const [newTable, setNewTable] = useState("");
   const [newLabel, setNewLabel] = useState("");
   const [adding, setAdding] = useState(false);
+
   const [copied, setCopied] = useState<string | null>(null);
   const [generatedQrs, setGeneratedQrs] = useState<Record<string, string>>({});
-  const [storeQr, setStoreQr] = useState("");
+  const [storeQrImg, setStoreQrImg] = useState("");
   const [settings, setSettings] = useState({
     enableDineIn: true, enableTakeAway: true, enableDelivery: false,
     enableCash: true, enableQris: true, enableBankTransfer: false, enableEwallet: false,
+    deliveryFeeNear: 0, deliveryFeeFar: 5000,
   });
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
@@ -46,6 +53,26 @@ export default function QrManagerPage() {
       setSlugInput(d.slug ?? "");
       setQrCodes(d.qrCodes ?? []);
     }
+
+    // Fetch branches
+    const rb = await fetch(`${BASE}/api/branches`, {
+      headers: { Authorization: `Bearer ${token.current}` },
+    });
+    if (rb.ok) {
+      const b = await rb.json();
+      setBranches(b || []);
+      if (b.length > 0) setSelectedBranchId(b[0].id);
+    }
+
+    // Fetch categories
+    const rc = await fetch(`${BASE}/api/categories`, {
+      headers: { Authorization: `Bearer ${token.current}` },
+    });
+    if (rc.ok) {
+      const c = await rc.json();
+      setCategories(c || []);
+    }
+
     // Fetch tenant settings
     const rt = await fetch(`${BASE}/api/tenant`, {
       headers: { Authorization: `Bearer ${token.current}` },
@@ -60,6 +87,8 @@ export default function QrManagerPage() {
         enableQris: t.enableQris ?? true,
         enableBankTransfer: t.enableBankTransfer ?? false,
         enableEwallet: t.enableEwallet ?? false,
+        deliveryFeeNear: t.deliveryFeeNear !== undefined ? Number(t.deliveryFeeNear) : 0,
+        deliveryFeeFar: t.deliveryFeeFar !== undefined ? Number(t.deliveryFeeFar) : 5000,
       });
     }
     setLoading(false);
@@ -67,19 +96,25 @@ export default function QrManagerPage() {
 
   useEffect(() => { fetchData(); }, []);
 
-  useEffect(() => {
-    if (!slug) return;
-    generateQR(getMenuUrl(slug)).then(setStoreQr);
-  }, [slug]);
-
+  // Generate individual table QR codes
   useEffect(() => {
     qrCodes.forEach(async (qr) => {
       if (!slug) return;
-      const url = getMenuUrl(slug, qr.tableNumber);
+      const url = getMenuUrl(slug, qr.code);
       const dataUrl = await generateQR(url);
       setGeneratedQrs(prev => ({ ...prev, [qr.id]: dataUrl }));
     });
   }, [qrCodes, slug]);
+
+  // Generate store general QR code
+  useEffect(() => {
+    if (slug) {
+      const url = `${window.location.origin}${BASE}/menu/${slug}`;
+      generateQR(url).then(setStoreQrImg).catch(console.error);
+    } else {
+      setStoreQrImg("");
+    }
+  }, [slug]);
 
   async function saveSlug() {
     if (!slugInput.trim()) return;
@@ -110,23 +145,31 @@ export default function QrManagerPage() {
     setSettingsSaving(false);
   }
 
-  async function addTable() {
+  async function addQrCode() {
     if (!newTable.trim()) return;
     setAdding(true);
     const r = await fetch(`${BASE}/api/tenant/qr-codes`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token.current}` },
-      body: JSON.stringify({ tableNumber: newTable.trim(), label: newLabel.trim() || null }),
+      body: JSON.stringify({
+        qrType: "table",
+        branchId: selectedBranchId || null,
+        tableNumber: newTable.trim(),
+        categoryId: null,
+        label: newLabel.trim() || null
+      }),
     });
     if (r.ok) {
       const qr = await r.json();
       setQrCodes(prev => [...prev, qr]);
-      setNewTable(""); setNewLabel("");
+      setNewTable("");
+      setNewLabel("");
     }
     setAdding(false);
   }
 
-  async function deleteTable(id: number) {
+  async function deleteQrCode(id: number) {
+    if (!confirm("Hapus QR Code ini?")) return;
     await fetch(`${BASE}/api/tenant/qr-codes/${id}`, {
       method: "DELETE",
       headers: { Authorization: `Bearer ${token.current}` },
@@ -148,180 +191,249 @@ export default function QrManagerPage() {
     a.click();
   }
 
+  const publicMenuUrl = slug ? `${window.location.origin}${BASE}/menu/${slug}` : "";
+  const tableQrs = qrCodes.filter(qr => qr.qrType === "table");
+  const otherQrs = qrCodes.filter(qr => qr.qrType !== "table");
+
   if (loading) return (
     <div className="p-6 flex items-center justify-center py-20">
       <div className="w-7 h-7 border-2 border-primary border-t-transparent rounded-full animate-spin" />
     </div>
   );
 
-  const menuUrl = slug ? getMenuUrl(slug) : null;
-
   return (
-    <div className="p-6 space-y-6 max-w-3xl">
+    <div className="p-6 space-y-6 max-w-4xl font-sans">
       <div>
         <h1 className="text-xl font-bold text-foreground">QR Menu & Online Order</h1>
         <p className="text-muted-foreground text-sm">Kelola link menu publik dan QR code meja</p>
       </div>
 
-      {/* Slug setup */}
+      {/* Card 1: Link Menu Publik */}
       <div className="bg-card border border-card-border rounded-xl p-5 shadow-sm space-y-4">
         <div className="flex items-center gap-2 font-semibold text-foreground">
           <Globe size={18} className="text-primary" /> Link Menu Publik
         </div>
+        
         <div className="flex gap-2">
-          <div className="flex-1 flex items-center gap-1 bg-muted/40 rounded-lg border border-input px-3 py-2 text-sm">
-            <span className="text-muted-foreground text-xs">yourapp.com/menu/</span>
+          <div className="flex-1 flex items-center bg-muted/40 rounded-lg border border-input px-3 py-2 text-sm">
+            <span className="text-muted-foreground font-medium select-none pr-1">yourapp.com/menu/</span>
             <input
               value={slugInput}
               onChange={e => setSlugInput(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))}
               placeholder="nama-toko-anda"
-              className="flex-1 bg-transparent focus:outline-none text-foreground font-medium"
+              className="flex-1 bg-transparent focus:outline-none text-foreground font-semibold"
             />
           </div>
           <button onClick={saveSlug} disabled={slugSaving || !slugInput.trim() || slugInput === slug}
-            className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50 hover:bg-primary/90 transition-colors">
+            className="px-6 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50 hover:bg-primary/90 transition-colors">
             {slugSaving ? "..." : "Simpan"}
           </button>
         </div>
         {slugError && <div className="text-red-500 text-xs">{slugError}</div>}
-        {slug && menuUrl && (
-          <div className="bg-muted/30 rounded-xl p-4 space-y-3">
-            <div className="flex items-center gap-2 text-sm text-foreground">
-              <span className="font-mono text-xs bg-background border border-border px-2 py-1 rounded-md flex-1 truncate">{menuUrl}</span>
-              <button onClick={() => copyLink(menuUrl)} className="text-muted-foreground hover:text-foreground p-1 transition-colors">
-                {copied === menuUrl ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
-              </button>
-              <a href={menuUrl} target="_blank" rel="noopener noreferrer" className="text-muted-foreground hover:text-foreground p-1">
-                <ExternalLink size={14} />
-              </a>
-            </div>
-            {storeQr && (
-              <div className="flex items-start gap-4">
-                <img src={storeQr} alt="QR Store" className="w-32 h-32 rounded-xl border border-border" />
-                <div className="space-y-2">
-                  <div className="text-sm font-medium text-foreground">QR Code Toko</div>
-                  <p className="text-xs text-muted-foreground">Pelanggan scan QR ini untuk membuka menu langsung di ponsel mereka</p>
-                  <button onClick={() => downloadQR(storeQr, "toko")}
-                    className="flex items-center gap-1.5 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg hover:bg-primary/90 transition-colors">
-                    <Download size={12} /> Download QR
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+        
         {!slug && (
           <div className="text-amber-600 text-xs bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-            ⚠️ Tentukan slug terlebih dahulu untuk mengaktifkan link menu publik
+            ⚠️ Tentukan slug terlebih dahulu untuk mengaktifkan pembuatan QR Code Menu publik
           </div>
+        )}
+
+        {slug && (
+          <>
+            <div className="flex items-center justify-between bg-muted/20 rounded-lg border border-border px-3 py-2 text-sm text-foreground">
+              <span className="truncate font-mono text-xs">{publicMenuUrl}</span>
+              <div className="flex gap-2 flex-shrink-0 ml-2">
+                <button onClick={() => copyLink(publicMenuUrl)} className="text-muted-foreground hover:text-foreground p-1 rounded transition-colors" title="Salin Link">
+                  {copied === publicMenuUrl ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
+                </button>
+                <a href={publicMenuUrl} target="_blank" rel="noreferrer" className="text-muted-foreground hover:text-foreground p-1 rounded transition-colors" title="Buka Link">
+                  <ExternalLink size={16} />
+                </a>
+              </div>
+            </div>
+
+            <div className="bg-muted/10 border border-border rounded-xl p-4 flex gap-4 items-center">
+              {storeQrImg ? (
+                <img src={storeQrImg} alt="QR Code Toko" className="w-24 h-24 rounded-lg border border-border flex-shrink-0 bg-white p-1" />
+              ) : (
+                <div className="w-24 h-24 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 p-1">
+                  <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
+              <div className="space-y-1.5 flex-1">
+                <div className="font-bold text-foreground text-sm">QR Code Toko</div>
+                <p className="text-muted-foreground text-xs leading-relaxed">Pelanggan scan QR ini untuk membuka menu langsung di ponsel mereka</p>
+                <button onClick={() => downloadQR(storeQrImg, `store-${slug}`)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground text-xs font-semibold rounded-lg hover:bg-primary/90 transition-colors mt-1">
+                  <Download size={13} /> Download QR
+                </button>
+              </div>
+            </div>
+          </>
         )}
       </div>
 
-      {/* Order type & payment settings */}
+      {/* Card 2: Pengaturan Menu Online */}
       <div className="bg-card border border-card-border rounded-xl p-5 shadow-sm space-y-4">
         <div className="flex items-center justify-between">
-          <div className="font-semibold text-foreground text-sm">Pengaturan Menu Online</div>
+          <div className="font-semibold text-foreground text-sm font-sans">Pengaturan Menu Online</div>
           <button onClick={saveSettings} disabled={settingsSaving}
-            className="flex items-center gap-1.5 text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50">
-            {settingsSaved ? <><Check size={11} /> Tersimpan</> : settingsSaving ? "Menyimpan..." : "Simpan Pengaturan"}
+            className="flex items-center gap-1.5 text-xs bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 font-semibold font-sans">
+            {settingsSaved ? <><Check size={12} /> Tersimpan</> : settingsSaving ? "Menyimpan..." : "Simpan Pengaturan"}
           </button>
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        
+        <div className="grid grid-cols-2 gap-6 pt-2">
           <div>
-            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Jenis Pesanan</div>
-            <div className="space-y-2">
+            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-3">Jenis Pesanan</div>
+            <div className="space-y-3">
               {[
-                { key: "enableDineIn", label: "🪑 Makan di Tempat" },
-                { key: "enableTakeAway", label: "🛍️ Bawa Pulang" },
-                { key: "enableDelivery", label: "🛵 Antar ke Alamat" },
-              ].map(({ key, label }) => (
-                <label key={key} className="flex items-center gap-2.5 cursor-pointer">
-                  <div className={`w-9 h-5 rounded-full transition-colors relative ${(settings as any)[key] ? "bg-primary" : "bg-muted"}`}
-                    onClick={() => setSettings(s => ({ ...s, [key]: !(s as any)[key] }))}>
-                    <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${(settings as any)[key] ? "translate-x-4" : "translate-x-0.5"}`} />
-                  </div>
-                  <span className="text-sm text-foreground">{label}</span>
-                </label>
+                { key: "enableDineIn", label: "Makan di Tempat", emoji: "🪑" },
+                { key: "enableTakeAway", label: "Bawa Pulang", emoji: "🛍️" },
+                { key: "enableDelivery", label: "Antar ke Alamat", emoji: "🛵" },
+              ].map(({ key, label, emoji }) => (
+                <div key={key} className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setSettings(s => ({ ...s, [key]: !(s as any)[key] }))}
+                    className={`w-9 h-5 rounded-full transition-colors relative focus:outline-none flex-shrink-0 ${(settings as any)[key] ? "bg-primary" : "bg-zinc-300"}`}
+                  >
+                    <span
+                      className={`absolute top-[2px] left-[2px] w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${(settings as any)[key] ? "translate-x-4" : "translate-x-0"}`}
+                    />
+                  </button>
+                  <span className="text-sm font-medium text-foreground flex items-center gap-1.5 font-sans">
+                    <span>{emoji}</span> {label}
+                  </span>
+                </div>
               ))}
+              {settings.enableDelivery && (
+                <div className="mt-4 p-4 bg-muted/20 border rounded-2xl space-y-3.5 animate-slide-up">
+                  <div className="text-xs font-bold text-foreground">Pengaturan Biaya Delivery</div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-[10px] font-medium text-muted-foreground mb-1">Jarak Dekat (Rp)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={settings.deliveryFeeNear}
+                        onChange={e => setSettings(s => ({ ...s, deliveryFeeNear: Number(e.target.value) }))}
+                        className="w-full px-3 py-2 border border-input rounded-xl bg-background text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
+                        placeholder="Contoh: 0 (Gratis)"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-medium text-muted-foreground mb-1">Jarak Jauh (Rp)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={settings.deliveryFeeFar}
+                        onChange={e => setSettings(s => ({ ...s, deliveryFeeFar: Number(e.target.value) }))}
+                        className="w-full px-3 py-2 border border-input rounded-xl bg-background text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
+                        placeholder="Contoh: 5000"
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
+          
           <div>
-            <div className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">Metode Pembayaran</div>
-            <div className="space-y-2">
+            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-3">Metode Pembayaran</div>
+            <div className="space-y-3">
               {[
-                { key: "enableCash", label: "💵 Tunai" },
-                { key: "enableQris", label: "📱 QRIS" },
-                { key: "enableBankTransfer", label: "🏦 Transfer Bank" },
-                { key: "enableEwallet", label: "💳 E-Wallet" },
-              ].map(({ key, label }) => (
-                <label key={key} className="flex items-center gap-2.5 cursor-pointer">
-                  <div className={`w-9 h-5 rounded-full transition-colors relative ${(settings as any)[key] ? "bg-primary" : "bg-muted"}`}
-                    onClick={() => setSettings(s => ({ ...s, [key]: !(s as any)[key] }))}>
-                    <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${(settings as any)[key] ? "translate-x-4" : "translate-x-0.5"}`} />
-                  </div>
-                  <span className="text-sm text-foreground">{label}</span>
-                </label>
+                { key: "enableCash", label: "Tunai", emoji: "💵" },
+                { key: "enableQris", label: "QRIS", emoji: "📱" },
+                { key: "enableBankTransfer", label: "Transfer Bank", emoji: "🏦" },
+                { key: "enableEwallet", label: "E-Wallet", emoji: "💳" },
+              ].map(({ key, label, emoji }) => (
+                <div key={key} className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setSettings(s => ({ ...s, [key]: !(s as any)[key] }))}
+                    className={`w-9 h-5 rounded-full transition-colors relative focus:outline-none flex-shrink-0 ${(settings as any)[key] ? "bg-primary" : "bg-zinc-300"}`}
+                  >
+                    <span
+                      className={`absolute top-[2px] left-[2px] w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${(settings as any)[key] ? "translate-x-4" : "translate-x-0"}`}
+                    />
+                  </button>
+                  <span className="text-sm font-medium text-foreground flex items-center gap-1.5 font-sans">
+                    <span>{emoji}</span> {label}
+                  </span>
+                </div>
               ))}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Table QR codes */}
+      {/* Card 3: QR Code per Meja */}
       {slug && (
         <div className="bg-card border border-card-border rounded-xl p-5 shadow-sm space-y-4">
-          <div className="flex items-center gap-2 font-semibold text-foreground">
+          <div className="font-semibold text-foreground text-sm flex items-center gap-2">
             <QrCode size={18} className="text-primary" /> QR Code per Meja
           </div>
-          <div className="flex gap-2">
-            <input value={newTable} onChange={e => setNewTable(e.target.value)}
+          
+          <div className="flex flex-col md:flex-row gap-3">
+            <input
+              type="text"
               placeholder="Nomor meja (contoh: 5)"
-              className="flex-1 px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-            <input value={newLabel} onChange={e => setNewLabel(e.target.value)}
+              value={newTable}
+              onChange={e => setNewTable(e.target.value)}
+              className="flex-1 px-4 py-2 border border-border rounded-lg bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary transition-all font-sans"
+            />
+            <input
+              type="text"
               placeholder="Label (opsional)"
-              className="w-36 px-3 py-2 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
-            <button onClick={addTable} disabled={adding || !newTable.trim()}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50 hover:bg-primary/90 transition-colors">
-              <Plus size={14} />{adding ? "..." : "Tambah"}
+              value={newLabel}
+              onChange={e => setNewLabel(e.target.value)}
+              className="flex-1 px-4 py-2 border border-border rounded-lg bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary transition-all font-sans"
+            />
+            <button
+              onClick={addQrCode}
+              disabled={adding || !newTable.trim()}
+              className="px-6 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/95 disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5 whitespace-nowrap font-sans"
+            >
+              <Plus size={16} /> Tambah
             </button>
           </div>
 
-          {qrCodes.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground text-sm">
-              <QrCode size={32} className="mx-auto mb-2 opacity-30" />
-              Belum ada QR meja. Tambahkan meja di atas.
-            </div>
-          ) : (
-            <div className="grid sm:grid-cols-2 gap-4">
-              {qrCodes.map(qr => {
-                const url = getMenuUrl(slug, qr.tableNumber);
+          {tableQrs.length > 0 && (
+            <div className="grid sm:grid-cols-2 gap-4 pt-4 border-t border-border mt-4">
+              {tableQrs.map(qr => {
+                const url = getMenuUrl(slug, qr.code);
                 const qrImg = generatedQrs[qr.id];
+                const branchName = branches.find(b => b.id === qr.branchId)?.name || "Cabang";
+                
                 return (
-                  <div key={qr.id} className="border border-border rounded-xl p-4 flex gap-4 bg-muted/10">
-                    {qrImg
-                      ? <img src={qrImg} alt={`Meja ${qr.tableNumber}`} className="w-20 h-20 rounded-lg border border-border flex-shrink-0" />
-                      : <div className="w-20 h-20 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                          <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-                        </div>
-                    }
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold text-foreground text-sm">Meja {qr.tableNumber}</div>
-                      {qr.label && <div className="text-xs text-muted-foreground mb-1">{qr.label}</div>}
-                      <div className="text-xs font-mono text-muted-foreground truncate mb-2">{url}</div>
-                      <div className="flex gap-1.5">
+                  <div key={qr.id} className="border border-border rounded-xl p-4 flex gap-4 bg-muted/10 items-start">
+                    {qrImg ? (
+                      <img src={qrImg} alt={`QR Meja ${qr.tableId}`} className="w-24 h-24 rounded-lg border border-border flex-shrink-0 bg-white p-1" />
+                    ) : (
+                      <div className="w-24 h-24 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                        <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0 space-y-1">
+                      <div className="font-bold text-foreground text-sm font-sans">Meja {qr.tableId}</div>
+                      <div className="text-xs text-muted-foreground flex items-center gap-1 font-sans"><MapPin size={10} /> {branchName}</div>
+                      {qr.label && <div className="text-xs text-primary font-semibold font-sans">Tag: {qr.label}</div>}
+                      <div className="text-[10px] font-mono text-muted-foreground truncate">{url}</div>
+                      
+                      <div className="flex gap-2 pt-2">
                         <button onClick={() => copyLink(url)}
-                          className="flex items-center gap-1 text-xs bg-muted px-2 py-1 rounded-md hover:bg-muted/80 transition-colors text-muted-foreground">
+                          className="flex items-center gap-1 text-[10px] bg-muted px-2 py-1 rounded-md hover:bg-muted/80 transition-colors text-muted-foreground font-sans">
                           {copied === url ? <Check size={10} className="text-green-500" /> : <Copy size={10} />}
-                          Salin
+                          Salin Link
                         </button>
                         {qrImg && (
-                          <button onClick={() => downloadQR(qrImg, `meja-${qr.tableNumber}`)}
-                            className="flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-1 rounded-md hover:bg-primary/20 transition-colors">
-                            <Download size={10} /> Download
+                          <button onClick={() => downloadQR(qrImg, `qr-meja-${qr.tableId}`)}
+                            className="flex items-center gap-1 text-[10px] bg-primary/10 text-primary px-2 py-1 rounded-md hover:bg-primary/20 transition-colors font-sans">
+                            <Download size={10} /> Save PNG
                           </button>
                         )}
-                        <button onClick={() => deleteTable(qr.id)}
-                          className="flex items-center gap-1 text-xs bg-red-50 text-red-500 px-2 py-1 rounded-md hover:bg-red-100 transition-colors ml-auto">
+                        <button onClick={() => deleteQrCode(qr.id)}
+                          className="flex items-center gap-1 text-[10px] bg-red-50 text-red-500 px-2 py-1 rounded-md hover:bg-red-100 transition-colors ml-auto font-sans">
                           <Trash2 size={10} />
                         </button>
                       </div>
@@ -331,6 +443,63 @@ export default function QrManagerPage() {
               })}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Advanced QR Codes (If any exist from previous configurations) */}
+      {slug && otherQrs.length > 0 && (
+        <div className="bg-card border border-card-border rounded-xl p-5 shadow-sm space-y-4">
+          <div className="font-semibold text-foreground text-sm font-sans">QR Code Lainnya (Cabang / Kategori)</div>
+          <div className="grid sm:grid-cols-2 gap-4">
+            {otherQrs.map(qr => {
+              const url = getMenuUrl(slug, qr.code);
+              const qrImg = generatedQrs[qr.id];
+              const branchName = branches.find(b => b.id === qr.branchId)?.name || "Cabang";
+              
+              let qrTypeLabel = "Toko";
+              if (qr.qrType === "branch") qrTypeLabel = "Cabang";
+              else if (qr.qrType === "category") {
+                const catName = categories.find(c => c.id === qr.categoryId)?.name || "Kategori";
+                qrTypeLabel = `Kategori: ${catName}`;
+              }
+
+              return (
+                <div key={qr.id} className="border border-border rounded-xl p-4 flex gap-4 bg-muted/10 items-start">
+                  {qrImg ? (
+                    <img src={qrImg} alt={`QR ${qrTypeLabel}`} className="w-24 h-24 rounded-lg border border-border flex-shrink-0 bg-white p-1" />
+                  ) : (
+                    <div className="w-24 h-24 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
+                      <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0 space-y-1 font-sans">
+                    <div className="font-bold text-foreground text-sm capitalize">{qrTypeLabel}</div>
+                    <div className="text-xs text-muted-foreground flex items-center gap-1"><MapPin size={10} /> {branchName}</div>
+                    {qr.label && <div className="text-xs text-primary font-semibold">Tag: {qr.label}</div>}
+                    <div className="text-[10px] font-mono text-muted-foreground truncate">{url}</div>
+                    
+                    <div className="flex gap-2 pt-2">
+                      <button onClick={() => copyLink(url)}
+                        className="flex items-center gap-1 text-[10px] bg-muted px-2 py-1 rounded-md hover:bg-muted/80 transition-colors text-muted-foreground">
+                        {copied === url ? <Check size={10} className="text-green-500" /> : <Copy size={10} />}
+                        Salin Link
+                      </button>
+                      {qrImg && (
+                        <button onClick={() => downloadQR(qrImg, `qr-${qr.qrType}-${qr.id}`)}
+                          className="flex items-center gap-1 text-[10px] bg-primary/10 text-primary px-2 py-1 rounded-md hover:bg-primary/20 transition-colors">
+                          <Download size={10} /> Save PNG
+                        </button>
+                      )}
+                      <button onClick={() => deleteQrCode(qr.id)}
+                        className="flex items-center gap-1 text-[10px] bg-red-50 text-red-500 px-2 py-1 rounded-md hover:bg-red-100 transition-colors ml-auto">
+                        <Trash2 size={10} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       )}
     </div>

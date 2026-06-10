@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef } from "react";
 import { Truck, MapPin, Phone, Clock, CheckCircle2, RefreshCw, Navigation } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-const PAY_LABEL: Record<string, string> = { cash: "COD (Tunai)", qris: "QRIS", bank_transfer: "Transfer", ewallet: "E-Wallet" };
+const PAY_LABEL: Record<string, string> = { cash: "COD (Tunai)", cashier: "Bayar di Kasir", qris: "QRIS", bank_transfer: "Transfer", ewallet: "E-Wallet" };
 
 function elapsed(iso: string) {
   const secs = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
@@ -14,6 +15,7 @@ function elapsed(iso: string) {
 function formatRp(v: number) { return `Rp ${v.toLocaleString("id-ID")}`; }
 
 export default function DeliveryOrdersPage() {
+  const { user } = useAuth();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"queue" | "delivering" | "done">("queue");
@@ -21,7 +23,10 @@ export default function DeliveryOrdersPage() {
   const tokenRef = useRef(localStorage.getItem("flow_token") ?? "");
 
   async function fetchOrders() {
-    const r = await fetch(`${BASE}/api/tenant/customer-orders`, {
+    let url = `${BASE}/api/tenant/customer-orders`;
+    if (user?.branchId) url += `?branchId=${user.branchId}`;
+
+    const r = await fetch(url, {
       headers: { Authorization: `Bearer ${tokenRef.current}` },
     });
     if (r.ok) {
@@ -31,12 +36,12 @@ export default function DeliveryOrdersPage() {
     setLoading(false);
   }
 
-  useEffect(() => { fetchOrders(); }, []);
+  useEffect(() => { fetchOrders(); }, [user?.branchId]);
 
   useEffect(() => {
     const iv = setInterval(fetchOrders, 30000);
     return () => clearInterval(iv);
-  }, []);
+  }, [user?.branchId]);
 
   async function updateStatus(orderId: number, status: string) {
     setUpdating(orderId);
@@ -62,7 +67,7 @@ export default function DeliveryOrdersPage() {
           <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
             <Truck size={22} className="text-primary" /> Pesanan Delivery
           </h1>
-          <p className="text-muted-foreground text-sm">Kelola pengiriman ke pelanggan</p>
+          <p className="text-muted-foreground text-sm">Kelola pengiriman ke pelanggan {user?.branchName ? `(${user.branchName})` : ""}</p>
         </div>
         <button onClick={() => { setLoading(true); fetchOrders(); }} className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg">
           <RefreshCw size={16} />
@@ -108,8 +113,8 @@ export default function DeliveryOrdersPage() {
           <Truck size={40} className="mx-auto mb-3 text-muted-foreground/30" />
           <div className="text-muted-foreground text-sm">
             {tab === "queue" ? "Tidak ada pesanan siap dikirim" :
-             tab === "delivering" ? "Tidak ada pesanan dalam pengiriman" :
-             "Belum ada riwayat pengiriman"}
+              tab === "delivering" ? "Tidak ada pesanan dalam pengiriman" :
+                "Belum ada riwayat pengiriman"}
           </div>
         </div>
       ) : (
@@ -144,7 +149,7 @@ export default function DeliveryOrdersPage() {
                     {order.deliveryNotes && <div className="text-xs text-muted-foreground mt-0.5">{order.deliveryNotes}</div>}
                   </div>
                   <a
-                    href={`https://maps.google.com/?q=${encodeURIComponent(order.deliveryAddress)}`}
+                    href={order.googleMapsLocation || `https://maps.google.com/?q=${encodeURIComponent(order.deliveryAddress)}`}
                     target="_blank" rel="noopener noreferrer"
                     className="ml-auto flex-shrink-0 flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-1 rounded-lg hover:bg-primary/20 transition-colors"
                   >
@@ -156,9 +161,14 @@ export default function DeliveryOrdersPage() {
               {/* Items */}
               <div className="px-4 py-2.5 border-b border-border/50 space-y-1">
                 {order.items?.map((item: any) => (
-                  <div key={item.id} className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">{item.productName} <span className="font-medium text-foreground">×{item.quantity}</span></span>
-                    <span className="font-medium text-foreground">{formatRp(item.subtotal)}</span>
+                  <div key={item.id} className="flex flex-col text-sm border-b border-border/20 last:border-b-0 pb-1 last:pb-0">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{item.productName} <span className="font-medium text-foreground">×{item.quantity}</span></span>
+                      <span className="font-medium text-foreground">{formatRp(item.subtotal)}</span>
+                    </div>
+                    {item.variantSelection && (
+                      <span className="text-[10px] text-gray-400 mt-0.5">{item.variantSelection}</span>
+                    )}
                   </div>
                 ))}
               </div>

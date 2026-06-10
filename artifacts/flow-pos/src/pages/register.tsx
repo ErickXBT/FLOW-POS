@@ -24,7 +24,7 @@ export default function RegisterPage({ onLogin }: { onLogin: (token: string, use
     name: "",
     email: "",
     password: "",
-    plan: "trial",
+    plan: "business",
   });
   const [error, setError] = useState("");
   const registerMutation = useRegister();
@@ -41,6 +41,7 @@ export default function RegisterPage({ onLogin }: { onLogin: (token: string, use
         businessType: form.businessType as any,
         phone: form.phone || undefined,
         address: form.address || undefined,
+        plan: form.plan as any,
       }
     }, {
       onSuccess: (data) => {
@@ -159,38 +160,80 @@ export default function RegisterPage({ onLogin }: { onLogin: (token: string, use
               <h2 className="font-semibold text-lg mb-4 flex items-center gap-2">
                 <CreditCard size={18} className="text-primary" /> Pilih Paket
               </h2>
-              <div className="space-y-3 mb-6">
-                {(plans || [
-                  { id: 1, name: "Trial", price: 0, durationDays: 14, features: ["1 Kasir", "Produk tak terbatas", "Laporan dasar"] },
-                  { id: 2, name: "Basic", price: 149000, durationDays: 30, features: ["3 Kasir", "Manajemen stok", "Laporan lengkap"] },
-                  { id: 3, name: "Pro", price: 399000, durationDays: 30, features: ["Unlimited kasir", "Multi cabang", "API access"] },
-                ]).map((plan: any) => (
-                  <div key={plan.name} className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                    form.plan === plan.name.toLowerCase()
-                      ? "border-primary bg-accent"
-                      : "border-border hover:border-primary/40"
-                  }`} onClick={() => setForm(f => ({ ...f, plan: plan.name.toLowerCase() }))}>
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="font-semibold">{plan.name}</div>
-                        <div className="text-sm text-muted-foreground">{plan.durationDays} hari</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="font-bold text-lg">
-                          {plan.price === 0 ? "Gratis" : `Rp ${plan.price.toLocaleString("id-ID")}`}
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                {[
+                  {
+                    id: "starter",
+                    name: "Paket Starter",
+                    price: "Rp249.000",
+                    period: "/bulan",
+                    features: ["1 outlet"],
+                  },
+                  {
+                    id: "business",
+                    name: "Paket Business",
+                    price: "Rp499.000",
+                    period: "/bulan",
+                    features: ["3 outlet"],
+                    isPopular: true,
+                  },
+                  {
+                    id: "pro",
+                    name: "Paket Pro",
+                    price: "Rp749.000",
+                    period: "/bulan",
+                    features: ["5 outlet"],
+                  },
+                  {
+                    id: "custom",
+                    name: "Custom pricing",
+                    price: "Hubungi Kami",
+                    period: "",
+                    features: ["unlimited outlet", "unlimited staff", "API access"],
+                  },
+                ].map((plan: any) => {
+                  const selected = form.plan === plan.id;
+                  return (
+                    <div
+                      key={plan.id}
+                      onClick={() => setForm(f => ({ ...f, plan: plan.id }))}
+                      className={`relative p-5 rounded-2xl border-2 cursor-pointer transition-all flex flex-col justify-between ${
+                        selected
+                          ? "border-primary bg-primary/5 shadow-sm"
+                          : "border-border hover:border-primary/40 bg-card"
+                      }`}
+                    >
+                      {plan.isPopular && (
+                        <span className="absolute -top-3 right-4 px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-[9px] font-bold uppercase tracking-wider">
+                          Rekomendasi
+                        </span>
+                      )}
+                      
+                      <div className="space-y-3">
+                        <div>
+                          <div className="font-bold text-foreground text-sm">{plan.name}</div>
+                          <div className="flex items-baseline mt-1.5">
+                            <span className="text-lg font-extrabold text-foreground">{plan.price}</span>
+                            {plan.period && <span className="text-[10px] text-muted-foreground ml-0.5">{plan.period}</span>}
+                          </div>
+                        </div>
+                        
+                        <div className="border-t border-border/80 pt-3">
+                          <ul className="space-y-2">
+                            {plan.features.map((feat: string) => (
+                              <li key={feat} className="text-xs text-muted-foreground flex items-center gap-1.5 leading-tight">
+                                <span className="text-primary font-bold text-xs select-none">✓</span> {feat}
+                              </li>
+                            ))}
+                          </ul>
                         </div>
                       </div>
                     </div>
-                    <ul className="mt-2 space-y-1">
-                      {(plan.features || []).map((f: string) => (
-                        <li key={f} className="text-xs text-muted-foreground flex items-center gap-1">
-                          <span className="text-primary">✓</span> {f}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
+
               <div className="flex gap-3">
                 <button onClick={() => setStep(2)} className="flex-1 py-2.5 border border-border rounded-lg text-sm font-medium hover:bg-muted transition-colors">
                   Kembali

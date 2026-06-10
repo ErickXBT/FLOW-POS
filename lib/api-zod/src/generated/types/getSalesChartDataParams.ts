@@ -9,4 +9,5 @@ import type { GetSalesChartDataPeriod } from './getSalesChartDataPeriod';
 
 export type GetSalesChartDataParams = {
 period?: GetSalesChartDataPeriod;
+branchId?: number;
 };

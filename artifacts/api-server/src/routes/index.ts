@@ -12,6 +12,8 @@ import inventoryRouter from "./inventory";
 import reportsRouter from "./reports";
 import menuRouter from "./menu";
 import activityRouter from "./activity";
+import branchesRouter from "./branches";
+import rolesRouter from "./roles";
 
 const router: IRouter = Router();
 
@@ -28,5 +30,7 @@ router.use(inventoryRouter);
 router.use(reportsRouter);
 router.use(menuRouter);
 router.use(activityRouter);
+router.use(branchesRouter);
+router.use(rolesRouter);
 
 export default router;

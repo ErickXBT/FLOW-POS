@@ -7,6 +7,7 @@ import {
   ListInventoryAdjustmentsQueryParams,
 } from "@workspace/api-zod";
 import { extractToken } from "./auth";
+import { logActivity } from "./activity";
 
 const router: IRouter = Router();
 
@@ -83,6 +84,17 @@ router.post("/inventory/adjustments", async (req, res): Promise<void> => {
     notes: body.data.notes ?? null,
     tenantId: claims.tenantId!,
   }).returning();
+
+  await logActivity({
+    tenantId: claims.tenantId,
+    userId: claims.userId,
+    userName: claims.role === "owner" ? "Owner" : "Manager",
+    userRole: claims.role,
+    action: "adjust_stock",
+    module: "inventory",
+    details: { productId: product.id, productName: product.name, type: body.data.type, quantity: body.data.quantity },
+    ipAddress: req.ip,
+  });
 
   res.status(201).json({
     ...adj,

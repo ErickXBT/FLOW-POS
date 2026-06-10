@@ -14,5 +14,7 @@ export const UserRole = {
   owner: 'owner',
   manager: 'manager',
   cashier: 'cashier',
+  kitchen_staff: 'kitchen_staff',
   staff: 'staff',
+  delivery_staff: 'delivery_staff',
 } as const;
