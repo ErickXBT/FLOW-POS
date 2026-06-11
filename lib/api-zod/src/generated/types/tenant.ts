@@ -11,6 +11,8 @@ import type { TenantStatus } from './tenantStatus';
 export interface Tenant {
   id: number;
   name: string;
+  /** @nullable */
+  slug?: string | null;
   businessType: TenantBusinessType;
   status: TenantStatus;
   /** @nullable */

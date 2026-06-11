@@ -125,6 +125,8 @@ export const TenantStatus = {
 export interface Tenant {
   id: number;
   name: string;
+  /** @nullable */
+  slug?: string | null;
   businessType: TenantBusinessType;
   status: TenantStatus;
   /** @nullable */

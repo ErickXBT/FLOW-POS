@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, sql } from "drizzle-orm";
-import { db, usersTable, tenantsTable, subscriptionsTable, employeesTable, branchesTable, customRolesTable, platformSettingsTable } from "@workspace/db";
+import { db, usersTable, tenantsTable, subscriptionsTable, employeesTable, branchesTable, customRolesTable, platformSettingsTable, branchSettingsTable, publicMenusTable } from "@workspace/db";
 import nodemailer from "nodemailer";
 import { LoginBody, RegisterBody } from "@workspace/api-zod";
 import { logger } from "../lib/logger";
@@ -183,8 +183,20 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   };
   const price = planPrices[dbPlan] || "0";
 
+  // Generate a unique slug based on business name
+  const baseSlug = businessName.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, "");
+  let slug = baseSlug || "tenant";
+  let suffix = 1;
+  while (true) {
+    const existing = await db.select().from(tenantsTable).where(eq(tenantsTable.slug, slug));
+    if (existing.length === 0) break;
+    slug = `${baseSlug}-${suffix}`;
+    suffix++;
+  }
+
   const [tenant] = await db.insert(tenantsTable).values({
     name: businessName,
+    slug,
     businessType,
     status: "trial",
     phone: phone ?? null,
@@ -193,6 +205,38 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     subscriptionPlan: dbPlan,
     subscriptionExpiresAt: expiresAt,
   }).returning();
+
+  // Create default branch
+  const [branch] = await db.insert(branchesTable).values({
+    tenantId: tenant.id,
+    name: "Utama",
+    address: address ?? null,
+    phone: phone ?? null,
+    status: "active",
+  }).returning();
+
+  // Create default branch settings
+  await db.insert(branchSettingsTable).values({
+    tenantId: tenant.id,
+    branchId: branch.id,
+    qrMenuEnabled: true,
+    taxPercentage: "0.00",
+    receiptFooter: "Terima kasih atas kunjungan Anda!",
+    printerSettings: JSON.stringify({ paperSize: "80mm", type: "IP", ip: "192.168.1.100" }),
+    paymentMethods: JSON.stringify(["cash", "qris"]),
+  });
+
+  // Create default public menu
+  await db.insert(publicMenusTable).values({
+    tenantId: tenant.id,
+    branchId: branch.id,
+    slug,
+    name: businessName,
+    isActive: true,
+    enableDineIn: true,
+    enableTakeAway: true,
+    enableDelivery: false,
+  });
 
   await db.insert(subscriptionsTable).values({
     tenantId: tenant.id,

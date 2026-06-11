@@ -1365,6 +1365,8 @@ components:
           type: integer
         name:
           type: string
+        slug:
+          type: ["string", "null"]
         businessType:
           type: string
           enum: [fnb, fashion, restaurant, cafe, salon, minimarket]

@@ -27,6 +27,7 @@ function formatRp(val: number) {
 }
 
 export default function POSPage() {
+  const { data: tenant } = useGetTenant();
   const [search, setSearch] = useState("");
   const [activeCat, setActiveCat] = useState<number | null>(null);
 
@@ -36,21 +37,52 @@ export default function POSPage() {
 
   // Load promo banners and coupons on mount
   useEffect(() => {
-    try {
-      const banners = localStorage.getItem("flow_marketing_banners");
-      if (banners) {
-        setPromoBanners(JSON.parse(banners));
-      }
-    } catch (e) {}
+    if (tenant?.id) {
+      try {
+        const banners = localStorage.getItem(`flow_marketing_banners_${tenant.id}`);
+        if (banners) {
+          setPromoBanners(JSON.parse(banners));
+        } else {
+          const oldBanners = localStorage.getItem("flow_marketing_banners");
+          if (oldBanners) {
+            setPromoBanners(JSON.parse(oldBanners));
+          } else {
+            const defaults = tenant.businessType === "fashion" ? [
+              { id: 1, title: "Spesial Weekend: Diskon 20% Koleksi Denim", bgColor: "#8B5CF6", textColor: "#FFFFFF" },
+              { id: 2, title: "Promo Member Baru: Cashback Rp 50.000", bgColor: "#10B981", textColor: "#FFFFFF" },
+            ] : [
+              { id: 1, title: "Spesial Weekend: Beli 1 Gratis 1 Latte", bgColor: "#1D4EF5", textColor: "#FFFFFF" },
+              { id: 2, title: "Diskon 20% bagi Pelanggan Setia POS", bgColor: "#10B981", textColor: "#FFFFFF" },
+            ];
+            setPromoBanners(defaults);
+          }
+        }
+      } catch (e) {}
 
-    try {
-      const storedCoupons = localStorage.getItem("flow_coupons");
-      if (storedCoupons) {
-        const parsed = JSON.parse(storedCoupons);
-        setActiveCoupons(parsed.filter((c: any) => c.status === "Aktif"));
-      }
-    } catch (e) {}
-  }, []);
+      try {
+        const storedCoupons = localStorage.getItem(`flow_coupons_${tenant.id}`);
+        if (storedCoupons) {
+          const parsed = JSON.parse(storedCoupons);
+          setActiveCoupons(parsed.filter((c: any) => c.status === "Aktif"));
+        } else {
+          const oldCoupons = localStorage.getItem("flow_coupons");
+          if (oldCoupons) {
+            const parsed = JSON.parse(oldCoupons);
+            setActiveCoupons(parsed.filter((c: any) => c.status === "Aktif"));
+          } else {
+            const defaults = tenant.businessType === "fashion" ? [
+              { id: 1, code: "FASHION20", discount: 20, desc: "Diskon pakaian khusus akhir pekan", status: "Aktif" },
+              { id: 2, code: "DENIMWEEKEND", discount: 15, desc: "Promo produk denim di QR Katalog", status: "Aktif" },
+            ] : [
+              { id: 1, code: "KOPIASIK", discount: 15, desc: "Diskon menu kopi khusus akhir pekan", status: "Aktif" },
+              { id: 2, code: "FLOWBARU", discount: 20, desc: "Promo pengguna baru QR Menu", status: "Aktif" },
+            ];
+            setActiveCoupons(defaults);
+          }
+        }
+      } catch (e) {}
+    }
+  }, [tenant]);
 
   interface CartItem {
     id: string;
@@ -71,7 +103,7 @@ export default function POSPage() {
   const [success, setSuccess] = useState(false);
   const queryClient = useQueryClient();
 
-  const { data: tenant } = useGetTenant();
+
 
   // Modal selection states
   const [selectedProduct, setSelectedProduct] = useState<any | null>(null);

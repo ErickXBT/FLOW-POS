@@ -103,6 +103,7 @@ export const ListAdminTenantsResponse = zod.object({
   "data": zod.array(zod.object({
   "id": zod.number(),
   "name": zod.string(),
+  "slug": zod.string().nullish(),
   "businessType": zod.enum(['fnb', 'fashion', 'restaurant', 'cafe', 'salon', 'minimarket']),
   "status": zod.enum(['active', 'suspended', 'trial', 'expired']),
   "address": zod.string().nullish(),
@@ -137,6 +138,7 @@ export const GetAdminTenantParams = zod.object({
 export const GetAdminTenantResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
+  "slug": zod.string().nullish(),
   "businessType": zod.enum(['fnb', 'fashion', 'restaurant', 'cafe', 'salon', 'minimarket']),
   "status": zod.enum(['active', 'suspended', 'trial', 'expired']),
   "address": zod.string().nullish(),
@@ -179,6 +181,7 @@ export const UpdateTenantStatusBody = zod.object({
 export const UpdateTenantStatusResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
+  "slug": zod.string().nullish(),
   "businessType": zod.enum(['fnb', 'fashion', 'restaurant', 'cafe', 'salon', 'minimarket']),
   "status": zod.enum(['active', 'suspended', 'trial', 'expired']),
   "address": zod.string().nullish(),
@@ -205,6 +208,7 @@ export const UpdateTenantStatusResponse = zod.object({
 export const GetTenantResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
+  "slug": zod.string().nullish(),
   "businessType": zod.enum(['fnb', 'fashion', 'restaurant', 'cafe', 'salon', 'minimarket']),
   "status": zod.enum(['active', 'suspended', 'trial', 'expired']),
   "address": zod.string().nullish(),
@@ -248,6 +252,7 @@ export const UpdateTenantBody = zod.object({
 export const UpdateTenantResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
+  "slug": zod.string().nullish(),
   "businessType": zod.enum(['fnb', 'fashion', 'restaurant', 'cafe', 'salon', 'minimarket']),
   "status": zod.enum(['active', 'suspended', 'trial', 'expired']),
   "address": zod.string().nullish(),

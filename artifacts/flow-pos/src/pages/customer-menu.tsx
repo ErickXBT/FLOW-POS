@@ -513,13 +513,29 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
   }, [slug]);
 
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem("flow_marketing_banners");
-      if (stored) {
-        setPromoBanners(JSON.parse(stored));
-      }
-    } catch (err) {}
-  }, []);
+    if (tenant?.id) {
+      try {
+        const stored = localStorage.getItem(`flow_marketing_banners_${tenant.id}`);
+        if (stored) {
+          setPromoBanners(JSON.parse(stored));
+        } else {
+          const oldStored = localStorage.getItem("flow_marketing_banners");
+          if (oldStored) {
+            setPromoBanners(JSON.parse(oldStored));
+          } else {
+            const defaults = tenant.businessType === "fashion" ? [
+              { id: 1, title: "Spesial Weekend: Diskon 20% Koleksi Denim", bgColor: "#8B5CF6", textColor: "#FFFFFF" },
+              { id: 2, title: "Promo Member Baru: Cashback Rp 50.000", bgColor: "#10B981", textColor: "#FFFFFF" },
+            ] : [
+              { id: 1, title: "Spesial Weekend: Beli 1 Gratis 1 Latte", bgColor: "#1D4EF5", textColor: "#FFFFFF" },
+              { id: 2, title: "Diskon 20% bagi Pelanggan Setia POS", bgColor: "#10B981", textColor: "#FFFFFF" },
+            ];
+            setPromoBanners(defaults);
+          }
+        }
+      } catch (err) {}
+    }
+  }, [tenant]);
 
   const primary = tenant?.primaryColor ?? "#1D4EF5";
 
@@ -855,13 +871,11 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
               <div
                 key={pb.id}
                 onClick={() => handleBannerClick(pb)}
-                className={`flex-none h-36 sm:h-40 md:h-[160px] rounded-3xl overflow-hidden shadow-sm border border-gray-100 relative group transition-all duration-300 hover:shadow-md cursor-pointer hover:border-blue-500/50 hover:scale-[1.01] ${
-                  pb.imageUrl ? "w-auto min-w-[280px] sm:min-w-[320px]" : "w-76 sm:w-84 md:w-[350px]"
-                }`}
+                className="flex-none h-36 sm:h-40 md:h-[160px] w-76 sm:w-84 md:w-[350px] rounded-3xl overflow-hidden shadow-sm border border-gray-100 relative group transition-all duration-300 hover:shadow-md cursor-pointer hover:border-blue-500/50 hover:scale-[1.01]"
               >
                 {pb.imageUrl ? (
-                  <div className="relative h-full w-auto">
-                    <img src={pb.imageUrl} alt={pb.title || "Promo"} className="h-full w-auto object-contain group-hover:scale-102 transition-transform duration-500 rounded-3xl" />
+                  <div className="relative h-full w-full">
+                    <img src={pb.imageUrl} alt={pb.title || "Promo"} className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500" />
                     {pb.title && (
                       <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent flex flex-col justify-end p-4">
                         <div className="text-white font-black text-sm sm:text-base leading-snug drop-shadow">

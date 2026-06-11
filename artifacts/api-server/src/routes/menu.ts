@@ -5,7 +5,7 @@ import {
   db, tenantsTable, categoriesTable, productsTable,
   customerOrdersTable, customerOrderItemsTable, tableQrCodesTable,
   publicMenusTable, branchesTable, customerSessionsTable, customerCartsTable,
-  publicMenuCategoriesTable, publicMenuProductsTable,
+  publicMenuCategoriesTable, publicMenuProductsTable, branchSettingsTable,
 } from "@workspace/db";
 import { extractToken } from "./auth";
 
@@ -87,6 +87,30 @@ router.get("/menu/:slug", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Menu tidak ditemukan" }); return;
   }
 
+  // Find branch first, creating it if it doesn't exist
+  let branch = null;
+  const branches = await db.select().from(branchesTable).where(eq(branchesTable.tenantId, tenant.id)).limit(1);
+  if (branches.length > 0) {
+    branch = branches[0];
+  } else {
+    const [newBranch] = await db.insert(branchesTable).values({
+      tenantId: tenant.id,
+      name: "Utama",
+      status: "active",
+    }).returning();
+    branch = newBranch;
+
+    await db.insert(branchSettingsTable).values({
+      tenantId: tenant.id,
+      branchId: branch.id,
+      qrMenuEnabled: true,
+      taxPercentage: "0.00",
+      receiptFooter: "Terima kasih atas kunjungan Anda!",
+      printerSettings: JSON.stringify({ paperSize: "80mm", type: "IP", ip: "192.168.1.100" }),
+      paymentMethods: JSON.stringify(["cash", "qris"]),
+    });
+  }
+
   // Find active menu
   let menu = null;
   if (branchIdParam) {
@@ -98,15 +122,19 @@ router.get("/menu/:slug", async (req, res): Promise<void> => {
       .limit(1);
   }
 
-  // Find branch
-  let branch = null;
-  if (menu) {
-    [branch] = await db.select().from(branchesTable).where(eq(branchesTable.id, menu.branchId));
-  } else {
-    const branches = await db.select().from(branchesTable).where(eq(branchesTable.tenantId, tenant.id)).limit(1);
-    if (branches.length > 0) {
-      branch = branches[0];
-    }
+  // If no menu exists, create a default active public menu on-the-fly
+  if (!menu && branch) {
+    const [newMenu] = await db.insert(publicMenusTable).values({
+      tenantId: tenant.id,
+      branchId: branch.id,
+      slug: tenant.slug ?? slug,
+      name: tenant.name,
+      isActive: true,
+      enableDineIn: tenant.enableDineIn ?? true,
+      enableTakeAway: tenant.enableTakeAway ?? true,
+      enableDelivery: tenant.enableDelivery ?? false,
+    }).returning();
+    menu = newMenu;
   }
 
   res.json({
@@ -524,6 +552,20 @@ router.patch("/tenant/settings", async (req, res): Promise<void> => {
     .set({ ...updates, updatedAt: new Date() })
     .where(eq(tenantsTable.id, claims.tenantId))
     .returning();
+
+  // Sync to publicMenusTable if relevant fields are updated
+  const menuUpdates: Record<string, any> = {};
+  if (updates.slug !== undefined) menuUpdates.slug = updates.slug;
+  if (updates.enableDineIn !== undefined) menuUpdates.enableDineIn = updates.enableDineIn;
+  if (updates.enableTakeAway !== undefined) menuUpdates.enableTakeAway = updates.enableTakeAway;
+  if (updates.enableDelivery !== undefined) menuUpdates.enableDelivery = updates.enableDelivery;
+
+  if (Object.keys(menuUpdates).length > 0) {
+    await db.update(publicMenusTable)
+      .set(menuUpdates)
+      .where(eq(publicMenusTable.tenantId, claims.tenantId));
+  }
+
   res.json(tenant);
 });
 

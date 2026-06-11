@@ -207,22 +207,26 @@ function OwnerDashboard() {
   const [activityLogs, setActivityLogs] = useState<any[]>([]);
 
   // Expenses State (Finance) with LocalStorage persistence
-  const [expenses, setExpenses] = useState<any[]>(() => {
-    try {
-      const stored = localStorage.getItem("flow_expenses");
-      if (stored) return JSON.parse(stored);
-    } catch (err) {}
-    return [
-      { id: 1, desc: "Sewa Tempat (Bulanan)", category: "Operasional", amount: 4500000, date: "2026-06-01" },
-      { id: 2, desc: "Gaji Karyawan (Grup)", category: "Gaji", amount: 7800000, date: "2026-06-05" },
-      { id: 3, desc: "Biji Kopi & Bahan Baku", category: "Bahan Baku", amount: 3200000, date: "2026-06-07" },
-      { id: 4, desc: "Listrik & Internet", category: "Utilitas", amount: 1150000, date: "2026-06-08" },
-    ];
-  });
+  const [expenses, setExpenses] = useState<any[]>([]);
 
   useEffect(() => {
-    localStorage.setItem("flow_expenses", JSON.stringify(expenses));
-  }, [expenses]);
+    if (tenant?.id) {
+      try {
+        const stored = localStorage.getItem(`flow_expenses_${tenant.id}`);
+        if (stored) {
+          setExpenses(JSON.parse(stored));
+          return;
+        }
+      } catch (err) {}
+      setExpenses([]);
+    }
+  }, [tenant?.id]);
+
+  useEffect(() => {
+    if (tenant?.id) {
+      localStorage.setItem(`flow_expenses_${tenant.id}`, JSON.stringify(expenses));
+    }
+  }, [expenses, tenant?.id]);
 
   const [newExpense, setNewExpense] = useState({ desc: "", category: "Operasional", amount: "" });
 
@@ -233,25 +237,59 @@ function OwnerDashboard() {
   const [branchComparison, setBranchComparison] = useState<any[]>([]);
 
   // Marketing Tools State
-  const [coupons, setCoupons] = useState<any[]>(() => {
-    try {
-      const stored = localStorage.getItem("flow_coupons");
-      if (stored) return JSON.parse(stored);
-    } catch (err) {}
-    return [];
-  });
+  const [coupons, setCoupons] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (tenant?.id) {
+      try {
+        const stored = localStorage.getItem(`flow_coupons_${tenant.id}`);
+        if (stored) {
+          setCoupons(JSON.parse(stored));
+          return;
+        }
+      } catch (err) {}
+      setCoupons([]);
+    }
+  }, [tenant?.id]);
+
+  useEffect(() => {
+    if (tenant?.id) {
+      localStorage.setItem(`flow_coupons_${tenant.id}`, JSON.stringify(coupons));
+    }
+  }, [coupons, tenant?.id]);
+
   const [newCoupon, setNewCoupon] = useState({ code: "", discount: "", desc: "" });
 
-  const [marketingBanners, setMarketingBanners] = useState<any[]>(() => {
-    try {
-      const stored = localStorage.getItem("flow_marketing_banners");
-      if (stored) return JSON.parse(stored);
-    } catch (err) {}
-    return [
-      { id: 1, title: "Spesial Weekend: Beli 1 Gratis 1 Latte", bgColor: "#1D4EF5", textColor: "#FFFFFF" },
-      { id: 2, title: "Diskon 20% bagi Pelanggan Setia POS", bgColor: "#10B981", textColor: "#FFFFFF" },
-    ];
-  });
+  const [marketingBanners, setMarketingBanners] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (tenant?.id) {
+      try {
+        const stored = localStorage.getItem(`flow_marketing_banners_${tenant.id}`);
+        if (stored) {
+          setMarketingBanners(JSON.parse(stored));
+          return;
+        }
+      } catch (err) {}
+      
+      const defaults = isFashion ? [
+        { id: 1, title: "Spesial Weekend: Diskon 20% Koleksi Denim", bgColor: "#8B5CF6", textColor: "#FFFFFF" },
+        { id: 2, title: "Promo Member Baru: Cashback Rp 50.000", bgColor: "#10B981", textColor: "#FFFFFF" },
+      ] : [
+        { id: 1, title: "Spesial Weekend: Beli 1 Gratis 1 Latte", bgColor: "#1D4EF5", textColor: "#FFFFFF" },
+        { id: 2, title: "Diskon 20% bagi Pelanggan Setia POS", bgColor: "#10B981", textColor: "#FFFFFF" },
+      ];
+      setMarketingBanners(defaults);
+      localStorage.setItem(`flow_marketing_banners_${tenant.id}`, JSON.stringify(defaults));
+    }
+  }, [tenant?.id, isFashion]);
+
+  useEffect(() => {
+    if (tenant?.id) {
+      localStorage.setItem(`flow_marketing_banners_${tenant.id}`, JSON.stringify(marketingBanners));
+    }
+  }, [marketingBanners, tenant?.id]);
+
   const [newBanner, setNewBanner] = useState({ title: "", bgColor: "#1D4EF5", textColor: "#FFFFFF", imageUrl: "", linkedProductId: "" });
   const [bannerType, setBannerType] = useState<"text" | "image">("text");
   const [bannerUploading, setBannerUploading] = useState(false);
@@ -287,7 +325,8 @@ function OwnerDashboard() {
   const [exportLoading, setExportLoading] = useState<Record<string, number>>({});
 
   const s = stats || { todaySales: 0, todayOrders: 0, totalProducts: 0, totalCustomers: 0, lowStockCount: 0, monthlyRevenue: 0, weeklyRevenue: 0, revenueGrowth: 0 };
-  const isFreshTenant = stats ? (stats.totalProducts === 0 && stats.todayOrders === 0) : false;
+  const isDemo = tenant?.slug === "budi-resto" || tenant?.slug === "freshmood";
+  const isFreshTenant = isDemo ? (stats ? (stats.totalProducts === 0 && stats.todayOrders === 0) : false) : (!simulationActive);
 
   // Sync attendance with real employees dynamically
   useEffect(() => {
@@ -315,28 +354,47 @@ function OwnerDashboard() {
     }
   }, [realEmployees, isFashion, isFreshTenant]);
 
-  // Sync Coupons based on defaults & business type
+  // Sync Coupons based on defaults & business type (only for demo tenants)
   useEffect(() => {
-    const stored = localStorage.getItem("flow_coupons");
-    if (!stored || JSON.parse(stored).length === 0) {
-      let defaults = [];
-      if (isFashion) {
-        defaults = [
-          { id: 1, code: "FASHION20", discount: 20, desc: "Diskon pakaian khusus akhir pekan", status: "Aktif" },
-          { id: 2, code: "DENIMWEEKEND", discount: 15, desc: "Promo produk denim di QR Katalog", status: "Aktif" },
-          { id: 3, code: "HEBATSENIN", discount: 10, desc: "Diskon weekday Senin pagi", status: "Expired" },
-        ];
-      } else {
-        defaults = [
-          { id: 1, code: "KOPIASIK", discount: 15, desc: "Diskon menu kopi khusus akhir pekan", status: "Aktif" },
-          { id: 2, code: "FLOWBARU", discount: 20, desc: "Promo pengguna baru QR Menu", status: "Aktif" },
-          { id: 3, code: "HEBATSENIN", discount: 10, desc: "Diskon weekday Senin pagi", status: "Expired" },
-        ];
+    if (isDemo && tenant?.id) {
+      const stored = localStorage.getItem(`flow_coupons_${tenant.id}`);
+      if (!stored || JSON.parse(stored).length === 0) {
+        let defaults = [];
+        if (isFashion) {
+          defaults = [
+            { id: 1, code: "FASHION20", discount: 20, desc: "Diskon pakaian khusus akhir pekan", status: "Aktif" },
+            { id: 2, code: "DENIMWEEKEND", discount: 15, desc: "Promo produk denim di QR Katalog", status: "Aktif" },
+            { id: 3, code: "HEBATSENIN", discount: 10, desc: "Diskon weekday Senin pagi", status: "Expired" },
+          ];
+        } else {
+          defaults = [
+            { id: 1, code: "KOPIASIK", discount: 15, desc: "Diskon menu kopi khusus akhir pekan", status: "Aktif" },
+            { id: 2, code: "FLOWBARU", discount: 20, desc: "Promo pengguna baru QR Menu", status: "Aktif" },
+            { id: 3, code: "HEBATSENIN", discount: 10, desc: "Diskon weekday Senin pagi", status: "Expired" },
+          ];
+        }
+        setCoupons(defaults);
+        localStorage.setItem(`flow_coupons_${tenant.id}`, JSON.stringify(defaults));
       }
-      setCoupons(defaults);
-      localStorage.setItem("flow_coupons", JSON.stringify(defaults));
     }
-  }, [isFashion]);
+  }, [isFashion, isDemo, tenant?.id]);
+
+  // Initialize mock expenses for demo tenants if none exist
+  useEffect(() => {
+    if (isDemo && tenant?.id) {
+      const stored = localStorage.getItem(`flow_expenses_${tenant.id}`);
+      if (!stored || JSON.parse(stored).length === 0) {
+        const demoExpenses = [
+          { id: 1, desc: "Sewa Tempat (Bulanan)", category: "Operasional", amount: 4500000, date: "2026-06-01" },
+          { id: 2, desc: "Gaji Karyawan (Grup)", category: "Gaji", amount: 7800000, date: "2026-06-05" },
+          { id: 3, desc: "Biji Kopi & Bahan Baku", category: "Bahan Baku", amount: 3200000, date: "2026-06-07" },
+          { id: 4, desc: "Listrik & Internet", category: "Utilitas", amount: 1150000, date: "2026-06-08" },
+        ];
+        setExpenses(demoExpenses);
+        localStorage.setItem(`flow_expenses_${tenant.id}`, JSON.stringify(demoExpenses));
+      }
+    }
+  }, [isDemo, tenant?.id]);
 
   // Fetch Activity Logs
   useEffect(() => {
@@ -551,23 +609,40 @@ function OwnerDashboard() {
 
   // Clear mock/simulated data if simulation is toggled off
   useEffect(() => {
-    if (isFreshTenant && !simulationActive) {
-      setExpenses([]);
-      setAttendance([]);
-      setCoupons([]);
-      localStorage.setItem("flow_coupons", "[]");
-      if (!localStorage.getItem("flow_marketing_banners")) {
-        setMarketingBanners([]);
+    if (isFreshTenant && !simulationActive && tenant?.id) {
+      if (isDemo) {
+        setExpenses([
+          { id: 1, desc: "Sewa Tempat (Bulanan)", category: "Operasional", amount: 4500000, date: "2026-06-01" },
+          { id: 2, desc: "Gaji Karyawan (Grup)", category: "Gaji", amount: 7800000, date: "2026-06-05" },
+          { id: 3, desc: "Biji Kopi & Bahan Baku", category: "Bahan Baku", amount: 3200000, date: "2026-06-07" },
+          { id: 4, desc: "Listrik & Internet", category: "Utilitas", amount: 1150000, date: "2026-06-08" },
+        ]);
+        let defaults = [];
+        if (isFashion) {
+          defaults = [
+            { id: 1, code: "FASHION20", discount: 20, desc: "Diskon pakaian khusus akhir pekan", status: "Aktif" },
+            { id: 2, code: "DENIMWEEKEND", discount: 15, desc: "Promo produk denim di QR Katalog", status: "Aktif" },
+            { id: 3, code: "HEBATSENIN", discount: 10, desc: "Diskon weekday Senin pagi", status: "Expired" },
+          ];
+        } else {
+          defaults = [
+            { id: 1, code: "KOPIASIK", discount: 15, desc: "Diskon menu kopi khusus akhir pekan", status: "Aktif" },
+            { id: 2, code: "FLOWBARU", discount: 20, desc: "Promo pengguna baru QR Menu", status: "Aktif" },
+            { id: 3, code: "HEBATSENIN", discount: 10, desc: "Diskon weekday Senin pagi", status: "Expired" },
+          ];
+        }
+        setCoupons(defaults);
+        localStorage.setItem(`flow_coupons_${tenant.id}`, JSON.stringify(defaults));
       }
       setLiveOrders([]);
       setKitchenQueue([]);
       setNotifications([]);
     }
-  }, [isFreshTenant, simulationActive]);
+  }, [isFreshTenant, simulationActive, isDemo, isFashion, tenant?.id]);
 
   // Financial calculations
   const totalExpenses = expenses.reduce((acc, exp) => acc + exp.amount, 0);
-  const estimatedGrossProfit = isFreshTenant ? 0 : (s.monthlyRevenue || 14850000);
+  const estimatedGrossProfit = isDemo ? (s.monthlyRevenue || 14850000) : (s.monthlyRevenue || 0);
   const estimatedNetProfit = estimatedGrossProfit - totalExpenses;
 
   // Add Expense function
@@ -598,7 +673,9 @@ function OwnerDashboard() {
     };
     setCoupons(prev => {
       const next = [coupObj, ...prev];
-      localStorage.setItem("flow_coupons", JSON.stringify(next));
+      if (tenant?.id) {
+        localStorage.setItem(`flow_coupons_${tenant.id}`, JSON.stringify(next));
+      }
       return next;
     });
     setNewCoupon({ code: "", discount: "", desc: "" });
@@ -608,7 +685,9 @@ function OwnerDashboard() {
   const handleDeleteCoupon = (id: number) => {
     setCoupons(prev => {
       const next = prev.filter(c => c.id !== id);
-      localStorage.setItem("flow_coupons", JSON.stringify(next));
+      if (tenant?.id) {
+        localStorage.setItem(`flow_coupons_${tenant.id}`, JSON.stringify(next));
+      }
       return next;
     });
   };
@@ -692,7 +771,9 @@ function OwnerDashboard() {
 
     setMarketingBanners(prev => {
       const next = [banObj, ...prev];
-      localStorage.setItem("flow_marketing_banners", JSON.stringify(next));
+      if (tenant?.id) {
+        localStorage.setItem(`flow_marketing_banners_${tenant.id}`, JSON.stringify(next));
+      }
       return next;
     });
     setNewBanner({ title: "", bgColor: "#1D4EF5", textColor: "#FFFFFF", imageUrl: "", linkedProductId: "" });
@@ -701,7 +782,9 @@ function OwnerDashboard() {
   const handleDeleteBanner = (id: number) => {
     setMarketingBanners(prev => {
       const next = prev.filter(b => b.id !== id);
-      localStorage.setItem("flow_marketing_banners", JSON.stringify(next));
+      if (tenant?.id) {
+        localStorage.setItem(`flow_marketing_banners_${tenant.id}`, JSON.stringify(next));
+      }
       return next;
     });
   };
@@ -960,7 +1043,7 @@ function OwnerDashboard() {
                       <h3 className="font-bold text-foreground text-sm">Tren Pendapatan Mingguan</h3>
                       <p className="text-xs text-muted-foreground">7 hari terakhir penjualan</p>
                     </div>
-                    <span className="text-xs font-bold text-primary bg-primary/10 px-3 py-1 rounded-full">{formatRp(isFreshTenant ? 0 : (s.weeklyRevenue || 3450000))} / Mgg</span>
+                    <span className="text-xs font-bold text-primary bg-primary/10 px-3 py-1 rounded-full">{formatRp(isDemo ? (s.weeklyRevenue || 3450000) : (s.weeklyRevenue || 0))} / Mgg</span>
                   </div>
                   <ResponsiveContainer width="100%" height={220}>
                     <AreaChart data={chartData || []}>
