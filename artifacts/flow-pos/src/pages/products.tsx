@@ -26,9 +26,10 @@ interface ProductFormProps {
   onClose: () => void;
   loading: boolean;
   businessType?: string;
+  products?: any[];
 }
 
-function ProductForm({ initial, categories, onSubmit, onClose, loading, businessType }: ProductFormProps) {
+function ProductForm({ initial, categories, onSubmit, onClose, loading, businessType, products = [] }: ProductFormProps) {
   const [form, setForm] = useState({
     name: initial?.name || "",
     sku: initial?.sku || "",
@@ -47,6 +48,7 @@ function ProductForm({ initial, categories, onSubmit, onClose, loading, business
     if (!initial?.variantSettings) return [];
     try {
       const parsed = JSON.parse(initial.variantSettings);
+      if (parsed.isBundle) return [];
       return parsed.variants || [];
     } catch (e) {
       return [];
@@ -57,15 +59,52 @@ function ProductForm({ initial, categories, onSubmit, onClose, loading, business
     if (!initial?.variantSettings) return [];
     try {
       const parsed = JSON.parse(initial.variantSettings);
+      if (parsed.isBundle) return [];
       return parsed.toppings || [];
     } catch (e) {
       return [];
     }
   });
 
+  // Bundle package states
+  let initialIsBundle = false;
+  let initialBundleProducts: any[] = [];
+  let initialBundleBannerImageUrl = "";
+  if (initial?.variantSettings) {
+    try {
+      const parsed = JSON.parse(initial.variantSettings);
+      if (parsed.isBundle) {
+        initialIsBundle = true;
+        initialBundleProducts = parsed.bundleProducts || [];
+        initialBundleBannerImageUrl = parsed.bannerImageUrl || "";
+      }
+    } catch (e) {}
+  }
+
+  const [isBundle, setIsBundle] = useState(initialIsBundle);
+  const [bundleProducts, setBundleProducts] = useState<{ id: number; name: string; qty: number }[]>(initialBundleProducts);
+  const [bundleBannerImageUrl, setBundleBannerImageUrl] = useState(initialBundleBannerImageUrl);
+  const [selectedAddProdId, setSelectedAddProdId] = useState("");
+  const [selectedAddProdQty, setSelectedAddProdQty] = useState(1);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const bannerFileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
+  const [bannerUploading, setBannerUploading] = useState(false);
+  const [bannerUploadError, setBannerUploadError] = useState("");
+
+  const selectableProducts = products.filter((p: any) => {
+    if (p.id === initial?.id) return false;
+    // Exclude other bundles to prevent bundle nesting
+    if (p.variantSettings) {
+      try {
+        const parsed = JSON.parse(p.variantSettings);
+        if (parsed.isBundle) return false;
+      } catch (e) {}
+    }
+    return true;
+  });
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -123,6 +162,65 @@ function ProductForm({ initial, categories, onSubmit, onClose, loading, business
     } catch (err: any) {
       setUploadError("Terjadi kesalahan saat memproses gambar");
       setUploading(false);
+    }
+  };
+
+  const handleBannerFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setBannerUploadError("File harus berupa gambar");
+      return;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      setBannerUploadError("Ukuran gambar maksimal 5MB");
+      return;
+    }
+
+    setBannerUploading(true);
+    setBannerUploadError("");
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = reader.result as string;
+        try {
+          const token = localStorage.getItem("flow_token");
+          const res = await fetch("/api/products/upload", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${token || ""}`,
+            },
+            body: JSON.stringify({
+              name: file.name,
+              base64,
+            }),
+          });
+
+          if (!res.ok) {
+            const errData = await res.json();
+            throw new Error(errData.error || "Gagal mengunggah gambar");
+          }
+
+          const data = await res.json();
+          setBundleBannerImageUrl(data.imageUrl);
+        } catch (err: any) {
+          setBannerUploadError(err.message || "Gagal mengunggah gambar");
+        } finally {
+          setBannerUploading(false);
+        }
+      };
+      reader.onerror = () => {
+        setBannerUploadError("Gagal membaca file");
+        setBannerUploading(false);
+      };
+      reader.readAsDataURL(file);
+    } catch (err: any) {
+      setBannerUploadError("Terjadi kesalahan saat memproses gambar");
+      setBannerUploading(false);
     }
   };
 
@@ -296,113 +394,290 @@ function ProductForm({ initial, categories, onSubmit, onClose, loading, business
                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
-            {/* Varian Section */}
-            <div className="col-span-2 space-y-2">
-              <div className="flex items-center justify-between border-b pb-1.5 border-border">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Pilihan Ukuran / Varian</span>
-                <button
-                  type="button"
-                  onClick={() => setVariantsList(prev => [...prev, { name: "", price: 0 }])}
-                  className="text-xs font-bold text-amber-500 hover:text-amber-600 transition-colors"
-                >
-                  + Tambah Varian
-                </button>
-              </div>
-              
-              {variantsList.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic">Belum ada varian ditambahkan.</p>
-              ) : (
-                <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
-                  {variantsList.map((variant, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        placeholder="Nama Varian (misal: Large)"
-                        value={variant.name}
-                        onChange={e => {
-                          const updated = [...variantsList];
-                          updated[index].name = e.target.value;
-                          setVariantsList(updated);
-                        }}
-                        className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400"
-                      />
-                      <input
-                        type="number"
-                        placeholder="Tambahan Harga (Rp)"
-                        value={variant.price || ""}
-                        onChange={e => {
-                          const updated = [...variantsList];
-                          updated[index].price = Number(e.target.value) || 0;
-                          setVariantsList(updated);
-                        }}
-                        className="w-32 px-3 py-2 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setVariantsList(prev => prev.filter((_, idx) => idx !== index))}
-                        className="p-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
+
+            {/* Bundling Toggle */}
+            <div className="col-span-2 pt-2">
+              <label className="relative inline-flex items-center cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={isBundle}
+                  onChange={e => {
+                    setIsBundle(e.target.checked);
+                    if (e.target.checked) {
+                      setVariantsList([]);
+                      setToppingsList([]);
+                    }
+                  }}
+                />
+                <div className="w-8 h-4 bg-muted-foreground/30 peer-focus:outline-none rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-amber-400 peer-checked:after:translate-x-4"></div>
+                <span className="ml-2 text-xs font-semibold text-muted-foreground select-none">Paket Promo / Bundling (Include &gt; 2 Produk)</span>
+              </label>
             </div>
+
+            {/* Bundled products editor */}
+            {isBundle && (
+              <div className="col-span-2 space-y-3 p-4 bg-muted/20 border border-border rounded-2xl animate-fade-in">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground block border-b pb-1.5 border-border">Daftar Produk dalam Paket</span>
+                
+                {bundleProducts.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">Belum ada produk ditambahkan ke dalam paket promo ini.</p>
+                ) : (
+                  <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                    {bundleProducts.map((bp, index) => (
+                      <div key={index} className="flex items-center justify-between bg-background border border-border p-2.5 rounded-xl text-xs">
+                        <span className="font-semibold text-foreground">{bp.name}</span>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            min="1"
+                            value={bp.qty}
+                            onChange={e => {
+                              const updated = [...bundleProducts];
+                              updated[index].qty = Math.max(1, Number(e.target.value) || 1);
+                              setBundleProducts(updated);
+                            }}
+                            className="w-16 px-2 py-1 border border-input bg-card text-center rounded-lg focus:outline-none text-xs"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setBundleProducts(prev => prev.filter((_, idx) => idx !== index))}
+                            className="p-1.5 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex items-end gap-2 pt-2 border-t border-border/60">
+                  <div className="flex-1 min-w-0">
+                    <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Pilih Produk</label>
+                    <select
+                      value={selectedAddProdId}
+                      onChange={e => setSelectedAddProdId(e.target.value)}
+                      className="w-full px-3 py-2 border border-input bg-background rounded-xl text-xs focus:outline-none text-foreground"
+                    >
+                      <option value="">Pilih produk...</option>
+                      {selectableProducts.map((p: any) => (
+                        <option key={p.id} value={p.id}>{p.name} ({formatRp(Number(p.price))})</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="w-20">
+                    <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Jumlah</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={selectedAddProdQty}
+                      onChange={e => setSelectedAddProdQty(Math.max(1, Number(e.target.value) || 1))}
+                      className="w-full px-3 py-2 border border-input bg-background rounded-xl text-xs text-center focus:outline-none"
+                    />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!selectedAddProdId) return;
+                      const matched = selectableProducts.find((p: any) => p.id === Number(selectedAddProdId));
+                      if (!matched) return;
+                      
+                      const existingIdx = bundleProducts.findIndex(bp => bp.id === matched.id);
+                      if (existingIdx !== -1) {
+                        const updated = [...bundleProducts];
+                        updated[existingIdx].qty += selectedAddProdQty;
+                        setBundleProducts(updated);
+                      } else {
+                        setBundleProducts(prev => [...prev, { id: matched.id, name: matched.name, qty: selectedAddProdQty }]);
+                      }
+                      setSelectedAddProdId("");
+                      setSelectedAddProdQty(1);
+                    }}
+                    className="px-4 py-2 bg-amber-400 hover:bg-amber-500 text-black text-xs font-bold rounded-xl transition-colors shadow"
+                  >
+                    Tambah
+                  </button>
+                </div>
+
+                {/* Promo Banner Image Upload */}
+                <div className="pt-3 border-t border-border/60 space-y-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">Gambar Banner Promo (Opsional)</span>
+                  <input
+                    type="file"
+                    ref={bannerFileInputRef}
+                    onChange={handleBannerFileChange}
+                    accept="image/*"
+                    className="hidden"
+                  />
+                  {bundleBannerImageUrl ? (
+                    <div className="relative w-full h-24 rounded-xl overflow-hidden border border-border bg-muted">
+                      <img
+                        src={bundleBannerImageUrl}
+                        alt="Promo Banner"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute top-2 right-2 flex gap-1">
+                        <button
+                          type="button"
+                          onClick={() => bannerFileInputRef.current?.click()}
+                          className="px-2 py-1 bg-amber-400 text-black text-[10px] font-bold rounded hover:bg-amber-500 transition-colors shadow"
+                        >
+                          Ubah
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setBundleBannerImageUrl("")}
+                          className="p-1 bg-red-500 text-white rounded hover:bg-red-600 transition-colors shadow"
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => bannerFileInputRef.current?.click()}
+                      className="w-full h-20 border border-dashed border-input rounded-xl flex flex-col items-center justify-center p-3 cursor-pointer hover:border-amber-400 hover:bg-amber-400/5 transition-all group"
+                    >
+                      {bannerUploading ? (
+                        <div className="flex items-center gap-2">
+                          <div className="w-4 h-4 border-2 border-amber-400 border-t-transparent rounded-full animate-spin"></div>
+                          <span className="text-xs text-muted-foreground font-semibold">Mengunggah...</span>
+                        </div>
+                      ) : (
+                        <>
+                          <UploadCloud size={16} className="text-amber-500 mb-1 group-hover:scale-110 transition-transform" />
+                          <span className="text-xs font-bold text-foreground">Pilih gambar banner</span>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  {bannerUploadError && (
+                    <p className="text-[10px] text-red-500 font-semibold">{bannerUploadError}</p>
+                  )}
+                  <input
+                    type="url"
+                    placeholder="Atau URL Gambar Banner (contoh: https://...)"
+                    value={bundleBannerImageUrl}
+                    onChange={e => setBundleBannerImageUrl(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-input bg-background text-xs focus:outline-none focus:ring-1 focus:ring-amber-500/20"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Varian Section */}
+            {!isBundle && (
+              <div className="col-span-2 space-y-2">
+                <div className="flex items-center justify-between border-b pb-1.5 border-border">
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Pilihan Ukuran / Varian</span>
+                  <button
+                    type="button"
+                    onClick={() => setVariantsList(prev => [...prev, { name: "", price: 0 }])}
+                    className="text-xs font-bold text-amber-500 hover:text-amber-600 transition-colors"
+                  >
+                    + Tambah Varian
+                  </button>
+                </div>
+                
+                {variantsList.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">Belum ada varian ditambahkan.</p>
+                ) : (
+                  <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                    {variantsList.map((variant, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          placeholder="Nama Varian (misal: Large)"
+                          value={variant.name}
+                          onChange={e => {
+                            const updated = [...variantsList];
+                            updated[index].name = e.target.value;
+                            setVariantsList(updated);
+                          }}
+                          className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400"
+                        />
+                        <input
+                          type="number"
+                          placeholder="Tambahan Harga (Rp)"
+                          value={variant.price || ""}
+                          onChange={e => {
+                            const updated = [...variantsList];
+                            updated[index].price = Number(e.target.value) || 0;
+                            setVariantsList(updated);
+                          }}
+                          className="w-32 px-3 py-2 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setVariantsList(prev => prev.filter((_, idx) => idx !== index))}
+                          className="p-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Topping Section */}
-            <div className="col-span-2 space-y-2">
-              <div className="flex items-center justify-between border-b pb-1.5 border-border">
-                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Topping / Tambahan</span>
-                <button
-                  type="button"
-                  onClick={() => setToppingsList(prev => [...prev, { name: "", price: 0 }])}
-                  className="text-xs font-bold text-amber-500 hover:text-amber-600 transition-colors"
-                >
-                  + Tambah Topping
-                </button>
-              </div>
-
-              {toppingsList.length === 0 ? (
-                <p className="text-xs text-muted-foreground italic">Belum ada topping ditambahkan.</p>
-              ) : (
-                <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
-                  {toppingsList.map((topping, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        placeholder="Nama Topping (misal: Boba)"
-                        value={topping.name}
-                        onChange={e => {
-                          const updated = [...toppingsList];
-                          updated[index].name = e.target.value;
-                          setToppingsList(updated);
-                        }}
-                        className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400"
-                      />
-                      <input
-                        type="number"
-                        placeholder="Harga Topping (Rp)"
-                        value={topping.price || ""}
-                        onChange={e => {
-                          const updated = [...toppingsList];
-                          updated[index].price = Number(e.target.value) || 0;
-                          setToppingsList(updated);
-                        }}
-                        className="w-32 px-3 py-2 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => setToppingsList(prev => prev.filter((_, idx) => idx !== index))}
-                        className="p-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                  ))}
+            {!isBundle && (
+              <div className="col-span-2 space-y-2">
+                <div className="flex items-center justify-between border-b pb-1.5 border-border">
+                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Topping / Tambahan</span>
+                  <button
+                    type="button"
+                    onClick={() => setToppingsList(prev => [...prev, { name: "", price: 0 }])}
+                    className="text-xs font-bold text-amber-500 hover:text-amber-600 transition-colors"
+                  >
+                    + Tambah Topping
+                  </button>
                 </div>
-              )}
-            </div>
+
+                {toppingsList.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">Belum ada topping ditambahkan.</p>
+                ) : (
+                  <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                    {toppingsList.map((topping, index) => (
+                      <div key={index} className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          placeholder="Nama Topping (misal: Boba)"
+                          value={topping.name}
+                          onChange={e => {
+                            const updated = [...toppingsList];
+                            updated[index].name = e.target.value;
+                            setToppingsList(updated);
+                          }}
+                          className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400"
+                        />
+                        <input
+                          type="number"
+                          placeholder="Harga Topping (Rp)"
+                          value={topping.price || ""}
+                          onChange={e => {
+                            const updated = [...toppingsList];
+                            updated[index].price = Number(e.target.value) || 0;
+                            setToppingsList(updated);
+                          }}
+                          className="w-32 px-3 py-2 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setToppingsList(prev => prev.filter((_, idx) => idx !== index))}
+                          className="p-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+            
             <div className="col-span-2 pt-2">
               <label className="relative inline-flex items-center cursor-pointer select-none">
                 <input
@@ -420,20 +695,31 @@ function ProductForm({ initial, categories, onSubmit, onClose, loading, business
         <div className="flex gap-3 px-6 pb-6">
           <button onClick={onClose} className="flex-1 py-2.5 border border-border rounded-xl text-sm font-medium hover:bg-muted transition-colors">Batal</button>
           <button onClick={() => {
-            const cleanVariants = variantsList
-              .map(v => ({ name: v.name.trim(), price: Number(v.price) }))
-              .filter(v => v.name !== "");
-
-            const cleanToppings = toppingsList
-              .map(t => ({ name: t.name.trim(), price: Number(t.price) }))
-              .filter(t => t.name !== "");
-
             let variantSettingsStr = null;
-            if (cleanVariants.length > 0 || cleanToppings.length > 0) {
+            if (isBundle) {
+              const cleanBundle = bundleProducts
+                .map(bp => ({ id: Number(bp.id), name: bp.name, qty: Number(bp.qty) }))
+                .filter(bp => bp.id > 0 && bp.qty > 0);
               variantSettingsStr = JSON.stringify({
-                variants: cleanVariants,
-                toppings: cleanToppings
+                isBundle: true,
+                bundleProducts: cleanBundle,
+                bannerImageUrl: bundleBannerImageUrl || undefined
               });
+            } else {
+              const cleanVariants = variantsList
+                .map(v => ({ name: v.name.trim(), price: Number(v.price) }))
+                .filter(v => v.name !== "");
+
+              const cleanToppings = toppingsList
+                .map(t => ({ name: t.name.trim(), price: Number(t.price) }))
+                .filter(t => t.name !== "");
+
+              if (cleanVariants.length > 0 || cleanToppings.length > 0) {
+                variantSettingsStr = JSON.stringify({
+                  variants: cleanVariants,
+                  toppings: cleanToppings
+                });
+              }
             }
 
             onSubmit({
@@ -669,12 +955,44 @@ export default function ProductsPage() {
                       <span className="px-2 py-0.5 bg-muted text-muted-foreground rounded text-[11px] font-medium leading-none">
                         {p.categoryName || "FreshDrink"}
                       </span>
+                      {(() => {
+                        if (p.variantSettings) {
+                          try {
+                            const parsed = JSON.parse(p.variantSettings);
+                            if (parsed.isBundle) {
+                              return (
+                                <span className="px-1.5 py-0.5 bg-green-500 text-white rounded text-[10px] font-bold flex items-center gap-0.5 leading-none shadow-sm">
+                                  🎁 Paket Promo
+                                </span>
+                              );
+                            }
+                          } catch (e) {}
+                        }
+                        return null;
+                      })()}
                       {p.isBestSeller && (
                         <span className="px-1.5 py-0.5 bg-amber-400 text-black rounded text-[10px] font-bold flex items-center gap-0.5 leading-none shadow-sm">
                           <Star size={10} fill="currentColor" /> Best
                         </span>
                       )}
                     </div>
+
+                    {/* Bundle item list summary */}
+                    {(() => {
+                      if (p.variantSettings) {
+                        try {
+                          const parsed = JSON.parse(p.variantSettings);
+                          if (parsed.isBundle && parsed.bundleProducts && parsed.bundleProducts.length > 0) {
+                            return (
+                              <div className="text-[11px] text-muted-foreground font-medium bg-muted/30 px-2.5 py-1.5 rounded-xl border border-border/40 mt-1 max-w-full">
+                                <span className="font-bold text-foreground">Isi:</span> {parsed.bundleProducts.map((bp: any) => `${bp.qty}x ${bp.name}`).join(", ")}
+                              </div>
+                            );
+                          }
+                        } catch (e) {}
+                      }
+                      return null;
+                    })()}
 
                     {/* Toggles */}
                     <div className="space-y-2 pt-1.5">
@@ -776,6 +1094,7 @@ export default function ProductsPage() {
       {/* Modals */}
       {showForm && (
         <ProductForm
+          products={products}
           categories={categories || []}
           onSubmit={handleCreateProduct}
           onClose={() => setShowForm(false)}
@@ -786,6 +1105,7 @@ export default function ProductsPage() {
       {editProduct && (
         <ProductForm
           initial={editProduct}
+          products={products}
           categories={categories || []}
           onSubmit={handleUpdateProduct}
           onClose={() => setEditProduct(null)}

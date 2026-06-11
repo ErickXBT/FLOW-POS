@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useParams } from "wouter";
 import {
   ShoppingCart, Plus, Minus, Trash2, X, ChevronRight, MapPin,
@@ -405,6 +405,31 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
   const [modalVariantsList, setModalVariantsList] = useState<{ name: string; price: number }[]>([]);
   const [modalToppingsList, setModalToppingsList] = useState<{ name: string; price: number }[]>([]);
 
+  const allBanners = useMemo(() => {
+    const list = [...promoBanners];
+    products.forEach((p: any) => {
+      if (p.variantSettings) {
+        try {
+          const parsed = JSON.parse(p.variantSettings);
+          if (parsed.isBundle && parsed.bannerImageUrl) {
+            const exists = list.some(b => b.linkedProductId === p.id);
+            if (!exists) {
+              list.push({
+                id: `bundle-banner-${p.id}`,
+                title: p.name,
+                imageUrl: parsed.bannerImageUrl,
+                bgColor: "",
+                textColor: "",
+                linkedProductId: p.id
+              });
+            }
+          }
+        } catch (e) {}
+      }
+    });
+    return list;
+  }, [promoBanners, products]);
+
   // Checkout inputs
   const [orderType, setOrderType] = useState("dine_in");
   const [form, setForm] = useState({
@@ -511,6 +536,15 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
         }),
       });
     } catch {}
+  };
+
+  const handleBannerClick = (pb: any) => {
+    if (pb.linkedProductId) {
+      const matched = products.find(p => p.id === pb.linkedProductId);
+      if (matched) {
+        handleOpenDetailModal(matched);
+      }
+    }
   };
 
   const handleOpenDetailModal = (product: Product) => {
@@ -811,16 +845,20 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
       </div>
 
       {/* 2. Marketing Promo Banners */}
-      {promoBanners.length > 0 && (
+      {allBanners.length > 0 && (
         <div className="mt-4 px-4 space-y-3 max-w-7xl mx-auto w-full">
           <div className="font-black text-gray-900 text-sm flex items-center gap-1.5">
             <Sparkles size={16} className="text-amber-500" /> Promo Spesial
           </div>
           <div className="flex gap-4 scroll-x-container no-scrollbar py-1">
-            {promoBanners.map(pb => (
-              <div key={pb.id} className={`flex-none h-36 sm:h-40 md:h-[160px] rounded-3xl overflow-hidden shadow-sm border border-gray-100 relative group transition-all duration-300 hover:shadow-md ${
-                pb.imageUrl ? "w-auto min-w-[280px] sm:min-w-[320px]" : "w-76 sm:w-84 md:w-[350px]"
-              }`}>
+            {allBanners.map(pb => (
+              <div
+                key={pb.id}
+                onClick={() => handleBannerClick(pb)}
+                className={`flex-none h-36 sm:h-40 md:h-[160px] rounded-3xl overflow-hidden shadow-sm border border-gray-100 relative group transition-all duration-300 hover:shadow-md cursor-pointer hover:border-blue-500/50 hover:scale-[1.01] ${
+                  pb.imageUrl ? "w-auto min-w-[280px] sm:min-w-[320px]" : "w-76 sm:w-84 md:w-[350px]"
+                }`}
+              >
                 {pb.imageUrl ? (
                   <div className="relative h-full w-auto">
                     <img src={pb.imageUrl} alt={pb.title || "Promo"} className="h-full w-auto object-contain group-hover:scale-102 transition-transform duration-500 rounded-3xl" />
@@ -997,11 +1035,22 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
             </button>
             <div className="overflow-y-auto flex-1 pb-4">
               <div className="h-56 bg-gray-50 flex items-center justify-center overflow-hidden">
-                {selectedProduct.imageUrl ? (
-                  <img src={selectedProduct.imageUrl} alt={selectedProduct.name} className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-6xl">🍛</span>
-                )}
+                {(() => {
+                  let displayImg = selectedProduct.imageUrl;
+                  if (selectedProduct.variantSettings) {
+                    try {
+                      const parsed = JSON.parse(selectedProduct.variantSettings);
+                      if (parsed.isBundle && parsed.bannerImageUrl) {
+                        displayImg = parsed.bannerImageUrl;
+                      }
+                    } catch (e) {}
+                  }
+                  return displayImg ? (
+                    <img src={displayImg} alt={selectedProduct.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-6xl">🍛</span>
+                  );
+                })()}
               </div>
               <div className="p-5 space-y-4">
                 <div>
@@ -1009,42 +1058,83 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
                   <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">{selectedProduct.description || "Menu istimewa yang dibuat dengan bahan segar berkualitas tinggi."}</p>
                 </div>
 
+                {/* Bundling items list */}
+                {(() => {
+                  if (selectedProduct.variantSettings) {
+                    try {
+                      const parsed = JSON.parse(selectedProduct.variantSettings);
+                      if (parsed.isBundle && parsed.bundleProducts && parsed.bundleProducts.length > 0) {
+                        return (
+                          <div className="space-y-2 border-t pt-3 border-border">
+                            <div className="text-xs font-black text-gray-700 uppercase tracking-wide">Isi Paket Promo</div>
+                            <div className="space-y-1.5">
+                              {parsed.bundleProducts.map((bp: any, idx: number) => (
+                                <div key={idx} className="flex items-center justify-between bg-gray-50 border border-gray-100 p-2.5 rounded-2xl text-xs">
+                                  <span className="font-semibold text-gray-800">{bp.name}</span>
+                                  <span className="bg-blue-100 text-blue-700 px-2.5 py-0.5 rounded-lg font-black">x{bp.qty}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      }
+                    } catch (e) {}
+                  }
+                  return null;
+                })()}
+
                 {/* Variant selection */}
-                {tenant?.showVariants !== false && modalVariantsList.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="text-xs font-black text-gray-700 uppercase tracking-wide">Pilihan Ukuran / Varian</div>
-                    <div className="flex gap-2">
-                      {modalVariantsList.map(v => (
-                        <button key={v.name} onClick={() => setModalVariant(v.name)}
-                          className={`px-4 py-2.5 rounded-2xl text-xs font-bold border transition-all ${modalVariant === v.name ? "text-white shadow-sm" : "bg-gray-50 text-gray-600"}`}
-                          style={modalVariant === v.name ? { backgroundColor: primary, borderColor: primary } : {}}>
-                          {v.name} {v.price > 0 && `(+${formatRp(v.price)})`}
-                        </button>
-                      ))}
+                {(() => {
+                  if (selectedProduct.variantSettings) {
+                    try {
+                      const parsed = JSON.parse(selectedProduct.variantSettings);
+                      if (parsed.isBundle) return null;
+                    } catch (e) {}
+                  }
+                  return tenant?.showVariants !== false && modalVariantsList.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="text-xs font-black text-gray-700 uppercase tracking-wide">Pilihan Ukuran / Varian</div>
+                      <div className="flex gap-2">
+                        {modalVariantsList.map(v => (
+                          <button key={v.name} onClick={() => setModalVariant(v.name)}
+                            className={`px-4 py-2.5 rounded-2xl text-xs font-bold border transition-all ${modalVariant === v.name ? "text-white shadow-sm" : "bg-gray-50 text-gray-600"}`}
+                            style={modalVariant === v.name ? { backgroundColor: primary, borderColor: primary } : {}}>
+                            {v.name} {v.price > 0 && `(+${formatRp(v.price)})`}
+                          </button>
+                        ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* Toppings selection */}
-                {tenant?.showToppings !== false && modalToppingsList.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="text-xs font-black text-gray-700 uppercase tracking-wide">Topping / Tambahan</div>
-                    <div className="grid grid-cols-2 gap-2">
-                      {modalToppingsList.map(t => {
-                        const selected = modalToppings.includes(t.name);
-                        return (
-                          <button key={t.name}
-                            onClick={() => setModalToppings(prev => selected ? prev.filter(x => x !== t.name) : [...prev, t.name])}
-                            className={`px-3 py-2 rounded-2xl text-xs font-bold text-left border flex items-center justify-between transition-all ${selected ? "bg-blue-50/50" : "bg-gray-50"}`}
-                            style={selected ? { borderColor: primary, color: primary } : {}}>
-                            <span>{t.name} {t.price > 0 && `(+${formatRp(t.price)})`}</span>
-                            {selected && <CheckCircle2 size={14} style={{ color: primary }} />}
-                          </button>
-                        );
-                      })}
+                {(() => {
+                  if (selectedProduct.variantSettings) {
+                    try {
+                      const parsed = JSON.parse(selectedProduct.variantSettings);
+                      if (parsed.isBundle) return null;
+                    } catch (e) {}
+                  }
+                  return tenant?.showToppings !== false && modalToppingsList.length > 0 && (
+                    <div className="space-y-2">
+                      <div className="text-xs font-black text-gray-700 uppercase tracking-wide">Topping / Tambahan</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        {modalToppingsList.map(t => {
+                          const selected = modalToppings.includes(t.name);
+                          return (
+                            <button key={t.name}
+                              onClick={() => setModalToppings(prev => selected ? prev.filter(x => x !== t.name) : [...prev, t.name])}
+                              className={`px-3 py-2 rounded-2xl text-xs font-bold text-left border flex items-center justify-between transition-all ${selected ? "bg-blue-50/50" : "bg-gray-50"}`}
+                              style={selected ? { borderColor: primary, color: primary } : {}}>
+                              <span>{t.name} {t.price > 0 && `(+${formatRp(t.price)})`}</span>
+                              {selected && <CheckCircle2 size={14} style={{ color: primary }} />}
+                            </button>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* Notes Input */}
                 <div className="space-y-1.5">

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useListProducts, useListCategories, useCreateOrder, getListOrdersQueryKey, useGetTenant } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Banknote, Smartphone, QrCode, X, Check, Package, Sparkles, Gift, Percent } from "lucide-react";
@@ -94,6 +94,31 @@ export default function POSPage() {
   const createOrder = useCreateOrder();
 
   const products = productsData?.data || [];
+
+  const allBanners = useMemo(() => {
+    const list = [...promoBanners];
+    products.forEach((p: any) => {
+      if (p.variantSettings) {
+        try {
+          const parsed = JSON.parse(p.variantSettings);
+          if (parsed.isBundle && parsed.bannerImageUrl) {
+            const exists = list.some(b => b.linkedProductId === p.id);
+            if (!exists) {
+              list.push({
+                id: `bundle-banner-${p.id}`,
+                title: p.name,
+                imageUrl: parsed.bannerImageUrl,
+                bgColor: "",
+                textColor: "",
+                linkedProductId: p.id
+              });
+            }
+          }
+        } catch (e) {}
+      }
+    });
+    return list;
+  }, [promoBanners, products]);
 
   const subtotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
   const taxAmount = (subtotal - discount) * (taxPct / 100);
@@ -266,18 +291,28 @@ export default function POSPage() {
     });
   };
 
+  const handleBannerClick = (pb: any) => {
+    if (pb.linkedProductId) {
+      const matched = products.find(p => p.id === pb.linkedProductId);
+      if (matched) {
+        addToCart(matched);
+      }
+    }
+  };
+
   return (
     <div className="flex h-[calc(100vh-56px)] overflow-hidden">
       {/* Products panel */}
       <div className="flex-1 flex flex-col overflow-hidden border-r border-border">
         {/* Promo Banners */}
-        {promoBanners.length > 0 && (
+        {allBanners.length > 0 && (
           <div className="px-4 py-2 bg-muted/10 border-b border-border flex-shrink-0">
             <div className="flex gap-3 overflow-x-auto no-scrollbar py-1">
-              {promoBanners.map(pb => (
+              {allBanners.map(pb => (
                 <div
                   key={pb.id}
-                  className={`flex-none h-16 sm:h-20 rounded-xl overflow-hidden shadow-sm border border-border relative group flex items-center justify-center bg-card ${
+                  onClick={() => handleBannerClick(pb)}
+                  className={`flex-none h-16 sm:h-20 rounded-xl overflow-hidden shadow-sm border border-border relative group flex items-center justify-center bg-card cursor-pointer hover:border-primary/50 hover:shadow transition-all ${
                     pb.imageUrl ? "w-auto" : "w-56 sm:w-64"
                   }`}
                 >
@@ -364,10 +399,42 @@ export default function POSPage() {
                     </div>
                   )}
                   {product.imageUrl ? (
-                    <img src={product.imageUrl} alt={product.name} className="w-full aspect-square object-cover rounded-lg mb-2" />
+                    <div className="relative w-full aspect-square mb-2 rounded-lg overflow-hidden">
+                      <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
+                      {(() => {
+                        if (product.variantSettings) {
+                          try {
+                            const parsed = JSON.parse(product.variantSettings);
+                            if (parsed.isBundle) {
+                              return (
+                                <span className="absolute top-1.5 left-1.5 bg-green-500 text-white font-bold text-[8px] px-1.5 py-0.5 rounded shadow">
+                                  🎁 PAKET PROMO
+                                </span>
+                              );
+                            }
+                          } catch (e) {}
+                        }
+                        return null;
+                      })()}
+                    </div>
                   ) : (
-                    <div className="w-full aspect-square bg-muted rounded-lg mb-2 flex items-center justify-center">
+                    <div className="w-full aspect-square bg-muted rounded-lg mb-2 flex items-center justify-center relative">
                       <Package size={24} className="text-muted-foreground" />
+                      {(() => {
+                        if (product.variantSettings) {
+                          try {
+                            const parsed = JSON.parse(product.variantSettings);
+                            if (parsed.isBundle) {
+                              return (
+                                <span className="absolute top-1.5 left-1.5 bg-green-500 text-white font-bold text-[8px] px-1.5 py-0.5 rounded shadow">
+                                  🎁 PAKET PROMO
+                                </span>
+                              );
+                            }
+                          } catch (e) {}
+                        }
+                        return null;
+                      })()}
                     </div>
                   )}
                   <div className="text-sm font-medium text-foreground leading-tight line-clamp-2">{product.name}</div>
@@ -640,70 +707,120 @@ export default function POSPage() {
             {/* Modal Body */}
             <div className="p-5 space-y-4 overflow-y-auto max-h-[60vh]">
               {/* Product Image preview */}
-              {selectedProduct.imageUrl && (
-                <img
-                  src={selectedProduct.imageUrl}
-                  alt={selectedProduct.name}
-                  className="w-full h-32 object-cover rounded-lg mb-2"
-                />
-              )}
+              {(() => {
+                let displayImg = selectedProduct.imageUrl;
+                if (selectedProduct.variantSettings) {
+                  try {
+                    const parsed = JSON.parse(selectedProduct.variantSettings);
+                    if (parsed.isBundle && parsed.bannerImageUrl) {
+                      displayImg = parsed.bannerImageUrl;
+                    }
+                  } catch (e) {}
+                }
+                return displayImg ? (
+                  <img
+                    src={displayImg}
+                    alt={selectedProduct.name}
+                    className="w-full h-32 object-cover rounded-lg mb-2"
+                  />
+                ) : null;
+              })()}
+
+              {/* Bundling items list */}
+              {(() => {
+                if (selectedProduct.variantSettings) {
+                  try {
+                    const parsed = JSON.parse(selectedProduct.variantSettings);
+                    if (parsed.isBundle && parsed.bundleProducts && parsed.bundleProducts.length > 0) {
+                      return (
+                        <div className="space-y-2 border-t pt-3 border-border">
+                          <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Isi Paket Promo</label>
+                          <div className="space-y-1.5">
+                            {parsed.bundleProducts.map((bp: any, idx: number) => (
+                              <div key={idx} className="flex items-center justify-between bg-muted/30 border border-border/50 p-2.5 rounded-xl text-xs">
+                                <span className="font-semibold text-foreground">{bp.name}</span>
+                                <span className="bg-primary/10 text-primary px-2 py-0.5 rounded font-bold">x{bp.qty}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+                  } catch (e) {}
+                }
+                return null;
+              })()}
 
               {/* Variants */}
-              {tenant?.showVariants !== false && modalVariantsList.length > 0 && (
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Pilihan Ukuran / Varian</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {modalVariantsList.map((v) => (
-                      <button
-                        key={v.name}
-                        onClick={() => setModalVariant(v.name)}
-                        className={`flex flex-col p-2.5 rounded-xl border text-left transition-all ${
-                          modalVariant === v.name
-                            ? "border-primary bg-primary/5 text-primary"
-                            : "border-border hover:border-primary/40 text-foreground"
-                        }`}
-                      >
-                        <span className="text-xs font-semibold">{v.name}</span>
-                        <span className="text-[10px] opacity-80 mt-0.5">
-                          {v.price === 0 ? "Free" : `+ ${formatRp(v.price)}`}
-                        </span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Toppings */}
-              {tenant?.showToppings !== false && modalToppingsList.length > 0 && (
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Topping / Tambahan</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    {modalToppingsList.map((t) => {
-                      const active = modalToppings.includes(t.name);
-                      return (
+              {(() => {
+                const parsedSettings = (() => {
+                  if (!selectedProduct?.variantSettings) return null;
+                  try { return JSON.parse(selectedProduct.variantSettings); } catch (e) { return null; }
+                })();
+                if (parsedSettings?.isBundle) return null;
+                return tenant?.showVariants !== false && modalVariantsList.length > 0 && (
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Pilihan Ukuran / Varian</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {modalVariantsList.map((v) => (
                         <button
-                          key={t.name}
-                          onClick={() => {
-                            setModalToppings((prev) =>
-                              active ? prev.filter((x) => x !== t.name) : [...prev, t.name]
-                            );
-                          }}
+                          key={v.name}
+                          onClick={() => setModalVariant(v.name)}
                           className={`flex flex-col p-2.5 rounded-xl border text-left transition-all ${
-                            active
+                            modalVariant === v.name
                               ? "border-primary bg-primary/5 text-primary"
                               : "border-border hover:border-primary/40 text-foreground"
                           }`}
                         >
-                          <span className="text-xs font-semibold">{t.name}</span>
+                          <span className="text-xs font-semibold">{v.name}</span>
                           <span className="text-[10px] opacity-80 mt-0.5">
-                            + {formatRp(t.price)}
+                            {v.price === 0 ? "Free" : `+ ${formatRp(v.price)}`}
                           </span>
                         </button>
-                      );
-                    })}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
+
+              {/* Toppings */}
+              {(() => {
+                const parsedSettings = (() => {
+                  if (!selectedProduct?.variantSettings) return null;
+                  try { return JSON.parse(selectedProduct.variantSettings); } catch (e) { return null; }
+                })();
+                if (parsedSettings?.isBundle) return null;
+                return tenant?.showToppings !== false && modalToppingsList.length > 0 && (
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Topping / Tambahan</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      {modalToppingsList.map((t) => {
+                        const active = modalToppings.includes(t.name);
+                        return (
+                          <button
+                            key={t.name}
+                            onClick={() => {
+                              setModalToppings((prev) =>
+                                active ? prev.filter((x) => x !== t.name) : [...prev, t.name]
+                              );
+                            }}
+                            className={`flex flex-col p-2.5 rounded-xl border text-left transition-all ${
+                              active
+                                ? "border-primary bg-primary/5 text-primary"
+                                : "border-border hover:border-primary/40 text-foreground"
+                            }`}
+                          >
+                            <span className="text-xs font-semibold">{t.name}</span>
+                            <span className="text-[10px] opacity-80 mt-0.5">
+                              + {formatRp(t.price)}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* Notes */}
               <div className="space-y-2">

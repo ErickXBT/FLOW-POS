@@ -252,7 +252,7 @@ function OwnerDashboard() {
       { id: 2, title: "Diskon 20% bagi Pelanggan Setia POS", bgColor: "#10B981", textColor: "#FFFFFF" },
     ];
   });
-  const [newBanner, setNewBanner] = useState({ title: "", bgColor: "#1D4EF5", textColor: "#FFFFFF", imageUrl: "" });
+  const [newBanner, setNewBanner] = useState({ title: "", bgColor: "#1D4EF5", textColor: "#FFFFFF", imageUrl: "", linkedProductId: "" });
   const [bannerType, setBannerType] = useState<"text" | "image">("text");
   const [bannerUploading, setBannerUploading] = useState(false);
   const [bannerUploadError, setBannerUploadError] = useState("");
@@ -686,7 +686,8 @@ function OwnerDashboard() {
       title: newBanner.title,
       bgColor: bannerType === "text" ? newBanner.bgColor : "",
       textColor: bannerType === "text" ? newBanner.textColor : "",
-      imageUrl: bannerType === "image" ? newBanner.imageUrl : ""
+      imageUrl: bannerType === "image" ? newBanner.imageUrl : "",
+      linkedProductId: newBanner.linkedProductId ? Number(newBanner.linkedProductId) : null
     };
 
     setMarketingBanners(prev => {
@@ -694,7 +695,7 @@ function OwnerDashboard() {
       localStorage.setItem("flow_marketing_banners", JSON.stringify(next));
       return next;
     });
-    setNewBanner({ title: "", bgColor: "#1D4EF5", textColor: "#FFFFFF", imageUrl: "" });
+    setNewBanner({ title: "", bgColor: "#1D4EF5", textColor: "#FFFFFF", imageUrl: "", linkedProductId: "" });
   };
 
   const handleDeleteBanner = (id: number) => {
@@ -1899,6 +1900,35 @@ function OwnerDashboard() {
                       </div>
                     </div>
                   )}
+
+                    {/* Link to product select input */}
+                    <div className="space-y-1">
+                      <label className="block text-[10px] font-bold text-muted-foreground uppercase">Tautkan ke Produk / Paket Promo</label>
+                      <select
+                        value={newBanner.linkedProductId || ""}
+                        onChange={e => setNewBanner(p => ({ ...p, linkedProductId: e.target.value }))}
+                        className="w-full px-3 py-1.5 border border-input rounded-xl bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary font-medium"
+                      >
+                        <option value="">Tidak ditautkan</option>
+                        {(productsResult?.data || []).map((p: any) => {
+                          let prefix = "";
+                          if (p.variantSettings) {
+                            try {
+                              const parsed = JSON.parse(p.variantSettings);
+                              if (parsed.isBundle) {
+                                prefix = "[🎁 Promo/Bundling] ";
+                              }
+                            } catch (e) {}
+                          }
+                          return (
+                            <option key={p.id} value={p.id}>
+                              {prefix}{p.name} (Rp {p.price.toLocaleString("id-ID")})
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+
                     <button
                       type="submit"
                       disabled={bannerUploading}
@@ -1936,6 +1966,11 @@ function OwnerDashboard() {
                                 className="p-3 text-center text-xs font-bold min-h-[50px] flex items-center justify-center leading-snug"
                               >
                                 {mb.title}
+                              </div>
+                            )}
+                            {mb.linkedProductId && (
+                              <div className="absolute bottom-1 left-2 bg-black/60 text-white text-[8px] px-1.5 py-0.5 rounded-md font-bold z-10 max-w-[80%] truncate">
+                                🔗 {(productsResult?.data || []).find((p: any) => p.id === mb.linkedProductId)?.name || "Produk"}
                               </div>
                             )}
                             <button
