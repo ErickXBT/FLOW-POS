@@ -1,14 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { useGetTenant, useUpdateTenant, useGetTenantSubscription, getGetTenantQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Building2, Save, CreditCard, Image, UploadCloud, Trash2 } from "lucide-react";
+import { Building2, Save, CreditCard, Image, UploadCloud, Trash2, Lock } from "lucide-react";
+import { useAuth, ROLE_LABELS } from "@/hooks/use-auth";
 
-const BUSINESS_TYPES = [
-  { value: "restaurant", label: "Restoran" },
-  { value: "cafe", label: "Kafe" },
+const ALL_BUSINESS_TYPES = [
+  { value: "fnb", label: "F&B" },
   { value: "fashion", label: "Fashion Store" },
-  { value: "salon", label: "Salon" },
-  { value: "minimarket", label: "Minimarket" },
 ];
 
 const STATUS_MAP: Record<string, string> = { active: "Aktif", trial: "Uji Coba", suspended: "Ditangguhkan", expired: "Kadaluarsa" };
@@ -18,6 +16,67 @@ export default function SettingsPage() {
   const { data: tenant, isLoading } = useGetTenant();
   const { data: sub } = useGetTenantSubscription();
   const updateTenant = useUpdateTenant();
+  const { user } = useAuth();
+  
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [passError, setPassError] = useState("");
+  const [passSuccess, setPassSuccess] = useState("");
+  const [passLoading, setPassLoading] = useState(false);
+
+  const handleChangePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setPassError("");
+    setPassSuccess("");
+    
+    if (!passwordForm.currentPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+      setPassError("Semua field wajib diisi");
+      return;
+    }
+    if (passwordForm.newPassword.length < 6) {
+      setPassError("Password baru minimal 6 karakter");
+      return;
+    }
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setPassError("Konfirmasi password baru tidak cocok");
+      return;
+    }
+
+    setPassLoading(true);
+    try {
+      const token = localStorage.getItem("flow_token");
+      const res = await fetch("/api/auth/change-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token || ""}`,
+        },
+        body: JSON.stringify({
+          currentPassword: passwordForm.currentPassword,
+          newPassword: passwordForm.newPassword,
+        }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Gagal mengubah password");
+      }
+
+      setPassSuccess("Password berhasil diubah!");
+      setPasswordForm({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+    } catch (err: any) {
+      setPassError(err.message || "Gagal mengubah password");
+    } finally {
+      setPassLoading(false);
+    }
+  };
   
   const [form, setForm] = useState({
     name: "",
@@ -42,18 +101,24 @@ export default function SettingsPage() {
   const [coverError, setCoverError] = useState("");
 
   useEffect(() => {
-    if (tenant) setForm({
-      name: tenant.name || "",
-      businessType: tenant.businessType || "",
-      address: tenant.address || "",
-      phone: tenant.phone || "",
-      email: tenant.email || "",
-      receiptFooter: (tenant as any).receiptFooter || "",
-      primaryColor: tenant.primaryColor || "#1D4EF5",
-      logoUrl: tenant.logoUrl || "",
-      coverUrl: (tenant as any).coverUrl || "",
-      bio: (tenant as any).bio || "",
-    });
+    if (tenant) {
+      const rawType = tenant.businessType || "";
+      const validTypes = ["fnb", "fashion"];
+      const businessType = validTypes.includes(rawType) ? rawType : "fnb";
+
+      setForm({
+        name: tenant.name || "",
+        businessType,
+        address: tenant.address || "",
+        phone: tenant.phone || "",
+        email: tenant.email || "",
+        receiptFooter: (tenant as any).receiptFooter || "",
+        primaryColor: tenant.primaryColor || "#1D4EF5",
+        logoUrl: tenant.logoUrl || "",
+        coverUrl: (tenant as any).coverUrl || "",
+        bio: (tenant as any).bio || "",
+      });
+    }
   }, [tenant]);
 
   const handleFileUpload = async (file: File, type: "logo" | "cover") => {
@@ -156,25 +221,44 @@ export default function SettingsPage() {
         {[
           { key: "name", label: "Nama Bisnis *" },
           { key: "phone", label: "No. Telepon" },
-          { key: "email", label: "Email Bisnis", type: "email" },
+          { key: "email", label: "Email Bisnis", type: "email", disabled: true },
           { key: "address", label: "Alamat" },
           { key: "receiptFooter", label: "Footer Struk" },
         ].map(f => (
           <div key={f.key}>
-            <label className="block text-sm font-medium mb-1 text-foreground">{f.label}</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-sm font-medium text-foreground">{f.label}</label>
+              {f.disabled && (
+                <span className="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                  <Lock size={10} /> Terkunci
+                </span>
+              )}
+            </div>
             <input
               type={f.type || "text"}
               value={(form as any)[f.key]}
+              disabled={f.disabled}
               onChange={e => setForm(p => ({ ...p, [f.key]: e.target.value }))}
-              className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              className={`w-full px-3 py-2.5 rounded-lg border text-sm focus:outline-none ${
+                f.disabled
+                  ? "border-border bg-muted/50 cursor-not-allowed opacity-75 text-muted-foreground select-none"
+                  : "border-input bg-background text-foreground focus:ring-2 focus:ring-ring"
+              }`}
             />
           </div>
         ))}
         <div>
-          <label className="block text-sm font-medium mb-1 text-foreground">Tipe Bisnis</label>
-          <select value={form.businessType} onChange={e => setForm(p => ({ ...p, businessType: e.target.value }))}
-            className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring">
-            {BUSINESS_TYPES.map(bt => <option key={bt.value} value={bt.value}>{bt.label}</option>)}
+          <div className="flex items-center justify-between mb-1">
+            <label className="block text-sm font-medium text-foreground">Tipe Bisnis</label>
+            <span className="flex items-center gap-1 text-[10px] font-semibold text-muted-foreground bg-muted px-2 py-0.5 rounded">
+              <Lock size={10} /> Terkunci
+            </span>
+          </div>
+          <select value={form.businessType} disabled
+            className="w-full px-3 py-2.5 rounded-lg border border-border bg-muted/50 text-sm focus:outline-none cursor-not-allowed opacity-75 text-muted-foreground select-none">
+            {ALL_BUSINESS_TYPES.map(bt => (
+              <option key={bt.value} value={bt.value}>{bt.label}</option>
+            ))}
           </select>
         </div>
         <div>
@@ -195,6 +279,104 @@ export default function SettingsPage() {
           {saved && <span className="text-green-600 dark:text-green-400 text-sm font-medium">✓ Tersimpan</span>}
         </div>
       </div>
+
+      {/* Informasi Login & Keamanan */}
+      {user && (
+        <div className="bg-card border border-card-border rounded-xl p-6 shadow-sm space-y-4">
+          <div className="flex items-center gap-2 font-semibold text-foreground mb-4">
+            <Lock size={18} className="text-primary" /> Informasi Login & Keamanan
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">Email Login</label>
+              <input
+                type="text"
+                value={user.email}
+                disabled
+                className="w-full px-3 py-2.5 rounded-lg border border-border bg-muted/50 cursor-not-allowed opacity-75 text-muted-foreground select-none text-sm"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-foreground mb-1">Peran / Role</label>
+              <input
+                type="text"
+                value={ROLE_LABELS[user.role] || user.role}
+                disabled
+                className="w-full px-3 py-2.5 rounded-lg border border-border bg-muted/50 cursor-not-allowed opacity-75 text-muted-foreground select-none text-sm"
+              />
+            </div>
+          </div>
+
+          <hr className="border-card-border my-4" />
+
+          <form onSubmit={handleChangePassword} className="space-y-4">
+            <h3 className="text-sm font-semibold text-foreground">Ganti Password</h3>
+            
+            {passError && (
+              <div className="bg-destructive/10 border border-destructive/20 text-destructive text-xs rounded-lg p-3 font-medium">
+                {passError}
+              </div>
+            )}
+            
+            {passSuccess && (
+              <div className="bg-green-100 dark:bg-green-950/30 border border-green-200 dark:border-green-900/50 text-green-700 dark:text-green-400 text-xs rounded-lg p-3 font-medium">
+                {passSuccess}
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-foreground mb-1">Password Saat Ini</label>
+                <input
+                  type="password"
+                  value={passwordForm.currentPassword}
+                  onChange={e => setPasswordForm(p => ({ ...p, currentPassword: e.target.value }))}
+                  placeholder="Masukkan password saat ini"
+                  className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  required
+                />
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-foreground mb-1">Password Baru</label>
+                  <input
+                    type="password"
+                    value={passwordForm.newPassword}
+                    onChange={e => setPasswordForm(p => ({ ...p, newPassword: e.target.value }))}
+                    placeholder="Minimal 6 karakter"
+                    className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-foreground mb-1">Konfirmasi Password Baru</label>
+                  <input
+                    type="password"
+                    value={passwordForm.confirmPassword}
+                    onChange={e => setPasswordForm(p => ({ ...p, confirmPassword: e.target.value }))}
+                    placeholder="Ulangi password baru"
+                    className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                    required
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <button
+                type="submit"
+                disabled={passLoading}
+                className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity cursor-pointer"
+              >
+                <Save size={16} />
+                {passLoading ? "Mengubah..." : "Ganti Password"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Branding & Tampilan */}
       <div className="bg-card border border-card-border rounded-xl p-6 shadow-sm space-y-6">

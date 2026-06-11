@@ -59,11 +59,21 @@ const STATUS_MAP: Record<string, { label: string; cls: string }> = {
 };
 
 const BUSINESS_TYPE_ICONS: Record<string, string> = {
+  fnb: "🍔",
   restaurant: "🍽️",
   cafe: "☕",
   fashion: "👗",
   salon: "✂️",
   minimarket: "🛒"
+};
+
+const BUSINESS_TYPE_LABELS: Record<string, string> = {
+  fnb: "F&B",
+  restaurant: "Restoran",
+  cafe: "Kafe",
+  fashion: "Fashion Store",
+  salon: "Salon",
+  minimarket: "Minimarket"
 };
 
 const TABS = [
@@ -491,7 +501,7 @@ function TenantsTab({
                       <td className="px-5 py-4">
                         <span className="flex items-center gap-1.5 text-xs text-foreground font-medium mb-1">
                           <span>{BUSINESS_TYPE_ICONS[t.businessType] || "🏪"}</span>
-                          <span className="capitalize">{t.businessType}</span>
+                          <span className="capitalize">{BUSINESS_TYPE_LABELS[t.businessType] || t.businessType}</span>
                         </span>
                         <div className="text-[10px] text-muted-foreground">{t.phone || "No HP"}</div>
                       </td>

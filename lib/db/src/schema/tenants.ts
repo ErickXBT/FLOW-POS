@@ -6,7 +6,7 @@ export const tenantsTable = pgTable("tenants", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   slug: text("slug").unique(),
-  businessType: text("business_type").notNull(), // restaurant, cafe, fashion, salon, minimarket
+  businessType: text("business_type").notNull(), // fnb, fashion, restaurant, cafe, salon, minimarket
   status: text("status").notNull().default("trial"), // active, suspended, trial, expired
   address: text("address"),
   phone: text("phone"),

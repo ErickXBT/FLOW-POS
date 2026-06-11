@@ -6,11 +6,8 @@ import flowLogo from "@assets/FLOW_LOGO_1780799864457.png";
 import { ChevronRight, Building2, User, CreditCard } from "lucide-react";
 
 const BUSINESS_TYPES = [
-  { value: "restaurant", label: "Restoran", icon: "🍽️" },
-  { value: "cafe", label: "Kafe", icon: "☕" },
+  { value: "fnb", label: "F&B", icon: "🍽️" },
   { value: "fashion", label: "Fashion Store", icon: "👗" },
-  { value: "salon", label: "Salon", icon: "✂️" },
-  { value: "minimarket", label: "Minimarket", icon: "🛒" },
 ];
 
 export default function RegisterPage({ onLogin }: { onLogin: (token: string, user: any) => void }) {

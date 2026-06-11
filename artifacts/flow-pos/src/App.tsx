@@ -5,6 +5,7 @@ import { useAuth, type AuthUser, type UserRole } from "@/hooks/use-auth";
 import Layout from "@/components/layout";
 import LoginPage from "@/pages/login";
 import RegisterPage from "@/pages/register";
+import ResetPasswordPage from "@/pages/reset-password";
 import DashboardPage from "@/pages/dashboard";
 import POSPage from "@/pages/pos";
 import ProductsPage from "@/pages/products";
@@ -58,7 +59,7 @@ function AppRoutes() {
 
   useEffect(() => {
     if (isMenuPage || loading) return;
-    const isAuthPage = location === "/login" || location === "/register";
+    const isAuthPage = location === "/login" || location === "/register" || location.startsWith("/reset-password");
     if (!user && !isAuthPage) {
       setLocation("/login");
     } else if (user && isAuthPage) {
@@ -81,12 +82,13 @@ function AppRoutes() {
     );
   }
 
-  const isAuthPage = location === "/login" || location === "/register";
+  const isAuthPage = location === "/login" || location === "/register" || location.startsWith("/reset-password");
   if (!user || isAuthPage) {
     return (
       <Switch>
         <Route path="/login"><LoginPage onLogin={login} /></Route>
         <Route path="/register"><RegisterPage onLogin={login} /></Route>
+        <Route path="/reset-password"><ResetPasswordPage /></Route>
         <Route><LoginPage onLogin={login} /></Route>
       </Switch>
     );

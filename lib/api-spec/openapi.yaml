@@ -1251,7 +1251,7 @@ components:
           type: string
         businessType:
           type: string
-          enum: [restaurant, cafe, fashion, salon, minimarket]
+          enum: [fnb, fashion, restaurant, cafe, salon, minimarket]
         phone:
           type: ["string", "null"]
         address:
@@ -1367,7 +1367,7 @@ components:
           type: string
         businessType:
           type: string
-          enum: [restaurant, cafe, fashion, salon, minimarket]
+          enum: [fnb, fashion, restaurant, cafe, salon, minimarket]
         status:
           type: string
           enum: [active, suspended, trial, expired]

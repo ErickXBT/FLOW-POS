@@ -18,9 +18,10 @@ export type RegisterInputBusinessType = typeof RegisterInputBusinessType[keyof t
 
 
 export const RegisterInputBusinessType = {
+  fnb: 'fnb',
+  fashion: 'fashion',
   restaurant: 'restaurant',
   cafe: 'cafe',
-  fashion: 'fashion',
   salon: 'salon',
   minimarket: 'minimarket',
 } as const;
@@ -103,9 +104,10 @@ export type TenantBusinessType = typeof TenantBusinessType[keyof typeof TenantBu
 
 
 export const TenantBusinessType = {
+  fnb: 'fnb',
+  fashion: 'fashion',
   restaurant: 'restaurant',
   cafe: 'cafe',
-  fashion: 'fashion',
   salon: 'salon',
   minimarket: 'minimarket',
 } as const;

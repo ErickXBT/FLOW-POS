@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
-import { db, tenantsTable, subscriptionsTable, subscriptionPlansTable, publicMenusTable } from "@workspace/db";
+import { eq, and } from "drizzle-orm";
+import { db, tenantsTable, subscriptionsTable, subscriptionPlansTable, publicMenusTable, usersTable } from "@workspace/db";
 import { UpdateTenantBody } from "@workspace/api-zod";
 import { extractToken } from "./auth";
 
@@ -19,6 +19,20 @@ router.get("/tenant", async (req, res): Promise<void> => {
 
   const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, claims.tenantId));
   if (!tenant) { res.status(404).json({ error: "Tenant not found" }); return; }
+
+  let tenantEmail = tenant.email;
+  if (!tenantEmail) {
+    const [owner] = await db.select()
+      .from(usersTable)
+      .where(and(eq(usersTable.tenantId, claims.tenantId), eq(usersTable.role, "owner")));
+    if (owner?.email) {
+      tenantEmail = owner.email;
+      await db.update(tenantsTable)
+        .set({ email: tenantEmail })
+        .where(eq(tenantsTable.id, claims.tenantId));
+      tenant.email = tenantEmail;
+    }
+  }
 
   res.json({
     ...tenant,

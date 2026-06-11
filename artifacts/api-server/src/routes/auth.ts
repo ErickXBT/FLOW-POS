@@ -1,6 +1,7 @@
 import { Router, type IRouter } from "express";
-import { eq } from "drizzle-orm";
-import { db, usersTable, tenantsTable, subscriptionsTable, employeesTable, branchesTable, customRolesTable } from "@workspace/db";
+import { eq, and, sql } from "drizzle-orm";
+import { db, usersTable, tenantsTable, subscriptionsTable, employeesTable, branchesTable, customRolesTable, platformSettingsTable } from "@workspace/db";
+import nodemailer from "nodemailer";
 import { LoginBody, RegisterBody } from "@workspace/api-zod";
 import { logger } from "../lib/logger";
 import * as crypto from "crypto";
@@ -188,6 +189,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     status: "trial",
     phone: phone ?? null,
     address: address ?? null,
+    email: email.toLowerCase(),
     subscriptionPlan: dbPlan,
     subscriptionExpiresAt: expiresAt,
   }).returning();
@@ -260,6 +262,149 @@ router.post("/auth/logout", async (req, res): Promise<void> => {
     ]);
   }
   res.json({ success: true });
+});
+
+router.post("/auth/change-password", async (req, res): Promise<void> => {
+  const claims = extractToken(req);
+  if (!claims) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const { currentPassword, newPassword } = req.body;
+  if (!currentPassword || !newPassword) {
+    res.status(400).json({ error: "Password saat ini dan password baru wajib diisi" });
+    return;
+  }
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, claims.userId));
+  if (!user) {
+    res.status(404).json({ error: "Pengguna tidak ditemukan" });
+    return;
+  }
+  if (user.passwordHash !== hashPassword(currentPassword)) {
+    res.status(400).json({ error: "Password saat ini salah" });
+    return;
+  }
+  await db.update(usersTable)
+    .set({ passwordHash: hashPassword(newPassword), updatedAt: new Date() })
+    .where(eq(usersTable.id, claims.userId));
+  
+  await logActivity({
+    tenantId: user.tenantId,
+    userId: user.id,
+    userName: user.name,
+    userRole: user.role,
+    action: "change_password",
+    module: "auth",
+    ipAddress: req.ip,
+  });
+  res.json({ success: true, message: "Password berhasil diubah" });
+});
+
+router.post("/auth/forgot-password", async (req, res): Promise<void> => {
+  const { email } = req.body;
+  if (!email) {
+    res.status(400).json({ error: "Email wajib diisi" });
+    return;
+  }
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email.toLowerCase()));
+  if (!user) {
+    res.status(404).json({ error: "Email tidak terdaftar" });
+    return;
+  }
+  const token = crypto.randomBytes(32).toString("hex");
+  const expires = new Date(Date.now() + 3600000); // 1 hour
+  
+  await db.update(usersTable)
+    .set({ resetPasswordToken: token, resetPasswordExpires: expires, updatedAt: new Date() })
+    .where(eq(usersTable.id, user.id));
+
+  // Create link
+  const origin = req.headers.referer || req.headers.origin || "http://localhost:3000";
+  const baseUrl = new URL(origin).origin;
+  const resetUrl = `${baseUrl}/reset-password?token=${token}`;
+
+  logger.info(`Password reset link generated for ${user.email}: ${resetUrl}`);
+
+  // Attempt to send email
+  try {
+    const [settings] = await db.select().from(platformSettingsTable).where(eq(platformSettingsTable.key, "global_config"));
+    const emailConfig = (settings?.value as any)?.email;
+    
+    if (emailConfig && emailConfig.active) {
+      const transporter = nodemailer.createTransport({
+        host: emailConfig.smtpHost || "smtp.mailtrap.io",
+        port: Number(emailConfig.smtpPort) || 2525,
+        secure: Number(emailConfig.smtpPort) === 465,
+        auth: emailConfig.smtpUser && emailConfig.smtpPass ? {
+          user: emailConfig.smtpUser,
+          pass: emailConfig.smtpPass,
+        } : undefined,
+      });
+
+      const mailOptions = {
+        from: '"Flow POS" <noreply@flowpos.com>',
+        to: user.email,
+        subject: "Reset Password Flow POS",
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; border: 1px solid #e2e8f0; border-radius: 8px;">
+            <h2 style="color: #1D4EF5; text-align: center;">Reset Password Flow POS</h2>
+            <p>Halo, <strong>${user.name}</strong></p>
+            <p>Anda menerima email ini karena ada permintaan untuk merubah password akun Flow POS Anda.</p>
+            <div style="text-align: center; margin: 30px 0;">
+              <a href="${resetUrl}" style="background-color: #1D4EF5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; display: inline-block;">Ganti Password Baru</a>
+            </div>
+            <p>Link ini akan kadaluarsa dalam <strong>1 jam</strong>.</p>
+            <p style="color: #64748b; font-size: 13px; margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+              Jika Anda tidak meminta perubahan ini, abaikan saja email ini. Keamanan akun Anda tetap terjaga.
+            </p>
+          </div>
+        `,
+      };
+
+      await transporter.sendMail(mailOptions);
+      logger.info(`Password reset email sent to ${user.email}`);
+    }
+  } catch (mailErr) {
+    logger.error(mailErr, "Failed to send password reset email via SMTP");
+  }
+
+  res.json({ success: true, message: "Tautan reset password telah dikirim ke email Anda" });
+});
+
+router.post("/auth/reset-password", async (req, res): Promise<void> => {
+  const { token, password } = req.body;
+  if (!token || !password) {
+    res.status(400).json({ error: "Token dan password baru wajib diisi" });
+    return;
+  }
+  const [user] = await db.select().from(usersTable).where(
+    and(
+      eq(usersTable.resetPasswordToken, token),
+      sql`${usersTable.resetPasswordExpires} > NOW()`
+    )
+  );
+  if (!user) {
+    res.status(400).json({ error: "Token reset password tidak valid atau telah kadaluarsa" });
+    return;
+  }
+  
+  await db.update(usersTable)
+    .set({
+      passwordHash: hashPassword(password),
+      resetPasswordToken: null,
+      resetPasswordExpires: null,
+      updatedAt: new Date(),
+    })
+    .where(eq(usersTable.id, user.id));
+
+  await logActivity({
+    tenantId: user.tenantId,
+    userId: user.id,
+    userName: user.name,
+    userRole: user.role,
+    action: "reset_password",
+    module: "auth",
+    ipAddress: req.ip,
+  });
+
+  res.json({ success: true, message: "Password berhasil diperbarui. Silakan login kembali." });
 });
 
 export default router;

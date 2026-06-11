@@ -4,7 +4,7 @@ import {
   TrendingUp, TrendingDown, ShoppingCart, Package, Users, AlertTriangle, DollarSign, ChefHat, Truck, Clock,
   Bell, FileText, Download, BarChart2, Users2, ShieldAlert, Award, Calendar, Layers, MapPin, Percent,
   MessageSquare, Plus, Trash2, Check, RefreshCw, Smartphone, Clipboard, QrCode, Sparkles, LogIn, Laptop, Globe, Gift,
-  Building2, Activity, Lock, UploadCloud
+  Building2, Activity, Lock, UploadCloud, Shirt, ShoppingBag
 } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, LineChart, Line, Legend, PieChart, Pie, Cell } from "recharts";
 import { Link } from "wouter";
@@ -36,9 +36,10 @@ function formatRp(val: number) {
 }
 
 // ── Cashier Dashboard ─────────────────────────────────────────────────────────
-function CashierDashboard({ stats }: { stats: any }) {
+function CashierDashboard({ stats, businessType }: { stats: any; businessType?: string }) {
   const { data: recentOrders } = useGetRecentOrders({ limit: 10 });
   const s = stats || { todaySales: 0, todayOrders: 0 };
+  const isFashion = businessType === "fashion";
   return (
     <div className="p-6 space-y-5">
       <div>
@@ -61,7 +62,7 @@ function CashierDashboard({ stats }: { stats: any }) {
           <a className="flex flex-col items-center gap-3 p-6 bg-card border border-card-border rounded-2xl shadow-sm hover:bg-muted transition-colors cursor-pointer">
             <div className="text-3xl">📱</div>
             <div className="font-bold text-foreground">Pesanan Online</div>
-            <div className="text-sm text-muted-foreground">Dari QR Menu</div>
+            <div className="text-sm text-muted-foreground">{isFashion ? "Dari QR Katalog" : "Dari QR Menu"}</div>
           </a>
         </Link>
       </div>
@@ -88,9 +89,10 @@ function CashierDashboard({ stats }: { stats: any }) {
 }
 
 // ── Manager Dashboard ─────────────────────────────────────────────────────────
-function ManagerDashboard({ stats }: { stats: any }) {
+function ManagerDashboard({ stats, businessType }: { stats: any; businessType?: string }) {
   const { data: recentOrders } = useGetRecentOrders({ limit: 5 });
   const s = stats || { todaySales: 0, todayOrders: 0, totalProducts: 0, totalCustomers: 0, lowStockCount: 0, weeklyRevenue: 0, revenueGrowth: 0 };
+  const isFashion = businessType === "fashion";
   return (
     <div className="p-6 space-y-5">
       <div>
@@ -115,7 +117,7 @@ function ManagerDashboard({ stats }: { stats: any }) {
       <div className="grid grid-cols-3 gap-3">
         {[
           { href: "/pos", icon: <ShoppingCart size={20} />, label: "Kasir", sub: "Buka POS" },
-          { href: "/customer-orders", icon: <div className="text-xl">📱</div>, label: "Pesanan Online", sub: "QR Menu" },
+          { href: "/customer-orders", icon: <div className="text-xl">📱</div>, label: "Pesanan Online", sub: isFashion ? "QR Katalog" : "QR Menu" },
           { href: "/inventory", icon: <Package size={20} />, label: "Inventori", sub: "Kelola stok" },
         ].map(item => (
           <Link key={item.href} href={item.href}>
@@ -150,7 +152,7 @@ function ManagerDashboard({ stats }: { stats: any }) {
 }
 
 // ── Staff Dashboard ───────────────────────────────────────────────────────────
-function StaffDashboard() {
+function StaffDashboard({ businessType }: { businessType?: string }) {
   return (
     <div className="p-6 space-y-5">
       <div>
@@ -189,6 +191,7 @@ function OwnerDashboard() {
   const { data: chartData } = useGetSalesChartData({ period: "week", branchId: selectedBranchId });
   const { data: tenant } = useGetTenant();
   const plan = tenant?.subscriptionPlan || "trial";
+  const isFashion = tenant?.businessType === "fashion";
 
   // Tab switching state
   const [activeTab, setActiveTab] = useState("overview");
@@ -226,6 +229,64 @@ function OwnerDashboard() {
     { id: 2, code: "FLOWBARU", discount: 20, desc: "Promo pengguna baru QR Menu", status: "Aktif" },
     { id: 3, code: "HEBATSENIN", discount: 10, desc: "Diskon weekday Senin pagi", status: "Expired" },
   ]);
+
+  // Ref to track dynamic retail initialization
+  const initializedRef = useRef(false);
+  useEffect(() => {
+    if (tenant && !initializedRef.current) {
+      initializedRef.current = true;
+      if (tenant.businessType === "fashion") {
+        setAttendance([
+          { id: 1, name: "Budi Santoso", role: "Kasir Retail", checkIn: "07:55", status: "Tepat Waktu", sales: 1250000 },
+          { id: 2, name: "Siti Rahma", role: "Kasir Retail", checkIn: "08:12", status: "Terlambat", sales: 980000 },
+          { id: 3, name: "Andi Wijaya", role: "Stylist", checkIn: "07:48", status: "Tepat Waktu", sales: 0 },
+          { id: 4, name: "Rian Hidayat", role: "Pramuniaga", checkIn: "08:02", status: "Terlambat", sales: 0 },
+          { id: 5, name: "Eko Prasetyo", role: "Kurir Toko", checkIn: "08:00", status: "Tepat Waktu", sales: 450000 },
+        ]);
+        setExpenses([
+          { id: 1, desc: "Sewa Tempat Butik (Bulanan)", category: "Operasional", amount: 6500000, date: "2026-06-01" },
+          { id: 2, desc: "Gaji Karyawan (Grup)", category: "Gaji", amount: 7800000, date: "2026-06-05" },
+          { id: 3, desc: "Pasokan Pakaian & Aksesoris", category: "Bahan Baku", amount: 5200000, date: "2026-06-07" },
+          { id: 4, desc: "Listrik & Internet Butik", category: "Utilitas", amount: 1250000, date: "2026-06-08" },
+        ]);
+        setCoupons([
+          { id: 1, code: "FASHION20", discount: 20, desc: "Diskon pakaian khusus akhir pekan", status: "Aktif" },
+          { id: 2, code: "DENIMWEEKEND", discount: 15, desc: "Promo produk denim di QR Katalog", status: "Aktif" },
+          { id: 3, code: "HEBATSENIN", discount: 10, desc: "Diskon weekday Senin pagi", status: "Expired" },
+        ]);
+        setNotifications([
+          { id: 1, title: "Stok Rendah", body: "Oversized Black Tee (M) tersisa 3 unit.", time: "5 mnt lalu", type: "stock", read: false },
+          { id: 2, title: "Pesanan Baru", body: "Order #FLW-9281 baru masuk via QR Katalog.", time: "12 mnt lalu", type: "order", read: false },
+          { id: 3, title: "Refund Diajukan", body: "Kasir meminta persetujuan refund Rp 149.000 karena tukar size.", time: "1 jam lalu", type: "refund", read: false },
+          { id: 4, title: "Sesi Berakhir", body: "Langganan Anda berakhir dalam 7 hari.", time: "3 jam lalu", type: "subscription", read: false },
+        ]);
+        setLiveOrders([
+          { id: 1, number: "FLW-9279", customer: "Amir", total: 149000, time: "1 mnt lalu", type: "delivery", status: "Siap Kirim" },
+          { id: 2, number: "FLW-9280", customer: "Cynthia", total: 299000, time: "3 mnt lalu", type: "take_away", status: "Sedang Dipacking" },
+          { id: 3, number: "FLW-9281", customer: "Dewi", total: 89000, time: "5 mnt lalu", type: "take_away", status: "Menunggu Packing" },
+        ]);
+        setKitchenQueue([
+          { id: 101, name: "Oversized Black Tee (M)", table: "Fitting Room 2", qty: 1, notes: "Minta bungkus kado", status: "Antre" },
+          { id: 102, name: "Slim Fit Denim Jeans (Size 32)", table: "Delivery", qty: 1, notes: "Pasang hangtag baru", status: "Dimasak" },
+          { id: 103, name: "Linen Summer Dress (S)", table: "Take Away", qty: 2, notes: "Setrika uap dulu", status: "Siap Saji" },
+        ]);
+        setMarketingBanners([
+          { id: 1, title: "Spesial Weekend: Diskon 20% Koleksi Denim Baru", bgColor: "#8B5CF6", textColor: "#FFFFFF" },
+          { id: 2, title: "Dapatkan Voucher Rp 50K untuk Pelanggan Setia", bgColor: "#EC4899", textColor: "#FFFFFF" },
+        ]);
+        setQrSettings({
+          themeColor: "#8B5CF6",
+          typography: "Inter",
+          enableDelivery: true,
+          deliveryFee: 15000,
+          cashActive: true,
+          qrisActive: true,
+          vaActive: false
+        });
+        setWaPromo({ segment: "all", couponCode: "FASHION20", message: "Halo Kawan Flow! Dapatkan promo diskon spesial 20% khusus hari ini dengan kode kupon" });
+      }
+    }
+  }, [tenant]);
   const [newCoupon, setNewCoupon] = useState({ code: "", discount: "", desc: "" });
 
   const [marketingBanners, setMarketingBanners] = useState<any[]>(() => {
@@ -309,8 +370,8 @@ function OwnerDashboard() {
             type: o.orderType,
             status: o.status === "pending" ? "Menunggu" :
                     o.status === "confirmed" ? "Dikonfirmasi" :
-                    o.status === "preparing" ? "Dimasak" :
-                    o.status === "ready" ? "Siap" :
+                    o.status === "preparing" ? (isFashion ? "Sedang Dipacking" : "Dimasak") :
+                    o.status === "ready" ? (isFashion ? "Siap Kirim" : "Siap") :
                     o.status === "on_delivery" ? "Dikirim" :
                     o.status === "completed" ? "Selesai" : "Dibatalkan"
           }));
@@ -324,7 +385,7 @@ function OwnerDashboard() {
               mappedKitchen.push({
                 id: item.id,
                 name: item.productName,
-                table: o.tableNumber ? `Meja ${o.tableNumber}` : o.orderType === "delivery" ? "Delivery" : "Take Away",
+                table: o.tableNumber ? (isFashion ? `Fitting Room ${o.tableNumber}` : `Meja ${o.tableNumber}`) : o.orderType === "delivery" ? "Delivery" : "Take Away",
                 qty: item.quantity,
                 notes: item.notes || "",
                 status: o.status === "pending" ? "Antre" : o.status === "confirmed" ? "Antre" : "Dimasak"
@@ -339,7 +400,7 @@ function OwnerDashboard() {
     loadRealtimeData();
     const iv = setInterval(loadRealtimeData, 10000);
     return () => clearInterval(iv);
-  }, [selectedBranchId]);
+  }, [selectedBranchId, isFashion]);
 
   // Simulation timer for dynamic orders incoming
   useEffect(() => {
@@ -347,7 +408,9 @@ function OwnerDashboard() {
     const interval = setInterval(() => {
       const names = ["Erick", "Roni", "Bella", "Gabriella", "Kevin", "Farhan", "Jessica"];
       const randName = names[Math.floor(Math.random() * names.length)];
-      const randTotal = Math.floor(Math.random() * 8) * 15000 + 20000;
+      const randTotal = isFashion
+        ? Math.floor(Math.random() * 4) * 50000 + 99000
+        : Math.floor(Math.random() * 8) * 15000 + 20000;
       const orderNum = `FLW-${Math.floor(Math.random() * 9000 + 1000)}`;
 
       // Add to live orders
@@ -357,20 +420,30 @@ function OwnerDashboard() {
         customer: randName,
         total: randTotal,
         time: "Baru Saja",
-        type: Math.random() > 0.5 ? "delivery" : "dine_in",
+        type: Math.random() > 0.5 ? "delivery" : "take_away",
         status: "Baru"
       };
       setLiveOrders(prev => [newOrd, ...prev.slice(0, 7)]);
 
       // Add to kitchen queue
-      const items = ["Kopi Susu Gula Aren", "Americano", "Chicken Rice Bowl", "French Fries", "Waffle Matcha"];
+      const items = isFashion
+        ? ["Oversized Black Tee (M)", "Slim Fit Denim Jeans (Size 32)", "Linen Summer Dress (S)", "Cotton Socks 3-Pack", "Canvas Tote Bag"]
+        : ["Kopi Susu Gula Aren", "Americano", "Chicken Rice Bowl", "French Fries", "Waffle Matcha"];
       const randItem = items[Math.floor(Math.random() * items.length)];
+
+      const notes = isFashion
+        ? ["Minta bungkus kado", "Pasang hangtag baru", "Setrika uap dulu", "Tolong periksa jahitan"]
+        : ["Es dikurangi", "Kurang manis", "Ekstra pedas", "Hangatkan"];
+      const randNotes = Math.random() > 0.7 ? notes[Math.floor(Math.random() * notes.length)] : "";
+
       const newKit = {
         id: Date.now() + 1,
         name: randItem,
-        table: `Meja ${Math.floor(Math.random() * 15 + 1)}`,
+        table: isFashion
+          ? (Math.random() > 0.5 ? `Fitting Room ${Math.floor(Math.random() * 5 + 1)}` : "Delivery")
+          : `Meja ${Math.floor(Math.random() * 15 + 1)}`,
         qty: Math.floor(Math.random() * 2) + 1,
-        notes: Math.random() > 0.7 ? "Es dikurangi" : "",
+        notes: randNotes,
         status: "Antre"
       };
       setKitchenQueue(prev => [newKit, ...prev]);
@@ -389,7 +462,7 @@ function OwnerDashboard() {
     }, 15000);
 
     return () => clearInterval(interval);
-  }, [simulationActive]);
+  }, [simulationActive, isFashion]);
 
   const s = stats || { todaySales: 0, todayOrders: 0, totalProducts: 0, totalCustomers: 0, lowStockCount: 0, monthlyRevenue: 0, weeklyRevenue: 0, revenueGrowth: 0 };
   const isFreshTenant = stats ? (stats.totalProducts === 0 && stats.todayOrders === 0) : false;
@@ -576,12 +649,16 @@ function OwnerDashboard() {
       {/* Header Dashboard */}
       <header className="sticky top-0 z-30 bg-card/80 backdrop-blur-md border-b border-border px-6 py-4 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary font-bold text-lg">F</div>
+          <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary font-bold text-lg font-mono">
+            {isFashion ? <Shirt size={20} className="text-primary animate-pulse" /> : "F"}
+          </div>
           <div>
             <h1 className="text-lg font-bold flex items-center gap-2">
-              Dasbor Bisnis <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full font-bold">PRO</span>
+              {isFashion ? "Dasbor Toko Fashion" : "Dasbor Bisnis"} <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full font-bold">PRO</span>
             </h1>
-            <p className="text-[11px] text-muted-foreground">Monitoring operasional multi-cabang secara realtime</p>
+            <p className="text-[11px] text-muted-foreground">
+              {isFashion ? "Monitoring operasional ritel & butik secara realtime" : "Monitoring operasional multi-cabang secara realtime"}
+            </p>
           </div>
         </div>
 
@@ -676,7 +753,7 @@ function OwnerDashboard() {
             { id: "finance", label: "Keuangan", icon: DollarSign },
             { id: "employees", label: "Karyawan", icon: Users },
             { id: "marketing", label: "Pemasaran", icon: Gift },
-            { id: "qrmenu", label: "QR Menu", icon: QrCode },
+            { id: "qrmenu", label: isFashion ? "QR Katalog" : "QR Menu", icon: QrCode },
             { id: "export", label: "Ekspor", icon: Download },
           ].map(tab => {
             const Icon = tab.icon;
@@ -735,15 +812,15 @@ function OwnerDashboard() {
                     <AreaChart data={chartData || []}>
                       <defs>
                         <linearGradient id="ownerSalesGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#1D4EF5" stopOpacity={0.2} />
-                          <stop offset="95%" stopColor="#1D4EF5" stopOpacity={0} />
+                          <stop offset="5%" stopColor={isFashion ? "#8B5CF6" : "#1D4EF5"} stopOpacity={0.2} />
+                          <stop offset="95%" stopColor={isFashion ? "#8B5CF6" : "#1D4EF5"} stopOpacity={0} />
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="label" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
                       <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={v => formatRp(v)} />
                       <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }} formatter={(v: number) => [formatRp(v), "Pendapatan"]} />
-                      <Area type="monotone" dataKey="revenue" stroke="#1D4EF5" strokeWidth={2} fill="url(#ownerSalesGrad)" />
+                      <Area type="monotone" dataKey="revenue" stroke={isFashion ? "#8B5CF6" : "#1D4EF5"} strokeWidth={2} fill="url(#ownerSalesGrad)" />
                     </AreaChart>
                   </ResponsiveContainer>
                 </div>
@@ -784,18 +861,27 @@ function OwnerDashboard() {
                       <>
                         <div className="flex justify-between items-center text-xs p-2.5 bg-amber-500/5 border border-amber-500/20 rounded-xl">
                           <div>
-                            <span className="font-bold text-foreground">Espresso Roast Arabica</span>
-                            <p className="text-[10px] text-muted-foreground">Sisa 2 Kg (Min: 5 Kg)</p>
+                            <span className="font-bold text-foreground">{isFashion ? "Oversized Black Tee (Size M)" : "Espresso Roast Arabica"}</span>
+                            <p className="text-[10px] text-muted-foreground">{isFashion ? "Sisa 3 Pcs (Min: 10 Pcs)" : "Sisa 2 Kg (Min: 5 Kg)"}</p>
                           </div>
                           <Link href="/inventory"><a className="text-[10px] font-bold text-amber-600 hover:underline">Restock →</a></Link>
                         </div>
                         <div className="flex justify-between items-center text-xs p-2.5 bg-amber-500/5 border border-amber-500/20 rounded-xl">
                           <div>
-                            <span className="font-bold text-foreground">Susu Fresh Milk UHT</span>
-                            <p className="text-[10px] text-muted-foreground">Sisa 8 Pcs (Min: 12 Pcs)</p>
+                            <span className="font-bold text-foreground">{isFashion ? "Slim Fit Denim Jeans (Size 30)" : "Susu Fresh Milk UHT"}</span>
+                            <p className="text-[10px] text-muted-foreground">{isFashion ? "Sisa 2 Pcs (Min: 8 Pcs)" : "Sisa 8 Pcs (Min: 12 Pcs)"}</p>
                           </div>
                           <Link href="/inventory"><a className="text-[10px] font-bold text-amber-600 hover:underline">Restock →</a></Link>
                         </div>
+                        {isFashion && (
+                          <div className="flex justify-between items-center text-xs p-2.5 bg-amber-500/5 border border-amber-500/20 rounded-xl">
+                            <div>
+                              <span className="font-bold text-foreground">Linen Summer Dress (Size S)</span>
+                              <p className="text-[10px] text-muted-foreground">Sisa 4 Pcs (Min: 8 Pcs)</p>
+                            </div>
+                            <Link href="/inventory"><a className="text-[10px] font-bold text-amber-600 hover:underline">Restock →</a></Link>
+                          </div>
+                        )}
                       </>
                     )}
                   </div>
@@ -837,7 +923,9 @@ function OwnerDashboard() {
                   <h3 className="font-bold text-foreground text-sm flex items-center gap-2">
                     <Activity size={16} className="text-red-500 animate-pulse" /> Operasional Realtime Toko
                   </h3>
-                  <p className="text-xs text-muted-foreground">Pantau antrean pesanan masuk, status dapur, dan kurir aktif.</p>
+                  <p className="text-xs text-muted-foreground">
+                    {isFashion ? "Pantau antrean pesanan masuk, status pengemasan (packing), dan kurir aktif." : "Pantau antrean pesanan masuk, status dapur, dan kurir aktif."}
+                  </p>
                 </div>
                 {simulationActive && (
                   <span className="text-[10px] font-bold text-green-600 dark:text-green-400 bg-green-500/10 border border-green-500/20 px-2.5 py-1 rounded-full flex items-center gap-1.5 animate-pulse">
@@ -889,12 +977,13 @@ function OwnerDashboard() {
                 {/* Kitchen Queue */}
                 <div className="bg-card border border-card-border rounded-2xl p-4 shadow-sm space-y-3 md:col-span-2">
                   <h4 className="font-semibold text-xs text-foreground flex items-center gap-1.5">
-                    <ChefHat size={13} className="text-primary" /> Antrean Dapur (Kitchen Display)
+                    {isFashion ? <ShoppingBag size={13} className="text-primary" /> : <ChefHat size={13} className="text-primary" />}
+                    {isFashion ? "Antrean Pengemasan (Packing Display)" : "Antrean Dapur (Kitchen Display)"}
                   </h4>
                   <div className="grid sm:grid-cols-2 gap-3 max-h-[380px] overflow-y-auto pr-1">
                     {kitchenQueue.length === 0 ? (
                       <div className="col-span-2 text-center py-8 text-xs text-muted-foreground bg-muted/10 border border-border rounded-xl">
-                        Belum ada antrean di dapur
+                        {isFashion ? "Belum ada antrean pengemasan" : "Belum ada antrean di dapur"}
                       </div>
                     ) : (
                       kitchenQueue.map(kq => (
@@ -906,7 +995,12 @@ function OwnerDashboard() {
                             </div>
                             <div className="text-[10px] text-muted-foreground mt-1 flex justify-between">
                               <span>{kq.table}</span>
-                              <span className={`font-semibold uppercase text-[8px] ${kq.status === "Dimasak" ? "text-amber-500" : kq.status === "Siap Saji" ? "text-green-500" : "text-muted-foreground"}`}>{kq.status}</span>
+                              <span className={`font-semibold uppercase text-[8px] ${kq.status === "Dimasak" ? "text-amber-500" : kq.status === "Siap Saji" ? "text-green-500" : "text-muted-foreground"}`}>
+                                {isFashion
+                                  ? (kq.status === "Antre" ? "Menunggu" : kq.status === "Dimasak" ? "Dipacking" : "Siap Kirim")
+                                  : kq.status
+                                }
+                              </span>
                             </div>
                             {kq.notes && <div className="text-[9px] text-red-500 bg-red-50 dark:bg-red-950/20 px-2 py-0.5 rounded-md mt-1.5 italic">Catatan: {kq.notes}</div>}
                           </div>
@@ -918,7 +1012,7 @@ function OwnerDashboard() {
                                 }}
                                 className="flex-1 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[9px] font-bold transition-all"
                               >
-                                Masak
+                                {isFashion ? "Mulai Packing" : "Masak"}
                               </button>
                             )}
                             {kq.status === "Dimasak" && (
@@ -928,7 +1022,7 @@ function OwnerDashboard() {
                                 }}
                                 className="flex-1 py-1 bg-green-500 hover:bg-green-600 text-white rounded-lg text-[9px] font-bold transition-all"
                               >
-                                Siap Saji
+                                {isFashion ? "Selesaikan Packing" : "Siap Saji"}
                               </button>
                             )}
                             <button
@@ -989,8 +1083,8 @@ function OwnerDashboard() {
                       </div>
                     ) : (
                       [
-                        { name: "Eko Prasetyo", order: "FLW-9275", dest: "Margonda Raya No. 42", status: "Mengirim" },
-                        { name: "Gojek Instant", order: "FLW-9279", dest: "Apartemen Saladin, Tower B", status: "Mencari Driver" }
+                        { name: isFashion ? "J&T Express" : "Eko Prasetyo", order: "FLW-9275", dest: "Margonda Raya No. 42", status: "Mengirim" },
+                        { name: isFashion ? "Sicepat" : "Gojek Instant", order: "FLW-9279", dest: "Apartemen Saladin, Tower B", status: "Mencari Driver" }
                       ].map((d, i) => (
                         <div key={i} className="flex justify-between items-center p-3 border border-border rounded-xl bg-background/50">
                           <div>
@@ -1025,16 +1119,16 @@ function OwnerDashboard() {
                       isFreshTenant
                         ? (branches || []).map((b: any) => ({ name: b.name, omzet: 0, transaksi: 0 }))
                         : [
-                            { name: "Depok (Margonda)", omzet: 14850000, transaksi: 320 },
-                            { name: "Jakarta (Sudirman)", omzet: 28400000, transaksi: 540 },
-                            { name: "Bandung (Dago)", omzet: 18200000, transaksi: 410 }
+                            { name: isFashion ? "Depok (Margonda Outlet)" : "Depok (Margonda)", omzet: 14850000, transaksi: 320 },
+                            { name: isFashion ? "Jakarta (Sudirman Boutique)" : "Jakarta (Sudirman)", omzet: 28400000, transaksi: 540 },
+                            { name: isFashion ? "Bandung (Dago Store)" : "Bandung (Dago)", omzet: 18200000, transaksi: 410 }
                           ]
                     }>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="name" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
                       <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} tickFormatter={v => formatRp(v)} />
                       <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }} formatter={(v: number) => [formatRp(v), "Omzet"]} />
-                      <Bar dataKey="omzet" fill="#1D4EF5" radius={[4, 4, 0, 0]} />
+                      <Bar dataKey="omzet" fill={isFashion ? "#8B5CF6" : "#1D4EF5"} radius={[4, 4, 0, 0]} />
                     </BarChart>
                   </ResponsiveContainer>
                 </div>
@@ -1049,7 +1143,7 @@ function OwnerDashboard() {
                     <div className="space-y-3">
                       <div className="p-4 bg-primary/5 border border-primary/20 rounded-2xl space-y-1">
                         <span className="text-2xl">🏆</span>
-                        <div className="font-bold text-sm text-foreground">Jakarta (Sudirman)</div>
+                        <div className="font-bold text-sm text-foreground">{isFashion ? "Jakarta (Sudirman Boutique)" : "Jakarta (Sudirman)"}</div>
                         <p className="text-xs text-muted-foreground">Pencapaian: <strong className="text-primary">191%</strong> dari target bulanan.</p>
                       </div>
                       <div className="text-xs space-y-1 text-muted-foreground">
@@ -1178,7 +1272,7 @@ function OwnerDashboard() {
                       <XAxis dataKey="label" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
                       <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
                       <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }} />
-                      <Line type="monotone" dataKey="count" stroke="#1D4EF5" strokeWidth={2} activeDot={{ r: 6 }} />
+                      <Line type="monotone" dataKey="count" stroke={isFashion ? "#8B5CF6" : "#1D4EF5"} strokeWidth={2} activeDot={{ r: 6 }} />
                     </LineChart>
                   </ResponsiveContainer>
                 </div>
@@ -1191,12 +1285,20 @@ function OwnerDashboard() {
                     </div>
                   ) : (
                     <div className="space-y-2 text-xs">
-                      {[
-                        { name: "Kopi Gula Aren", pct: 45, color: "bg-blue-600" },
-                        { name: "Ice Cafe Latte", pct: 28, color: "bg-indigo-600" },
-                        { name: "Chocolate Ice", pct: 15, color: "bg-green-600" },
-                        { name: "Camilan Croissant", pct: 12, color: "bg-amber-600" }
-                      ].map((f, i) => (
+                      {(isFashion
+                        ? [
+                            { name: "Atasan / Tops", pct: 45, color: "bg-purple-600" },
+                            { name: "Bawahan / Denim", pct: 28, color: "bg-indigo-600" },
+                            { name: "Outerwear / Jaket", pct: 15, color: "bg-pink-600" },
+                            { name: "Aksesoris / Tas", pct: 12, color: "bg-amber-600" }
+                          ]
+                        : [
+                            { name: "Kopi Gula Aren", pct: 45, color: "bg-blue-600" },
+                            { name: "Ice Cafe Latte", pct: 28, color: "bg-indigo-600" },
+                            { name: "Chocolate Ice", pct: 15, color: "bg-green-600" },
+                            { name: "Camilan Croissant", pct: 12, color: "bg-amber-600" }
+                          ]
+                      ).map((f, i) => (
                         <div key={i} className="space-y-1">
                           <div className="flex justify-between text-[10px] font-semibold text-muted-foreground">
                             <span>{f.name}</span>
@@ -1312,7 +1414,7 @@ function OwnerDashboard() {
                       <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} tickFormatter={v => formatRp(v)} />
                       <Tooltip contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8, fontSize: 11 }} formatter={(v: number) => [formatRp(v)]} />
                       <Legend wrapperStyle={{ fontSize: 10 }} />
-                      <Line type="monotone" dataKey="masuk" name="Kas Masuk" stroke="#1D4EF5" strokeWidth={2} />
+                      <Line type="monotone" dataKey="masuk" name="Kas Masuk" stroke={isFashion ? "#8B5CF6" : "#1D4EF5"} strokeWidth={2} />
                       <Line type="monotone" dataKey="keluar" name="Kas Keluar" stroke="#EF4444" strokeWidth={2} />
                     </LineChart>
                   </ResponsiveContainer>
@@ -1334,16 +1436,16 @@ function OwnerDashboard() {
                         <div className="p-2.5 border border-border rounded-xl bg-background flex justify-between items-center">
                           <div>
                             <span className="font-bold text-foreground">Refund #FLW-9182</span>
-                            <p className="text-[9px] text-muted-foreground">Salah input menu &bull; Oleh Kasir Budi</p>
+                            <p className="text-[9px] text-muted-foreground">{isFashion ? "Tukar size baju" : "Salah input menu"} &bull; Oleh Kasir Budi</p>
                           </div>
-                          <span className="font-bold text-red-500">-Rp 45.000</span>
+                          <span className="font-bold text-red-500">{isFashion ? "-Rp 149.000" : "-Rp 45.000"}</span>
                         </div>
                         <div className="p-2.5 border border-border rounded-xl bg-background flex justify-between items-center">
                           <div>
                             <span className="font-bold text-foreground">Refund #FLW-9140</span>
-                            <p className="text-[9px] text-muted-foreground">Stok bahan kosong &bull; Oleh Manager</p>
+                            <p className="text-[9px] text-muted-foreground">{isFashion ? "Salah warna kirim" : "Stok bahan kosong"} &bull; Oleh Manager</p>
                           </div>
-                          <span className="font-bold text-red-500">-Rp 28.000</span>
+                          <span className="font-bold text-red-500">{isFashion ? "-Rp 299.000" : "-Rp 28.000"}</span>
                         </div>
                       </>
                     )}
@@ -1377,7 +1479,7 @@ function OwnerDashboard() {
                         className="w-full px-2 py-1.5 border border-input rounded-xl bg-background text-xs text-foreground focus:outline-none"
                       >
                         <option value="Operasional">Operasional</option>
-                        <option value="Bahan Baku">Bahan Baku</option>
+                        <option value="Bahan Baku">{isFashion ? "Inventori Baju" : "Bahan Baku"}</option>
                         <option value="Gaji">Gaji</option>
                         <option value="Utilitas">Utilitas</option>
                       </select>
@@ -1410,7 +1512,7 @@ function OwnerDashboard() {
                       <div key={exp.id} className="bg-background border border-border p-3 rounded-xl flex justify-between items-center text-xs">
                         <div>
                           <span className="font-bold text-foreground">{exp.desc}</span>
-                          <div className="text-[10px] text-muted-foreground mt-0.5">{exp.category} &bull; {exp.date}</div>
+                          <div className="text-[10px] text-muted-foreground mt-0.5">{exp.category === "Bahan Baku" && isFashion ? "Inventori Baju" : exp.category} &bull; {exp.date}</div>
                         </div>
                         <div className="flex items-center gap-3">
                           <span className="font-bold text-red-500">{formatRp(exp.amount)}</span>
@@ -1810,8 +1912,14 @@ function OwnerDashboard() {
           {activeTab === "qrmenu" && (
             <div className="bg-card border border-card-border rounded-2xl p-5 shadow-sm space-y-6 animate-fade-in">
               <div>
-                <h3 className="font-bold text-foreground text-sm">Tema & Kustomisasi QR Menu</h3>
-                <p className="text-xs text-muted-foreground">Sesuaikan tampilan visual menu pesanan pelanggan untuk publik.</p>
+                <h3 className="font-bold text-foreground text-sm">
+                  {isFashion ? "Tema & Kustomisasi QR Katalog" : "Tema & Kustomisasi QR Menu"}
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  {isFashion
+                    ? "Sesuaikan tampilan visual katalog toko online pakaian untuk publik."
+                    : "Sesuaikan tampilan visual menu pesanan pelanggan untuk publik."}
+                </p>
               </div>
 
               <div className="grid md:grid-cols-2 gap-6">
@@ -1887,32 +1995,44 @@ function OwnerDashboard() {
 
                 {/* QR preview mockup */}
                 <div className="border border-border p-5 rounded-2xl bg-muted/10 space-y-4 flex flex-col items-center justify-between text-center">
-                  <span className="text-xs font-bold text-muted-foreground uppercase">Mockup Tema Menu di Smartphone:</span>
+                  <span className="text-xs font-bold text-muted-foreground uppercase">
+                    {isFashion ? "Mockup Tema Katalog di Smartphone:" : "Mockup Tema Menu di Smartphone:"}
+                  </span>
                   <div className="w-44 h-72 border-4 border-foreground rounded-[24px] bg-background shadow-lg overflow-hidden flex flex-col justify-between">
                     <div style={{ backgroundColor: qrSettings.themeColor }} className="py-3 px-2 text-white">
-                      <div className="text-[10px] font-bold">Demo Kafe Menu</div>
-                      <div className="text-[7px] opacity-80 mt-0.5">Pesan online cepat & mudah</div>
+                      <div className="text-[10px] font-bold">{isFashion ? "Demo Toko Fashion" : "Demo Kafe Menu"}</div>
+                      <div className="text-[7px] opacity-80 mt-0.5">
+                        {isFashion ? "Katalog online cepat & mudah" : "Pesan online cepat & mudah"}
+                      </div>
                     </div>
                     <div className="p-3 space-y-1.5 flex-1 bg-muted/10">
                       <div className="h-2 w-16 bg-muted rounded-full" />
                       <div className="h-6 w-full bg-card border border-border rounded flex justify-between items-center px-1.5">
-                        <span className="text-[7px] font-semibold text-foreground">Americano Coffee</span>
-                        <span style={{ color: qrSettings.themeColor }} className="text-[7px] font-bold">Rp 22k</span>
+                        <span className="text-[7px] font-semibold text-foreground">
+                          {isFashion ? "Oversized Black Tee" : "Americano Coffee"}
+                        </span>
+                        <span style={{ color: qrSettings.themeColor }} className="text-[7px] font-bold">
+                          {isFashion ? "Rp 149k" : "Rp 22k"}
+                        </span>
                       </div>
                       <div className="h-6 w-full bg-card border border-border rounded flex justify-between items-center px-1.5">
-                        <span className="text-[7px] font-semibold text-foreground">Cafe Latte Double</span>
-                        <span style={{ color: qrSettings.themeColor }} className="text-[7px] font-bold">Rp 28k</span>
+                        <span className="text-[7px] font-semibold text-foreground">
+                          {isFashion ? "Slim Fit Denim Jeans" : "Cafe Latte Double"}
+                        </span>
+                        <span style={{ color: qrSettings.themeColor }} className="text-[7px] font-bold">
+                          {isFashion ? "Rp 299k" : "Rp 28k"}
+                        </span>
                       </div>
                     </div>
                     <div className="p-2 border-t border-border bg-card">
                       <button style={{ backgroundColor: qrSettings.themeColor }} className="w-full py-1 text-white text-[7px] font-bold rounded">
-                        Keranjang (0 Item)
+                        {isFashion ? "Beli Sekarang (0 Item)" : "Keranjang (0 Item)"}
                       </button>
                     </div>
                   </div>
                   <button
                     onClick={() => {
-                      alert("Pengaturan tema QR Menu berhasil disimpan dan dipublikasikan.");
+                      alert(isFashion ? "Pengaturan tema QR Katalog berhasil disimpan dan dipublikasikan." : "Pengaturan tema QR Menu berhasil disimpan dan dipublikasikan.");
                     }}
                     className="px-4 py-2 bg-primary text-primary-foreground font-bold rounded-xl text-xs hover:bg-primary/95 transition-all shadow-sm"
                   >
@@ -1980,8 +2100,11 @@ function OwnerDashboard() {
 // ── Main Dashboard ────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { data: stats, isLoading } = useGetDashboardStats();
+  const { data: stats, isLoading: statsLoading } = useGetDashboardStats();
   const { data: branches } = useListBranches();
+  const { data: tenant, isLoading: tenantLoading } = useGetTenant();
+
+  const isLoading = statsLoading || tenantLoading;
 
   if (isLoading) {
     return (
@@ -1994,18 +2117,20 @@ export default function DashboardPage() {
   }
 
   const role = user?.role ?? "staff";
+  const businessType = tenant?.businessType || "fnb";
 
   // Enforce lock checking for cashier/manager
   if (user?.branchId) {
     const assignedBranch = ((branches || []) as any[]).find(b => b.id === user.branchId);
     if (assignedBranch && assignedBranch.status === "locked") {
+      const plan = tenant?.subscriptionPlan || "trial";
       return (
         <div className="min-h-screen flex items-center justify-center p-6 bg-background">
           <div className="bg-card border border-card-border p-8 rounded-2xl shadow-xl w-full max-w-md text-center space-y-4">
             <div className="w-12 h-12 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto text-xl">🔒</div>
             <h2 className="font-bold text-base text-foreground">Cabang Anda Terkunci</h2>
             <p className="text-xs text-muted-foreground leading-relaxed">
-              Cabang **{assignedBranch.name}** saat ini dinonaktifkan (terkunci) karena melampaui batas paket langganan bisnis Anda.
+              Cabang **{assignedBranch.name}** saat ini dinonaktifkan (terkunci) karena melampaui batas paket langganan bisnis Anda ({plan.toUpperCase()}).
             </p>
             <p className="text-xs text-muted-foreground">
               Silakan hubungi pemilik bisnis untuk meng-upgrade paket langganan agar dapat mengaktifkan kembali cabang ini.
@@ -2016,8 +2141,8 @@ export default function DashboardPage() {
     }
   }
 
-  if (role === "cashier") return <CashierDashboard stats={stats} />;
-  if (role === "manager") return <ManagerDashboard stats={stats} />;
-  if (role === "staff") return <StaffDashboard />;
+  if (role === "cashier") return <CashierDashboard stats={stats} businessType={businessType} />;
+  if (role === "manager") return <ManagerDashboard stats={stats} businessType={businessType} />;
+  if (role === "staff") return <StaffDashboard businessType={businessType} />;
   return <OwnerDashboard />;
 }

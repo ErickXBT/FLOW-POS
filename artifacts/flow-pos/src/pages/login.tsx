@@ -10,6 +10,44 @@ export default function LoginPage({ onLogin }: { onLogin: (token: string, user: 
   const [password, setPassword] = useState("admin123");
   const [error, setError] = useState("");
   const loginMutation = useLogin();
+  const [isForgot, setIsForgot] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState("");
+  const [forgotSuccess, setForgotSuccess] = useState("");
+  const [forgotLoading, setForgotLoading] = useState(false);
+
+  const handleForgotSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError("");
+    setForgotSuccess("");
+    
+    if (!forgotEmail) {
+      setError("Email wajib diisi");
+      return;
+    }
+
+    setForgotLoading(true);
+    try {
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email: forgotEmail }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Gagal mengirim email reset password");
+      }
+
+      setForgotSuccess("Tautan reset password telah dikirim ke email Anda! Silakan periksa inbox email Anda.");
+      setForgotEmail("");
+    } catch (err: any) {
+      setError(err.message || "Gagal mengirim permintaan reset password.");
+    } finally {
+      setForgotLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,56 +93,117 @@ export default function LoginPage({ onLogin }: { onLogin: (token: string, user: 
           <div className="flex justify-center lg:hidden mb-8">
             <img src={flowLogo} alt="Flow" className="h-10" />
           </div>
-          <h1 className="text-2xl font-bold text-foreground mb-2">Selamat datang kembali</h1>
-          <p className="text-muted-foreground mb-8 text-sm">Masuk ke akun Flow Anda</p>
+          {!isForgot ? (
+            <>
+              <h1 className="text-2xl font-bold text-foreground mb-2">Selamat datang kembali</h1>
+              <p className="text-muted-foreground mb-8 text-sm">Masuk ke akun Flow Anda</p>
 
-          {error && (
-            <div className="bg-destructive/10 border border-destructive/20 text-destructive text-sm rounded-lg p-3 mb-4">
-              {error}
-            </div>
+              {error && (
+                <div className="bg-destructive/10 border border-destructive/20 text-destructive text-sm rounded-lg p-3 mb-4 font-medium">
+                  {error}
+                </div>
+              )}
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-1.5">Email</label>
+                  <input
+                    data-testid="input-email"
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-shadow"
+                    placeholder="nama@bisnis.com"
+                    required
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-sm font-medium text-foreground">Password</label>
+                    <button
+                      type="button"
+                      onClick={() => { setIsForgot(true); setError(""); }}
+                      className="text-xs text-primary font-semibold hover:underline bg-transparent border-0 p-0 cursor-pointer font-medium"
+                    >
+                      Lupa Password?
+                    </button>
+                  </div>
+                  <input
+                    data-testid="input-password"
+                    type="password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    className="w-full px-3 py-2.5 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-shadow"
+                    placeholder="••••••••"
+                    required
+                  />
+                </div>
+                <button
+                  data-testid="button-login"
+                  type="submit"
+                  disabled={loginMutation.isPending}
+                  className="w-full py-2.5 px-4 bg-primary text-primary-foreground rounded-lg font-semibold text-sm hover:opacity-90 active:opacity-80 transition-opacity disabled:opacity-50 cursor-pointer"
+                >
+                  {loginMutation.isPending ? "Masuk..." : "Masuk"}
+                </button>
+              </form>
+
+              <p className="mt-6 text-center text-sm text-muted-foreground">
+                Belum punya akun?{" "}
+                <a href="/register" className="text-primary font-semibold hover:underline">
+                  Daftar sekarang
+                </a>
+              </p>
+            </>
+          ) : (
+            <>
+              <h1 className="text-2xl font-bold text-foreground mb-2">Lupa Password</h1>
+              <p className="text-muted-foreground mb-8 text-sm">Masukkan email Anda untuk menerima tautan ganti password baru</p>
+
+              {error && (
+                <div className="bg-destructive/10 border border-destructive/20 text-destructive text-sm rounded-lg p-3 mb-4 font-medium">
+                  {error}
+                </div>
+              )}
+
+              {forgotSuccess ? (
+                <div className="bg-green-100 dark:bg-green-950/30 border border-green-200 dark:border-green-900/50 text-green-700 dark:text-green-400 text-sm rounded-lg p-3 mb-4 font-medium">
+                  {forgotSuccess}
+                </div>
+              ) : (
+                <form onSubmit={handleForgotSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-1.5 font-semibold">Email Akun</label>
+                    <input
+                      type="email"
+                      value={forgotEmail}
+                      onChange={e => setForgotEmail(e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-shadow"
+                      placeholder="nama@bisnis.com"
+                      required
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={forgotLoading}
+                    className="w-full py-2.5 px-4 bg-primary text-primary-foreground rounded-lg font-semibold text-sm hover:opacity-90 active:opacity-80 transition-opacity disabled:opacity-50 cursor-pointer"
+                  >
+                    {forgotLoading ? "Mengirim..." : "Kirim Tautan Reset"}
+                  </button>
+                </form>
+              )}
+
+              <div className="mt-6 text-center text-sm">
+                <button
+                  type="button"
+                  onClick={() => { setIsForgot(false); setError(""); setForgotSuccess(""); }}
+                  className="text-primary font-semibold hover:underline bg-transparent border-0 p-0 cursor-pointer font-medium"
+                >
+                  Kembali ke Halaman Masuk
+                </button>
+              </div>
+            </>
           )}
-
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">Email</label>
-              <input
-                data-testid="input-email"
-                type="email"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-shadow"
-                placeholder="nama@bisnis.com"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-foreground mb-1.5">Password</label>
-              <input
-                data-testid="input-password"
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-lg border border-input bg-card text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-shadow"
-                placeholder="••••••••"
-                required
-              />
-            </div>
-            <button
-              data-testid="button-login"
-              type="submit"
-              disabled={loginMutation.isPending}
-              className="w-full py-2.5 px-4 bg-primary text-primary-foreground rounded-lg font-semibold text-sm hover:opacity-90 active:opacity-80 transition-opacity disabled:opacity-50"
-            >
-              {loginMutation.isPending ? "Masuk..." : "Masuk"}
-            </button>
-          </form>
-
-          <p className="mt-6 text-center text-sm text-muted-foreground">
-            Belum punya akun?{" "}
-            <a href="/register" className="text-primary font-semibold hover:underline">
-              Daftar sekarang
-            </a>
-          </p>
         </div>
       </div>
     </div>
