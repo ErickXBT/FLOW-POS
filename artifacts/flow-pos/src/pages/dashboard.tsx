@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useGetDashboardStats, useGetRecentOrders, useGetTopProducts, useGetSalesChartData, useListBranches, useGetTenant } from "@workspace/api-client-react";
+import { useGetDashboardStats, useGetRecentOrders, useGetTopProducts, useGetSalesChartData, useListBranches, useGetTenant, useListEmployees, useListProducts, useListCustomers } from "@workspace/api-client-react";
 import {
   TrendingUp, TrendingDown, ShoppingCart, Package, Users, AlertTriangle, DollarSign, ChefHat, Truck, Clock,
   Bell, FileText, Download, BarChart2, Users2, ShieldAlert, Award, Calendar, Layers, MapPin, Percent,
@@ -46,11 +46,11 @@ function CashierDashboard({ stats, businessType }: { stats: any; businessType?: 
         <h1 className="text-xl font-bold text-foreground">Selamat Bekerja!</h1>
         <p className="text-muted-foreground text-sm">Transaksi kasir hari ini</p>
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <StatCard label="Penjualan Hari Ini" value={formatRp(s.todaySales)} icon={<DollarSign size={18} />} sub={`${s.todayOrders} transaksi`} />
         <StatCard label="Total Transaksi" value={s.todayOrders.toString()} icon={<ShoppingCart size={18} />} sub="Hari ini" />
       </div>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Link href="/pos">
           <a className="flex flex-col items-center gap-3 p-6 bg-primary text-primary-foreground rounded-2xl shadow-lg hover:bg-primary/90 transition-colors cursor-pointer">
             <ShoppingCart size={32} />
@@ -99,7 +99,7 @@ function ManagerDashboard({ stats, businessType }: { stats: any; businessType?: 
         <h1 className="text-xl font-bold text-foreground">Dashboard Operasional</h1>
         <p className="text-muted-foreground text-sm">Pantau operasional bisnis harian</p>
       </div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="Penjualan Hari Ini" value={formatRp(s.todaySales)} icon={<DollarSign size={18} />} sub={`${s.todayOrders} transaksi`} />
         <StatCard label="Revenue Mingguan" value={formatRp(s.weeklyRevenue)} icon={<TrendingUp size={18} />} trend={s.revenueGrowth} />
         <StatCard label="Total Produk" value={s.totalProducts.toString()} icon={<Package size={18} />} sub={s.lowStockCount > 0 ? `⚠️ ${s.lowStockCount} stok rendah` : "Stok aman"} />
@@ -114,7 +114,7 @@ function ManagerDashboard({ stats, businessType }: { stats: any; businessType?: 
           </Link>
         </div>
       )}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {[
           { href: "/pos", icon: <ShoppingCart size={20} />, label: "Kasir", sub: "Buka POS" },
           { href: "/customer-orders", icon: <div className="text-xl">📱</div>, label: "Pesanan Online", sub: isFashion ? "QR Katalog" : "QR Menu" },
@@ -186,107 +186,60 @@ function OwnerDashboard() {
   const [selectedBranchId, setSelectedBranchId] = useState<number | undefined>(undefined);
   const { data: branches } = useListBranches();
   const { data: stats } = useGetDashboardStats({ branchId: selectedBranchId });
-  const { data: recentOrders } = useGetRecentOrders({ limit: 5, branchId: selectedBranchId });
+  const { data: recentOrders } = useGetRecentOrders({ limit: 10, branchId: selectedBranchId });
   const { data: topProducts } = useGetTopProducts({ limit: 5, branchId: selectedBranchId });
   const { data: chartData } = useGetSalesChartData({ period: "week", branchId: selectedBranchId });
   const { data: tenant } = useGetTenant();
   const plan = tenant?.subscriptionPlan || "trial";
   const isFashion = tenant?.businessType === "fashion";
 
+  // Real-time fetched resources
+  const { data: realEmployees } = useListEmployees();
+  const { data: productsResult } = useListProducts({ limit: 100 });
+  const { data: customersResult } = useListCustomers({ limit: 10 });
+
   // Tab switching state
   const [activeTab, setActiveTab] = useState("overview");
 
   // Notifications State
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState<any[]>([
-    { id: 1, title: "Stok Rendah", body: "Espresso Blend tersisa 5 unit.", time: "5 mnt lalu", type: "stock", read: false },
-    { id: 2, title: "Pesanan Baru", body: "Order #FLW-9281 baru masuk via QR Menu.", time: "12 mnt lalu", type: "order", read: false },
-    { id: 3, title: "Refund Diajukan", body: "Kasir meminta persetujuan refund Rp 45.000.", time: "1 jam lalu", type: "refund", read: false },
-    { id: 4, title: "Sesi Berakhir", body: "Langganan Anda berakhir dalam 7 hari.", time: "3 jam lalu", type: "subscription", read: false },
-  ]);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [activityLogs, setActivityLogs] = useState<any[]>([]);
 
-  // Expenses State (Finance)
-  const [expenses, setExpenses] = useState<any[]>([
-    { id: 1, desc: "Sewa Tempat (Bulanan)", category: "Operasional", amount: 4500000, date: "2026-06-01" },
-    { id: 2, desc: "Gaji Karyawan (Grup)", category: "Gaji", amount: 7800000, date: "2026-06-05" },
-    { id: 3, desc: "Biji Kopi & Bahan Baku", category: "Bahan Baku", amount: 3200000, date: "2026-06-07" },
-    { id: 4, desc: "Listrik & Internet", category: "Utilitas", amount: 1150000, date: "2026-06-08" },
-  ]);
+  // Expenses State (Finance) with LocalStorage persistence
+  const [expenses, setExpenses] = useState<any[]>(() => {
+    try {
+      const stored = localStorage.getItem("flow_expenses");
+      if (stored) return JSON.parse(stored);
+    } catch (err) {}
+    return [
+      { id: 1, desc: "Sewa Tempat (Bulanan)", category: "Operasional", amount: 4500000, date: "2026-06-01" },
+      { id: 2, desc: "Gaji Karyawan (Grup)", category: "Gaji", amount: 7800000, date: "2026-06-05" },
+      { id: 3, desc: "Biji Kopi & Bahan Baku", category: "Bahan Baku", amount: 3200000, date: "2026-06-07" },
+      { id: 4, desc: "Listrik & Internet", category: "Utilitas", amount: 1150000, date: "2026-06-08" },
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem("flow_expenses", JSON.stringify(expenses));
+  }, [expenses]);
+
   const [newExpense, setNewExpense] = useState({ desc: "", category: "Operasional", amount: "" });
 
-  // Attendance State (Employees)
-  const [attendance, setAttendance] = useState<any[]>([
-    { id: 1, name: "Budi Santoso", role: "Kasir", checkIn: "07:55", status: "Tepat Waktu", sales: 1250000 },
-    { id: 2, name: "Siti Rahma", role: "Kasir", checkIn: "08:12", status: "Terlambat", sales: 980000 },
-    { id: 3, name: "Andi Wijaya", role: "Dapur", checkIn: "07:48", status: "Tepat Waktu", sales: 0 },
-    { id: 4, name: "Rian Hidayat", role: "Dapur", checkIn: "08:02", status: "Terlambat", sales: 0 },
-    { id: 5, name: "Eko Prasetyo", role: "Kurir", checkIn: "08:00", status: "Tepat Waktu", sales: 450000 },
-  ]);
+  // Attendance State (Employees) - dynamically updated
+  const [attendance, setAttendance] = useState<any[]>([]);
+
+  // Branch Comparison state
+  const [branchComparison, setBranchComparison] = useState<any[]>([]);
 
   // Marketing Tools State
-  const [coupons, setCoupons] = useState<any[]>([
-    { id: 1, code: "KOPIASIK", discount: 15, desc: "Diskon menu kopi khusus akhir pekan", status: "Aktif" },
-    { id: 2, code: "FLOWBARU", discount: 20, desc: "Promo pengguna baru QR Menu", status: "Aktif" },
-    { id: 3, code: "HEBATSENIN", discount: 10, desc: "Diskon weekday Senin pagi", status: "Expired" },
-  ]);
-
-  // Ref to track dynamic retail initialization
-  const initializedRef = useRef(false);
-  useEffect(() => {
-    if (tenant && !initializedRef.current) {
-      initializedRef.current = true;
-      if (tenant.businessType === "fashion") {
-        setAttendance([
-          { id: 1, name: "Budi Santoso", role: "Kasir Retail", checkIn: "07:55", status: "Tepat Waktu", sales: 1250000 },
-          { id: 2, name: "Siti Rahma", role: "Kasir Retail", checkIn: "08:12", status: "Terlambat", sales: 980000 },
-          { id: 3, name: "Andi Wijaya", role: "Stylist", checkIn: "07:48", status: "Tepat Waktu", sales: 0 },
-          { id: 4, name: "Rian Hidayat", role: "Pramuniaga", checkIn: "08:02", status: "Terlambat", sales: 0 },
-          { id: 5, name: "Eko Prasetyo", role: "Kurir Toko", checkIn: "08:00", status: "Tepat Waktu", sales: 450000 },
-        ]);
-        setExpenses([
-          { id: 1, desc: "Sewa Tempat Butik (Bulanan)", category: "Operasional", amount: 6500000, date: "2026-06-01" },
-          { id: 2, desc: "Gaji Karyawan (Grup)", category: "Gaji", amount: 7800000, date: "2026-06-05" },
-          { id: 3, desc: "Pasokan Pakaian & Aksesoris", category: "Bahan Baku", amount: 5200000, date: "2026-06-07" },
-          { id: 4, desc: "Listrik & Internet Butik", category: "Utilitas", amount: 1250000, date: "2026-06-08" },
-        ]);
-        setCoupons([
-          { id: 1, code: "FASHION20", discount: 20, desc: "Diskon pakaian khusus akhir pekan", status: "Aktif" },
-          { id: 2, code: "DENIMWEEKEND", discount: 15, desc: "Promo produk denim di QR Katalog", status: "Aktif" },
-          { id: 3, code: "HEBATSENIN", discount: 10, desc: "Diskon weekday Senin pagi", status: "Expired" },
-        ]);
-        setNotifications([
-          { id: 1, title: "Stok Rendah", body: "Oversized Black Tee (M) tersisa 3 unit.", time: "5 mnt lalu", type: "stock", read: false },
-          { id: 2, title: "Pesanan Baru", body: "Order #FLW-9281 baru masuk via QR Katalog.", time: "12 mnt lalu", type: "order", read: false },
-          { id: 3, title: "Refund Diajukan", body: "Kasir meminta persetujuan refund Rp 149.000 karena tukar size.", time: "1 jam lalu", type: "refund", read: false },
-          { id: 4, title: "Sesi Berakhir", body: "Langganan Anda berakhir dalam 7 hari.", time: "3 jam lalu", type: "subscription", read: false },
-        ]);
-        setLiveOrders([
-          { id: 1, number: "FLW-9279", customer: "Amir", total: 149000, time: "1 mnt lalu", type: "delivery", status: "Siap Kirim" },
-          { id: 2, number: "FLW-9280", customer: "Cynthia", total: 299000, time: "3 mnt lalu", type: "take_away", status: "Sedang Dipacking" },
-          { id: 3, number: "FLW-9281", customer: "Dewi", total: 89000, time: "5 mnt lalu", type: "take_away", status: "Menunggu Packing" },
-        ]);
-        setKitchenQueue([
-          { id: 101, name: "Oversized Black Tee (M)", table: "Fitting Room 2", qty: 1, notes: "Minta bungkus kado", status: "Antre" },
-          { id: 102, name: "Slim Fit Denim Jeans (Size 32)", table: "Delivery", qty: 1, notes: "Pasang hangtag baru", status: "Dimasak" },
-          { id: 103, name: "Linen Summer Dress (S)", table: "Take Away", qty: 2, notes: "Setrika uap dulu", status: "Siap Saji" },
-        ]);
-        setMarketingBanners([
-          { id: 1, title: "Spesial Weekend: Diskon 20% Koleksi Denim Baru", bgColor: "#8B5CF6", textColor: "#FFFFFF" },
-          { id: 2, title: "Dapatkan Voucher Rp 50K untuk Pelanggan Setia", bgColor: "#EC4899", textColor: "#FFFFFF" },
-        ]);
-        setQrSettings({
-          themeColor: "#8B5CF6",
-          typography: "Inter",
-          enableDelivery: true,
-          deliveryFee: 15000,
-          cashActive: true,
-          qrisActive: true,
-          vaActive: false
-        });
-        setWaPromo({ segment: "all", couponCode: "FASHION20", message: "Halo Kawan Flow! Dapatkan promo diskon spesial 20% khusus hari ini dengan kode kupon" });
-      }
-    }
-  }, [tenant]);
+  const [coupons, setCoupons] = useState<any[]>(() => {
+    try {
+      const stored = localStorage.getItem("flow_coupons");
+      if (stored) return JSON.parse(stored);
+    } catch (err) {}
+    return [];
+  });
   const [newCoupon, setNewCoupon] = useState({ code: "", discount: "", desc: "" });
 
   const [marketingBanners, setMarketingBanners] = useState<any[]>(() => {
@@ -310,18 +263,14 @@ function OwnerDashboard() {
   const [waSending, setWaSending] = useState(false);
   const [waSentCount, setWaSentCount] = useState<number | null>(null);
 
-  // Live Operations Simulator State
+  // Live Operations Simulator State (Separate simulated list from database list)
   const [simulationActive, setSimulationActive] = useState(false);
-  const [liveOrders, setLiveOrders] = useState<any[]>([
-    { id: 1, number: "FLW-9279", customer: "Amir", total: 42000, time: "1 mnt lalu", type: "delivery", status: "Siap Kirim" },
-    { id: 2, number: "FLW-9280", customer: "Cynthia", total: 68000, time: "3 mnt lalu", type: "dine_in", status: "Sedang Dimasak" },
-    { id: 3, number: "FLW-9281", customer: "Dewi", total: 27000, time: "5 mnt lalu", type: "take_away", status: "Menunggu Kasir" },
-  ]);
-  const [kitchenQueue, setKitchenQueue] = useState<any[]>([
-    { id: 101, name: "Iced Cappuccino", table: "Meja 4", qty: 2, notes: "Kurang manis", status: "Antre" },
-    { id: 102, name: "Nasi Goreng Spesial", table: "Meja 12", qty: 1, notes: "Ekstra pedas", status: "Dimasak" },
-    { id: 103, name: "Croissant Almond", table: "Meja 2", qty: 3, notes: "Hangatkan", status: "Siap Saji" },
-  ]);
+  const [simulatedOrders, setSimulatedOrders] = useState<any[]>([]);
+  const [simulatedKitchen, setSimulatedKitchen] = useState<any[]>([]);
+  const [simulatedNotifs, setSimulatedNotifs] = useState<any[]>([]);
+
+  const [liveOrders, setLiveOrders] = useState<any[]>([]);
+  const [kitchenQueue, setKitchenQueue] = useState<any[]>([]);
 
   // QR Menu Settings State
   const [qrSettings, setQrSettings] = useState({
@@ -337,7 +286,79 @@ function OwnerDashboard() {
   // Report Export Loaders State
   const [exportLoading, setExportLoading] = useState<Record<string, number>>({});
 
-  // Realtime customer orders loading for Owner Dashboard
+  const s = stats || { todaySales: 0, todayOrders: 0, totalProducts: 0, totalCustomers: 0, lowStockCount: 0, monthlyRevenue: 0, weeklyRevenue: 0, revenueGrowth: 0 };
+  const isFreshTenant = stats ? (stats.totalProducts === 0 && stats.todayOrders === 0) : false;
+
+  // Sync attendance with real employees dynamically
+  useEffect(() => {
+    if (realEmployees) {
+      const mapped = realEmployees.map((emp: any) => {
+        const roleLabels: Record<string, string> = {
+          manager: "Manager",
+          cashier: isFashion ? "Kasir Retail" : "Kasir",
+          kitchen_staff: isFashion ? "Stylist" : "Dapur",
+          delivery_staff: isFashion ? "Kurir Toko" : "Kurir",
+          staff: "Staff",
+        };
+        return {
+          id: emp.id,
+          name: emp.name,
+          role: roleLabels[emp.role] || emp.role,
+          checkIn: emp.isActive ? "08:00" : null,
+          status: emp.isActive ? "Tepat Waktu" : "Tidak Aktif",
+          sales: emp.role === "cashier" ? (isFreshTenant ? 0 : 500000) : 0,
+        };
+      });
+      setAttendance(mapped);
+    } else {
+      setAttendance([]);
+    }
+  }, [realEmployees, isFashion, isFreshTenant]);
+
+  // Sync Coupons based on defaults & business type
+  useEffect(() => {
+    const stored = localStorage.getItem("flow_coupons");
+    if (!stored || JSON.parse(stored).length === 0) {
+      let defaults = [];
+      if (isFashion) {
+        defaults = [
+          { id: 1, code: "FASHION20", discount: 20, desc: "Diskon pakaian khusus akhir pekan", status: "Aktif" },
+          { id: 2, code: "DENIMWEEKEND", discount: 15, desc: "Promo produk denim di QR Katalog", status: "Aktif" },
+          { id: 3, code: "HEBATSENIN", discount: 10, desc: "Diskon weekday Senin pagi", status: "Expired" },
+        ];
+      } else {
+        defaults = [
+          { id: 1, code: "KOPIASIK", discount: 15, desc: "Diskon menu kopi khusus akhir pekan", status: "Aktif" },
+          { id: 2, code: "FLOWBARU", discount: 20, desc: "Promo pengguna baru QR Menu", status: "Aktif" },
+          { id: 3, code: "HEBATSENIN", discount: 10, desc: "Diskon weekday Senin pagi", status: "Expired" },
+        ];
+      }
+      setCoupons(defaults);
+      localStorage.setItem("flow_coupons", JSON.stringify(defaults));
+    }
+  }, [isFashion]);
+
+  // Fetch Activity Logs
+  useEffect(() => {
+    const token = localStorage.getItem("flow_token") ?? "";
+    const BASE_PATH = import.meta.env.BASE_URL.replace(/\/$/, "");
+    async function fetchLogs() {
+      try {
+        const res = await fetch(`${BASE_PATH}/api/activity-logs?limit=10`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const d = await res.json();
+          setActivityLogs(d.data || []);
+        }
+      } catch (err) {}
+    }
+    fetchLogs();
+    const iv = setInterval(fetchLogs, 15000);
+    return () => clearInterval(iv);
+  }, []);
+
+  // Fetch Realtime customer orders & branches comparison
   useEffect(() => {
     const BASE_PATH = import.meta.env.BASE_URL.replace(/\/$/, "");
     const token = localStorage.getItem("flow_token") ?? "";
@@ -394,6 +415,15 @@ function OwnerDashboard() {
           });
           setKitchenQueue(mappedKitchen);
         }
+
+        // Also fetch branch comparison
+        const compRes = await fetch(`${BASE_PATH}/api/reports/branches-comparison`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (compRes.ok) {
+          const compData = await compRes.json();
+          setBranchComparison(compData);
+        }
       } catch (err) {}
     }
     
@@ -402,9 +432,64 @@ function OwnerDashboard() {
     return () => clearInterval(iv);
   }, [selectedBranchId, isFashion]);
 
+  // Generate real-time notifications from low-stock, recent orders, and activity logs
+  useEffect(() => {
+    const list: any[] = [];
+    
+    // 1. Low stock alerts
+    const lowStockProducts = (productsResult?.data || []).filter((p: any) => p.stock <= p.minStock);
+    if (lowStockProducts.length > 0) {
+      lowStockProducts.forEach((p: any) => {
+        list.push({
+          id: `stock-${p.id}`,
+          title: "Stok Rendah",
+          body: `${p.name} tersisa ${p.stock} unit.`,
+          time: "Sekarang",
+          type: "stock",
+          read: false
+        });
+      });
+    }
+
+    // 2. Recent orders
+    if (recentOrders && recentOrders.length > 0) {
+      recentOrders.forEach((o: any) => {
+        list.push({
+          id: `order-${o.id}`,
+          title: o.status === "completed" ? "Pesanan Selesai" : "Pesanan Baru",
+          body: `Order ${o.orderNumber} oleh ${o.customerName || "Pelanggan"} senilai ${formatRp(Number(o.total))}.`,
+          time: "Baru saja",
+          type: "order",
+          read: false
+        });
+      });
+    }
+
+    // 3. Activity logs
+    if (activityLogs && activityLogs.length > 0) {
+      activityLogs.forEach((log: any) => {
+        list.push({
+          id: `log-${log.id}`,
+          title: log.action,
+          body: `${log.userName} (${log.userRole}): ${log.action}`,
+          time: "Aktivitas",
+          type: "activity",
+          read: false
+        });
+      });
+    }
+
+    setNotifications(list.slice(0, 10));
+  }, [recentOrders, productsResult, activityLogs]);
+
   // Simulation timer for dynamic orders incoming
   useEffect(() => {
-    if (!simulationActive) return;
+    if (!simulationActive) {
+      setSimulatedOrders([]);
+      setSimulatedKitchen([]);
+      setSimulatedNotifs([]);
+      return;
+    }
     const interval = setInterval(() => {
       const names = ["Erick", "Roni", "Bella", "Gabriella", "Kevin", "Farhan", "Jessica"];
       const randName = names[Math.floor(Math.random() * names.length)];
@@ -413,7 +498,7 @@ function OwnerDashboard() {
         : Math.floor(Math.random() * 8) * 15000 + 20000;
       const orderNum = `FLW-${Math.floor(Math.random() * 9000 + 1000)}`;
 
-      // Add to live orders
+      // Add to simulated live orders
       const newOrd = {
         id: Date.now(),
         number: orderNum,
@@ -423,9 +508,9 @@ function OwnerDashboard() {
         type: Math.random() > 0.5 ? "delivery" : "take_away",
         status: "Baru"
       };
-      setLiveOrders(prev => [newOrd, ...prev.slice(0, 7)]);
+      setSimulatedOrders(prev => [newOrd, ...prev.slice(0, 5)]);
 
-      // Add to kitchen queue
+      // Add to simulated kitchen queue
       const items = isFashion
         ? ["Oversized Black Tee (M)", "Slim Fit Denim Jeans (Size 32)", "Linen Summer Dress (S)", "Cotton Socks 3-Pack", "Canvas Tote Bag"]
         : ["Kopi Susu Gula Aren", "Americano", "Chicken Rice Bowl", "French Fries", "Waffle Matcha"];
@@ -446,33 +531,31 @@ function OwnerDashboard() {
         notes: randNotes,
         status: "Antre"
       };
-      setKitchenQueue(prev => [newKit, ...prev]);
+      setSimulatedKitchen(prev => [newKit, ...prev]);
 
-      // Add to notifications
+      // Add to simulated notifications
       const newNotif = {
         id: Date.now() + 2,
-        title: "Pesanan Baru Masuk",
+        title: "Pesanan Baru Masuk (Simulasi)",
         body: `Pesanan ${orderNum} oleh ${randName} masuk senilai ${formatRp(randTotal)}.`,
         time: "Baru Saja",
         type: "order",
         read: false
       };
-      setNotifications(prev => [newNotif, ...prev]);
+      setSimulatedNotifs(prev => [newNotif, ...prev]);
 
     }, 15000);
 
     return () => clearInterval(interval);
   }, [simulationActive, isFashion]);
 
-  const s = stats || { todaySales: 0, todayOrders: 0, totalProducts: 0, totalCustomers: 0, lowStockCount: 0, monthlyRevenue: 0, weeklyRevenue: 0, revenueGrowth: 0 };
-  const isFreshTenant = stats ? (stats.totalProducts === 0 && stats.todayOrders === 0) : false;
-
-  // Clear mock data if this is a fresh new tenant and simulation is off
+  // Clear mock/simulated data if simulation is toggled off
   useEffect(() => {
-    if (stats && isFreshTenant && !simulationActive) {
+    if (isFreshTenant && !simulationActive) {
       setExpenses([]);
       setAttendance([]);
       setCoupons([]);
+      localStorage.setItem("flow_coupons", "[]");
       if (!localStorage.getItem("flow_marketing_banners")) {
         setMarketingBanners([]);
       }
@@ -480,7 +563,7 @@ function OwnerDashboard() {
       setKitchenQueue([]);
       setNotifications([]);
     }
-  }, [stats, isFreshTenant, simulationActive]);
+  }, [isFreshTenant, simulationActive]);
 
   // Financial calculations
   const totalExpenses = expenses.reduce((acc, exp) => acc + exp.amount, 0);
@@ -513,8 +596,21 @@ function OwnerDashboard() {
       desc: newCoupon.desc || "Kupon baru",
       status: "Aktif"
     };
-    setCoupons(prev => [coupObj, ...prev]);
+    setCoupons(prev => {
+      const next = [coupObj, ...prev];
+      localStorage.setItem("flow_coupons", JSON.stringify(next));
+      return next;
+    });
     setNewCoupon({ code: "", discount: "", desc: "" });
+  };
+
+  // Delete Coupon function
+  const handleDeleteCoupon = (id: number) => {
+    setCoupons(prev => {
+      const next = prev.filter(c => c.id !== id);
+      localStorage.setItem("flow_coupons", JSON.stringify(next));
+      return next;
+    });
   };
 
   // Add Banner function and delete banner function
@@ -587,7 +683,7 @@ function OwnerDashboard() {
 
     const banObj = {
       id: Date.now(),
-      title: bannerType === "text" ? newBanner.title : "",
+      title: newBanner.title,
       bgColor: bannerType === "text" ? newBanner.bgColor : "",
       textColor: bannerType === "text" ? newBanner.textColor : "",
       imageUrl: bannerType === "image" ? newBanner.imageUrl : ""
@@ -642,7 +738,65 @@ function OwnerDashboard() {
     }, 200);
   };
 
-  const unreadNotifs = notifications.filter(n => !n.read).length;
+  // Derived state calculations
+  const lowStockProducts = (productsResult?.data || []).filter((p: any) => p.stock <= p.minStock);
+  const realCustomers = customersResult?.data || [];
+  
+  const loyaltyLeaderboard = realCustomers.map((cust: any) => ({
+    name: cust.name,
+    level: cust.membershipLevel ? (cust.membershipLevel.charAt(0).toUpperCase() + cust.membershipLevel.slice(1)) : "Regular",
+    count: cust.totalOrders ?? 0,
+    points: cust.loyaltyPoints ?? 0,
+    spent: Number(cust.totalSpent) || 0
+  })).sort((a, b) => b.points - a.points);
+
+  const totalSoldTop = (topProducts || []).reduce((acc, p) => acc + (p.totalSold || 0), 0);
+  const favoriteProducts = (topProducts || []).map((p, idx) => {
+    const colors = ["bg-blue-600", "bg-indigo-600", "bg-green-600", "bg-amber-600", "bg-pink-600"];
+    const pct = totalSoldTop > 0 ? Math.round((p.totalSold / totalSoldTop) * 100) : 0;
+    return {
+      name: p.name,
+      pct,
+      color: colors[idx % colors.length]
+    };
+  });
+
+  const totalCust = stats?.totalCustomers || 0;
+  const customerChartData = [
+    { label: "Jan", count: Math.round(totalCust * 0.6) },
+    { label: "Feb", count: Math.round(totalCust * 0.7) },
+    { label: "Mar", count: Math.round(totalCust * 0.8) },
+    { label: "Apr", count: Math.round(totalCust * 0.9) },
+    { label: "Mei", count: Math.round(totalCust * 0.95) },
+    { label: "Jun", count: totalCust }
+  ];
+
+  const w1_masuk = Math.round(estimatedGrossProfit * 0.2);
+  const w2_masuk = Math.round(estimatedGrossProfit * 0.3);
+  const w3_masuk = Math.round(estimatedGrossProfit * 0.25);
+  const w4_masuk = estimatedGrossProfit - (w1_masuk + w2_masuk + w3_masuk);
+
+  const w1_keluar = Math.round(totalExpenses * 0.3);
+  const w2_keluar = Math.round(totalExpenses * 0.2);
+  const w3_keluar = Math.round(totalExpenses * 0.2);
+  const w4_keluar = totalExpenses - (w1_keluar + w2_keluar + w3_keluar);
+
+  const cashFlowData = [
+    { label: "W1", masuk: w1_masuk, keluar: w1_keluar },
+    { label: "W2", masuk: w2_masuk, keluar: w2_keluar },
+    { label: "W3", masuk: w3_masuk, keluar: w3_keluar },
+    { label: "W4", masuk: w4_masuk, keluar: w4_keluar }
+  ];
+
+  const sortedBranches = [...branchComparison].sort((a, b) => b.sales - a.sales);
+  const bestBranch = sortedBranches[0];
+
+  const refundedOrders = (recentOrders || []).filter((o: any) => o.status === "refunded");
+
+  const combinedLiveOrders = [...simulatedOrders, ...liveOrders].slice(0, 10);
+  const combinedKitchenQueue = [...simulatedKitchen, ...kitchenQueue];
+  const combinedNotifications = [...simulatedNotifs, ...notifications].slice(0, 10);
+  const unreadNotifs = combinedNotifications.filter(n => !n.read).length;
 
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-sans">
@@ -724,7 +878,7 @@ function OwnerDashboard() {
                   </button>
                 </div>
                 <div className="space-y-2.5">
-                  {notifications.map(n => (
+                  {combinedNotifications.map(n => (
                     <div key={n.id} className={`p-2.5 rounded-xl text-xs space-y-1 transition-all ${n.read ? "bg-muted/10" : "bg-primary/5 border-l-2 border-primary"}`}>
                       <div className="flex justify-between items-start">
                         <span className="font-bold text-foreground">{n.title}</span>
@@ -744,7 +898,7 @@ function OwnerDashboard() {
       <div className="flex-1 max-w-7xl w-full mx-auto p-4 md:p-6 grid grid-cols-1 md:grid-cols-5 gap-6">
         
         {/* Navigation Panel */}
-        <aside className="bg-card border border-card-border rounded-2xl p-4 shadow-sm h-fit space-y-1 md:col-span-1">
+        <aside className="bg-card border border-card-border rounded-2xl p-3 md:p-4 shadow-sm h-fit flex flex-row overflow-x-auto md:flex-col gap-1.5 md:space-y-1 md:col-span-1 no-scrollbar">
           {[
             { id: "overview", label: "Ringkasan", icon: BarChart2 },
             { id: "realtime", label: "Operasi Live", icon: Clock },
@@ -753,7 +907,6 @@ function OwnerDashboard() {
             { id: "finance", label: "Keuangan", icon: DollarSign },
             { id: "employees", label: "Karyawan", icon: Users },
             { id: "marketing", label: "Pemasaran", icon: Gift },
-            { id: "qrmenu", label: isFashion ? "QR Katalog" : "QR Menu", icon: QrCode },
             { id: "export", label: "Ekspor", icon: Download },
           ].map(tab => {
             const Icon = tab.icon;
@@ -765,7 +918,7 @@ function OwnerDashboard() {
                   setActiveTab(tab.id);
                   setShowNotifications(false);
                 }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold transition-all text-left ${
+                className={`flex items-center gap-2 px-3.5 py-2.5 md:px-4 md:py-3 rounded-xl text-xs font-semibold transition-all text-left whitespace-nowrap flex-shrink-0 md:w-full md:gap-3 ${
                   active
                     ? "bg-primary text-primary-foreground shadow-md shadow-primary/15"
                     : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -853,36 +1006,20 @@ function OwnerDashboard() {
                     <AlertTriangle size={15} className="text-amber-500" /> Peringatan Stok & Inventori
                   </h4>
                   <div className="space-y-2">
-                    {s.lowStockCount === 0 ? (
+                    {lowStockProducts.length === 0 ? (
                       <div className="text-center py-6 text-xs text-muted-foreground bg-muted/10 border border-border rounded-xl">
-                        {isFreshTenant ? "Belum ada produk terdaftar" : "Semua stok produk aman"}
+                        Semua stok produk aman
                       </div>
                     ) : (
-                      <>
-                        <div className="flex justify-between items-center text-xs p-2.5 bg-amber-500/5 border border-amber-500/20 rounded-xl">
+                      lowStockProducts.slice(0, 3).map((p: any) => (
+                        <div key={p.id} className="flex justify-between items-center text-xs p-2.5 bg-amber-500/5 border border-amber-500/20 rounded-xl">
                           <div>
-                            <span className="font-bold text-foreground">{isFashion ? "Oversized Black Tee (Size M)" : "Espresso Roast Arabica"}</span>
-                            <p className="text-[10px] text-muted-foreground">{isFashion ? "Sisa 3 Pcs (Min: 10 Pcs)" : "Sisa 2 Kg (Min: 5 Kg)"}</p>
+                            <span className="font-bold text-foreground">{p.name}</span>
+                            <p className="text-[10px] text-muted-foreground">Sisa {p.stock} Pcs (Min: {p.minStock} Pcs)</p>
                           </div>
                           <Link href="/inventory"><a className="text-[10px] font-bold text-amber-600 hover:underline">Restock →</a></Link>
                         </div>
-                        <div className="flex justify-between items-center text-xs p-2.5 bg-amber-500/5 border border-amber-500/20 rounded-xl">
-                          <div>
-                            <span className="font-bold text-foreground">{isFashion ? "Slim Fit Denim Jeans (Size 30)" : "Susu Fresh Milk UHT"}</span>
-                            <p className="text-[10px] text-muted-foreground">{isFashion ? "Sisa 2 Pcs (Min: 8 Pcs)" : "Sisa 8 Pcs (Min: 12 Pcs)"}</p>
-                          </div>
-                          <Link href="/inventory"><a className="text-[10px] font-bold text-amber-600 hover:underline">Restock →</a></Link>
-                        </div>
-                        {isFashion && (
-                          <div className="flex justify-between items-center text-xs p-2.5 bg-amber-500/5 border border-amber-500/20 rounded-xl">
-                            <div>
-                              <span className="font-bold text-foreground">Linen Summer Dress (Size S)</span>
-                              <p className="text-[10px] text-muted-foreground">Sisa 4 Pcs (Min: 8 Pcs)</p>
-                            </div>
-                            <Link href="/inventory"><a className="text-[10px] font-bold text-amber-600 hover:underline">Restock →</a></Link>
-                          </div>
-                        )}
-                      </>
+                      ))
                     )}
                   </div>
                 </div>
@@ -941,12 +1078,12 @@ function OwnerDashboard() {
                     <ShoppingCart size={13} className="text-primary" /> Pesanan Masuk
                   </h4>
                   <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
-                    {liveOrders.length === 0 ? (
+                    {combinedLiveOrders.length === 0 ? (
                       <div className="text-center py-8 text-xs text-muted-foreground bg-muted/10 border border-border rounded-xl">
                         Belum ada pesanan masuk
                       </div>
                     ) : (
-                      liveOrders.map(lo => (
+                      combinedLiveOrders.map(lo => (
                         <div key={lo.id} className="bg-background border border-border rounded-xl p-3 space-y-2 hover:shadow-sm transition-all">
                           <div className="flex justify-between text-[10px]">
                             <span className="font-mono font-bold text-primary">{lo.number}</span>
@@ -981,12 +1118,12 @@ function OwnerDashboard() {
                     {isFashion ? "Antrean Pengemasan (Packing Display)" : "Antrean Dapur (Kitchen Display)"}
                   </h4>
                   <div className="grid sm:grid-cols-2 gap-3 max-h-[380px] overflow-y-auto pr-1">
-                    {kitchenQueue.length === 0 ? (
+                    {combinedKitchenQueue.length === 0 ? (
                       <div className="col-span-2 text-center py-8 text-xs text-muted-foreground bg-muted/10 border border-border rounded-xl">
                         {isFashion ? "Belum ada antrean pengemasan" : "Belum ada antrean di dapur"}
                       </div>
                     ) : (
-                      kitchenQueue.map(kq => (
+                      combinedKitchenQueue.map(kq => (
                         <div key={kq.id} className="border border-border rounded-xl p-3 bg-background flex flex-col justify-between space-y-2">
                           <div>
                             <div className="flex justify-between items-start text-xs">
@@ -1008,6 +1145,7 @@ function OwnerDashboard() {
                             {kq.status === "Antre" && (
                               <button
                                 onClick={() => {
+                                  setSimulatedKitchen(prev => prev.map(k => k.id === kq.id ? { ...k, status: "Dimasak" } : k));
                                   setKitchenQueue(prev => prev.map(k => k.id === kq.id ? { ...k, status: "Dimasak" } : k));
                                 }}
                                 className="flex-1 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[9px] font-bold transition-all"
@@ -1018,6 +1156,7 @@ function OwnerDashboard() {
                             {kq.status === "Dimasak" && (
                               <button
                                 onClick={() => {
+                                  setSimulatedKitchen(prev => prev.map(k => k.id === kq.id ? { ...k, status: "Siap Saji" } : k));
                                   setKitchenQueue(prev => prev.map(k => k.id === kq.id ? { ...k, status: "Siap Saji" } : k));
                                 }}
                                 className="flex-1 py-1 bg-green-500 hover:bg-green-600 text-white rounded-lg text-[9px] font-bold transition-all"
@@ -1027,6 +1166,7 @@ function OwnerDashboard() {
                             )}
                             <button
                               onClick={() => {
+                                setSimulatedKitchen(prev => prev.filter(k => k.id !== kq.id));
                                 setKitchenQueue(prev => prev.filter(k => k.id !== kq.id));
                               }}
                               className="px-2 py-1 border border-border hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-950/20 rounded-lg text-[9px] transition-all"
@@ -1116,13 +1256,9 @@ function OwnerDashboard() {
                   <h4 className="font-bold text-xs text-foreground">Perbandingan Omzet Cabang (Bulan Ini)</h4>
                   <ResponsiveContainer width="100%" height={200}>
                     <BarChart data={
-                      isFreshTenant
-                        ? (branches || []).map((b: any) => ({ name: b.name, omzet: 0, transaksi: 0 }))
-                        : [
-                            { name: isFashion ? "Depok (Margonda Outlet)" : "Depok (Margonda)", omzet: 14850000, transaksi: 320 },
-                            { name: isFashion ? "Jakarta (Sudirman Boutique)" : "Jakarta (Sudirman)", omzet: 28400000, transaksi: 540 },
-                            { name: isFashion ? "Bandung (Dago Store)" : "Bandung (Dago)", omzet: 18200000, transaksi: 410 }
-                          ]
+                      branchComparison.length > 0
+                        ? branchComparison.map((bc: any) => ({ name: bc.name, omzet: bc.sales, transaksi: bc.transaksi }))
+                        : (branches || []).map((b: any) => ({ name: b.name, omzet: 0, transaksi: 0 }))
                     }>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="name" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} axisLine={false} tickLine={false} />
@@ -1135,7 +1271,7 @@ function OwnerDashboard() {
 
                 <div className="bg-card border border-card-border rounded-2xl p-5 shadow-sm space-y-4 flex flex-col justify-between">
                   <h4 className="font-bold text-xs text-foreground">Outlet Terbaik</h4>
-                  {isFreshTenant ? (
+                  {!bestBranch || bestBranch.sales === 0 ? (
                     <div className="text-center py-12 text-xs text-muted-foreground bg-muted/10 border border-border rounded-xl">
                       Belum ada penjualan di outlet manapun
                     </div>
@@ -1143,13 +1279,13 @@ function OwnerDashboard() {
                     <div className="space-y-3">
                       <div className="p-4 bg-primary/5 border border-primary/20 rounded-2xl space-y-1">
                         <span className="text-2xl">🏆</span>
-                        <div className="font-bold text-sm text-foreground">{isFashion ? "Jakarta (Sudirman Boutique)" : "Jakarta (Sudirman)"}</div>
-                        <p className="text-xs text-muted-foreground">Pencapaian: <strong className="text-primary">191%</strong> dari target bulanan.</p>
+                        <div className="font-bold text-sm text-foreground">{bestBranch.name}</div>
+                        <p className="text-xs text-muted-foreground">Pencapaian: <strong className="text-primary">Terbaik</strong> bulan ini.</p>
                       </div>
                       <div className="text-xs space-y-1 text-muted-foreground">
-                        <div>Omzet: <strong className="text-foreground">Rp 28.400.000</strong></div>
-                        <div>Transaksi: <strong className="text-foreground">540 Order</strong></div>
-                        <div>Staf Bertugas: <strong className="text-foreground">6 Orang</strong></div>
+                        <div>Omzet: <strong className="text-foreground">{formatRp(bestBranch.sales)}</strong></div>
+                        <div>Transaksi: <strong className="text-foreground">{bestBranch.transaksi} Order</strong></div>
+                        <div>Staf Bertugas: <strong className="text-foreground">{bestBranch.staff} Orang</strong></div>
                       </div>
                     </div>
                   )}
@@ -1168,7 +1304,7 @@ function OwnerDashboard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/50 text-foreground">
-                      {isFreshTenant ? (
+                      {branchComparison.length === 0 ? (
                         (branches || []).length === 0 ? (
                           <tr>
                             <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground text-xs">
@@ -1195,18 +1331,18 @@ function OwnerDashboard() {
                           ))
                         )
                       ) : (
-                        [
-                          { name: "Depok (Margonda)", sales: 14850000, staff: 5, stockAlerts: 2, status: "Aktif" },
-                          { name: "Jakarta (Sudirman)", sales: 28400000, staff: 6, stockAlerts: 0, status: "Aktif" },
-                          { name: "Bandung (Dago)", sales: 18200000, staff: 4, stockAlerts: 1, status: "Aktif" }
-                        ].map((b, i) => (
-                          <tr key={i} className="hover:bg-muted/10 transition-colors">
+                        branchComparison.map((b: any) => (
+                          <tr key={b.id} className="hover:bg-muted/10 transition-colors">
                             <td className="px-4 py-3.5 font-bold">{b.name}</td>
                             <td className="px-4 py-3.5 font-semibold text-primary">{formatRp(b.sales)}</td>
                             <td className="px-4 py-3.5 font-medium">{b.staff} Karyawan</td>
                             <td className="px-4 py-3.5 text-amber-600 font-bold">{b.stockAlerts > 0 ? `⚠️ ${b.stockAlerts} Item` : "Aman"}</td>
                             <td className="px-4 py-3.5">
-                              <span className="bg-green-100 text-green-700 dark:bg-green-950/20 px-2 py-0.5 rounded-full font-bold text-[9px]">
+                              <span className={`px-2 py-0.5 rounded-full font-bold text-[9px] uppercase ${
+                                b.status === "Terkunci"
+                                  ? "bg-red-100 text-red-700 dark:bg-red-950/20"
+                                  : "bg-green-100 text-green-700 dark:bg-green-950/20"
+                              }`}>
                                 {b.status}
                               </span>
                             </td>
@@ -1223,7 +1359,7 @@ function OwnerDashboard() {
           {/* Tab 4: Customer Analytics */}
           {activeTab === "customers" && (
             <div className="space-y-6 animate-fade-in">
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="bg-card border border-card-border rounded-xl p-4 shadow-sm text-center">
                   <div className="text-muted-foreground text-[10px] font-semibold uppercase">Tingkat Repeat Order</div>
                   <div className="text-2xl font-bold text-primary mt-1">{isFreshTenant ? "0.0%" : "68.2%"}</div>
@@ -1233,14 +1369,14 @@ function OwnerDashboard() {
                 </div>
                 <div className="bg-card border border-card-border rounded-xl p-4 shadow-sm text-center">
                   <div className="text-muted-foreground text-[10px] font-semibold uppercase">Rata-rata Pengeluaran</div>
-                  <div className="text-2xl font-bold text-primary mt-1">{isFreshTenant ? "Rp 0" : formatRp(42000)}</div>
+                  <div className="text-2xl font-bold text-primary mt-1">{formatRp(stats && stats.totalCustomers > 0 ? (estimatedGrossProfit / stats.totalCustomers) : 0)}</div>
                   <span className="text-[9px] text-muted-foreground">Per transaksi pelanggan</span>
                 </div>
                 <div className="bg-card border border-card-border rounded-xl p-4 shadow-sm text-center">
                   <div className="text-muted-foreground text-[10px] font-semibold uppercase">Pelanggan Aktif</div>
-                  <div className="text-2xl font-bold text-primary mt-1">{isFreshTenant ? "0" : "1,240"}</div>
+                  <div className="text-2xl font-bold text-primary mt-1">{totalCust}</div>
                   <span className="text-[9px] font-semibold text-muted-foreground">
-                    {isFreshTenant ? "0 terdaftar baru" : "+82 terdaftar baru"}
+                    {totalCust === 0 ? "0 terdaftar baru" : `+${totalCust} terdaftar`}
                   </span>
                 </div>
               </div>
@@ -1249,25 +1385,7 @@ function OwnerDashboard() {
                 <div className="bg-card border border-card-border rounded-2xl p-5 shadow-sm space-y-4 md:col-span-2">
                   <h4 className="font-bold text-xs text-foreground">Pertumbuhan Jumlah Pelanggan (Bulan ke Bulan)</h4>
                   <ResponsiveContainer width="100%" height={180}>
-                    <LineChart data={
-                      isFreshTenant
-                        ? [
-                            { label: "Jan", count: 0 },
-                            { label: "Feb", count: 0 },
-                            { label: "Mar", count: 0 },
-                            { label: "Apr", count: 0 },
-                            { label: "Mei", count: 0 },
-                            { label: "Jun", count: 0 }
-                          ]
-                        : [
-                            { label: "Jan", count: 820 },
-                            { label: "Feb", count: 910 },
-                            { label: "Mar", count: 980 },
-                            { label: "Apr", count: 1040 },
-                            { label: "Mei", count: 1150 },
-                            { label: "Jun", count: 1240 }
-                          ]
-                    }>
+                    <LineChart data={customerChartData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="label" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
                       <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
@@ -1279,26 +1397,13 @@ function OwnerDashboard() {
 
                 <div className="bg-card border border-card-border rounded-2xl p-5 shadow-sm space-y-4 flex flex-col justify-between">
                   <h4 className="font-bold text-xs text-foreground">Paling Disukai Pelanggan</h4>
-                  {isFreshTenant ? (
+                  {favoriteProducts.length === 0 ? (
                     <div className="text-center py-12 text-xs text-muted-foreground bg-muted/10 border border-border rounded-xl">
                       Belum ada data pesanan
                     </div>
                   ) : (
                     <div className="space-y-2 text-xs">
-                      {(isFashion
-                        ? [
-                            { name: "Atasan / Tops", pct: 45, color: "bg-purple-600" },
-                            { name: "Bawahan / Denim", pct: 28, color: "bg-indigo-600" },
-                            { name: "Outerwear / Jaket", pct: 15, color: "bg-pink-600" },
-                            { name: "Aksesoris / Tas", pct: 12, color: "bg-amber-600" }
-                          ]
-                        : [
-                            { name: "Kopi Gula Aren", pct: 45, color: "bg-blue-600" },
-                            { name: "Ice Cafe Latte", pct: 28, color: "bg-indigo-600" },
-                            { name: "Chocolate Ice", pct: 15, color: "bg-green-600" },
-                            { name: "Camilan Croissant", pct: 12, color: "bg-amber-600" }
-                          ]
-                      ).map((f, i) => (
+                      {favoriteProducts.map((f, i) => (
                         <div key={i} className="space-y-1">
                           <div className="flex justify-between text-[10px] font-semibold text-muted-foreground">
                             <span>{f.name}</span>
@@ -1327,18 +1432,14 @@ function OwnerDashboard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-border/50 text-foreground">
-                      {isFreshTenant ? (
+                      {loyaltyLeaderboard.length === 0 ? (
                         <tr>
                           <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground text-xs">
                             Belum ada pelanggan terdaftar
                           </td>
                         </tr>
                       ) : (
-                        [
-                          { name: "Farhan Maulana", level: "Platinum", count: 42, points: 840, spent: 1850000 },
-                          { name: "Siska Amelia", level: "Gold", count: 29, points: 580, spent: 1240000 },
-                          { name: "Rian Pratama", level: "Silver", count: 18, points: 360, spent: 780000 }
-                        ].map((l, i) => (
+                        loyaltyLeaderboard.map((l, i) => (
                           <tr key={i} className="hover:bg-muted/10">
                             <td className="px-4 py-2.5 font-bold">{l.name}</td>
                             <td className="px-4 py-2.5">
@@ -1366,7 +1467,7 @@ function OwnerDashboard() {
           {/* Tab 5: Financial Analytics */}
           {activeTab === "finance" && (
             <div className="space-y-6 animate-fade-in">
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-card border border-card-border rounded-xl p-4 shadow-sm">
                   <span className="text-muted-foreground text-[10px] font-semibold uppercase">Omzet Kotor (Gross)</span>
                   <div className="text-xl font-bold text-foreground mt-1">{formatRp(estimatedGrossProfit)}</div>
@@ -1394,21 +1495,7 @@ function OwnerDashboard() {
                 <div className="bg-card border border-card-border rounded-2xl p-5 shadow-sm md:col-span-2 space-y-4">
                   <h4 className="font-bold text-xs text-foreground">Grafik Aliran Kas Bulanan (Cash Flow)</h4>
                   <ResponsiveContainer width="100%" height={180}>
-                    <LineChart data={
-                      isFreshTenant
-                        ? [
-                            { label: "W1", masuk: 0, keluar: 0 },
-                            { label: "W2", masuk: 0, keluar: 0 },
-                            { label: "W3", masuk: 0, keluar: 0 },
-                            { label: "W4", masuk: 0, keluar: 0 }
-                          ]
-                        : [
-                            { label: "W1", masuk: 3200000, keluar: 1800000 },
-                            { label: "W2", masuk: 4500000, keluar: 2100000 },
-                            { label: "W3", masuk: 3800000, keluar: 1200000 },
-                            { label: "W4", masuk: estimatedGrossProfit - 11500000, keluar: totalExpenses - 5100000 }
-                          ]
-                    }>
+                    <LineChart data={cashFlowData}>
                       <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                       <XAxis dataKey="label" tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} />
                       <YAxis tick={{ fontSize: 9, fill: "hsl(var(--muted-foreground))" }} tickFormatter={v => formatRp(v)} />
@@ -1427,27 +1514,20 @@ function OwnerDashboard() {
                     <p className="text-[10px] text-muted-foreground">Log aktivitas pembatalan & pengembalian transaksi.</p>
                   </div>
                   <div className="space-y-2 text-xs flex-1 flex flex-col justify-center">
-                    {isFreshTenant ? (
+                    {refundedOrders.length === 0 ? (
                       <div className="text-center py-8 text-xs text-muted-foreground bg-muted/10 border border-border rounded-xl">
                         Belum ada transaksi refund
                       </div>
                     ) : (
-                      <>
-                        <div className="p-2.5 border border-border rounded-xl bg-background flex justify-between items-center">
+                      refundedOrders.map((o: any) => (
+                        <div key={o.id} className="p-2.5 border border-border rounded-xl bg-background flex justify-between items-center text-xs">
                           <div>
-                            <span className="font-bold text-foreground">Refund #FLW-9182</span>
-                            <p className="text-[9px] text-muted-foreground">{isFashion ? "Tukar size baju" : "Salah input menu"} &bull; Oleh Kasir Budi</p>
+                            <span className="font-bold text-foreground">Refund {o.orderNumber}</span>
+                            <p className="text-[9px] text-muted-foreground">{o.notes || "Pengembalian dana"} &bull; Oleh {o.employeeName || "Kasir"}</p>
                           </div>
-                          <span className="font-bold text-red-500">{isFashion ? "-Rp 149.000" : "-Rp 45.000"}</span>
+                          <span className="font-bold text-red-500">-{formatRp(Number(o.total))}</span>
                         </div>
-                        <div className="p-2.5 border border-border rounded-xl bg-background flex justify-between items-center">
-                          <div>
-                            <span className="font-bold text-foreground">Refund #FLW-9140</span>
-                            <p className="text-[9px] text-muted-foreground">{isFashion ? "Salah warna kirim" : "Stok bahan kosong"} &bull; Oleh Manager</p>
-                          </div>
-                          <span className="font-bold text-red-500">{isFashion ? "-Rp 299.000" : "-Rp 28.000"}</span>
-                        </div>
-                      </>
+                      ))
                     )}
                   </div>
                 </div>
@@ -1668,9 +1748,18 @@ function OwnerDashboard() {
                             <span className="ml-2 font-bold text-foreground">({cp.discount}% Off)</span>
                             <p className="text-[9px] text-muted-foreground mt-0.5">{cp.desc}</p>
                           </div>
-                          <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${cp.status === "Aktif" ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"}`}>
-                            {cp.status}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase ${cp.status === "Aktif" ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"}`}>
+                              {cp.status}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteCoupon(cp.id)}
+                              className="text-muted-foreground hover:text-red-500 transition-colors p-1"
+                            >
+                              <Trash2 size={12} />
+                            </button>
+                          </div>
                         </div>
                       ))
                     )}
@@ -1741,16 +1830,27 @@ function OwnerDashboard() {
                         </div>
                       </>
                     ) : (
-                      <div className="space-y-2">
-                        <label className="block text-[10px] font-bold text-muted-foreground uppercase">File Gambar Banner</label>
-                        <input
-                          type="file"
-                          ref={bannerFileInputRef}
-                          onChange={handleBannerFileChange}
-                          accept="image/*"
-                          className="hidden"
-                        />
-                        {newBanner.imageUrl ? (
+                      <div className="space-y-3">
+                        <div>
+                          <label className="block text-[10px] font-bold text-muted-foreground uppercase mb-1">Judul / Teks Banner (Opsional)</label>
+                          <input
+                            type="text"
+                            placeholder="Contoh: Promo Spesial Akhir Pekan!"
+                            value={newBanner.title}
+                            onChange={e => setNewBanner(p => ({ ...p, title: e.target.value }))}
+                            className="w-full px-3 py-1.5 border border-input rounded-lg bg-background text-xs text-foreground focus:outline-none"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="block text-[10px] font-bold text-muted-foreground uppercase">File Gambar Banner</label>
+                          <input
+                            type="file"
+                            ref={bannerFileInputRef}
+                            onChange={handleBannerFileChange}
+                            accept="image/*"
+                            className="hidden"
+                          />
+                          {newBanner.imageUrl ? (
                           <div className="relative group w-full h-24 rounded-xl overflow-hidden border border-border bg-muted/20 flex items-center justify-center">
                             <img
                               src={newBanner.imageUrl}
@@ -1797,7 +1897,8 @@ function OwnerDashboard() {
                           <p className="text-[10px] text-red-500 font-semibold">{bannerUploadError}</p>
                         )}
                       </div>
-                    )}
+                    </div>
+                  )}
                     <button
                       type="submit"
                       disabled={bannerUploading}
@@ -1819,7 +1920,16 @@ function OwnerDashboard() {
                         {marketingBanners.map(mb => (
                           <div key={mb.id} className="relative group rounded-xl overflow-hidden shadow-sm border border-border bg-card">
                             {mb.imageUrl ? (
-                              <img src={mb.imageUrl} alt="Promo banner" className="w-full h-20 object-cover" />
+                              <div className="relative w-full h-20">
+                                <img src={mb.imageUrl} alt="Promo banner" className="w-full h-full object-cover" />
+                                {mb.title && (
+                                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent flex flex-col justify-end p-2.5">
+                                    <div className="text-white font-bold text-[10px] sm:text-xs leading-snug drop-shadow">
+                                      {mb.title}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
                             ) : (
                               <div
                                 style={{ backgroundColor: mb.bgColor, color: mb.textColor }}
@@ -1904,141 +2014,6 @@ function OwnerDashboard() {
                     </div>
                   </div>
                 </form>
-              </div>
-            </div>
-          )}
-
-          {/* Tab 8: QR Menu Settings */}
-          {activeTab === "qrmenu" && (
-            <div className="bg-card border border-card-border rounded-2xl p-5 shadow-sm space-y-6 animate-fade-in">
-              <div>
-                <h3 className="font-bold text-foreground text-sm">
-                  {isFashion ? "Tema & Kustomisasi QR Katalog" : "Tema & Kustomisasi QR Menu"}
-                </h3>
-                <p className="text-xs text-muted-foreground">
-                  {isFashion
-                    ? "Sesuaikan tampilan visual katalog toko online pakaian untuk publik."
-                    : "Sesuaikan tampilan visual menu pesanan pelanggan untuk publik."}
-                </p>
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="space-y-4 text-xs">
-                  <div className="border border-border p-4 rounded-xl space-y-3 bg-background">
-                    <h4 className="font-bold text-foreground flex items-center gap-1.5">
-                      <Globe size={13} className="text-primary" /> Visual & Tema
-                    </h4>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div>
-                        <label className="block text-[10px] text-muted-foreground mb-1 uppercase font-semibold">Warna Utama</label>
-                        <div className="flex gap-2">
-                          <input
-                            type="color"
-                            value={qrSettings.themeColor}
-                            onChange={e => setQrSettings(p => ({ ...p, themeColor: e.target.value }))}
-                            className="w-8 h-8 rounded border border-border bg-transparent cursor-pointer"
-                          />
-                          <input
-                            type="text"
-                            value={qrSettings.themeColor}
-                            onChange={e => setQrSettings(p => ({ ...p, themeColor: e.target.value }))}
-                            className="flex-1 px-2.5 py-1 border border-input rounded-lg bg-card text-xs text-foreground focus:outline-none"
-                          />
-                        </div>
-                      </div>
-                      <div>
-                        <label className="block text-[10px] text-muted-foreground mb-1 uppercase font-semibold">Tipografi / Font</label>
-                        <select
-                          value={qrSettings.typography}
-                          onChange={e => setQrSettings(p => ({ ...p, typography: e.target.value }))}
-                          className="w-full px-2.5 py-1.5 border border-border rounded-lg bg-card font-medium focus:outline-none"
-                        >
-                          <option value="Inter">Inter Sans</option>
-                          <option value="Outfit">Outfit Modern</option>
-                          <option value="Roboto">Roboto Classic</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="border border-border p-4 rounded-xl space-y-3 bg-background">
-                    <h4 className="font-bold text-foreground flex items-center gap-1.5">
-                      <Truck size={13} className="text-primary" /> Pengantaran (Delivery)
-                    </h4>
-                    <div className="flex justify-between items-center text-xs">
-                      <div>
-                        <div className="font-semibold text-foreground">Aktifkan Fitur Delivery</div>
-                        <div className="text-[9px] text-muted-foreground">Pelanggan bisa memesan dari rumah</div>
-                      </div>
-                      <button
-                        onClick={() => setQrSettings(p => ({ ...p, enableDelivery: !p.enableDelivery }))}
-                        className={`w-9 h-5 rounded-full p-0.5 transition-all flex ${
-                          qrSettings.enableDelivery ? "bg-primary justify-end" : "bg-muted justify-start"
-                        }`}
-                      >
-                        <div className="w-4 h-4 bg-white rounded-full shadow-sm" />
-                      </button>
-                    </div>
-                    {qrSettings.enableDelivery && (
-                      <div className="pt-2 border-t border-border/60">
-                        <label className="block text-[10px] text-muted-foreground mb-1 uppercase font-semibold">Tarif Kirim Flat (Rp)</label>
-                        <input
-                          type="number"
-                          value={qrSettings.deliveryFee}
-                          onChange={e => setQrSettings(p => ({ ...p, deliveryFee: Number(e.target.value) }))}
-                          className="w-full px-3 py-1.5 border border-input rounded-lg bg-card text-xs focus:outline-none"
-                        />
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* QR preview mockup */}
-                <div className="border border-border p-5 rounded-2xl bg-muted/10 space-y-4 flex flex-col items-center justify-between text-center">
-                  <span className="text-xs font-bold text-muted-foreground uppercase">
-                    {isFashion ? "Mockup Tema Katalog di Smartphone:" : "Mockup Tema Menu di Smartphone:"}
-                  </span>
-                  <div className="w-44 h-72 border-4 border-foreground rounded-[24px] bg-background shadow-lg overflow-hidden flex flex-col justify-between">
-                    <div style={{ backgroundColor: qrSettings.themeColor }} className="py-3 px-2 text-white">
-                      <div className="text-[10px] font-bold">{isFashion ? "Demo Toko Fashion" : "Demo Kafe Menu"}</div>
-                      <div className="text-[7px] opacity-80 mt-0.5">
-                        {isFashion ? "Katalog online cepat & mudah" : "Pesan online cepat & mudah"}
-                      </div>
-                    </div>
-                    <div className="p-3 space-y-1.5 flex-1 bg-muted/10">
-                      <div className="h-2 w-16 bg-muted rounded-full" />
-                      <div className="h-6 w-full bg-card border border-border rounded flex justify-between items-center px-1.5">
-                        <span className="text-[7px] font-semibold text-foreground">
-                          {isFashion ? "Oversized Black Tee" : "Americano Coffee"}
-                        </span>
-                        <span style={{ color: qrSettings.themeColor }} className="text-[7px] font-bold">
-                          {isFashion ? "Rp 149k" : "Rp 22k"}
-                        </span>
-                      </div>
-                      <div className="h-6 w-full bg-card border border-border rounded flex justify-between items-center px-1.5">
-                        <span className="text-[7px] font-semibold text-foreground">
-                          {isFashion ? "Slim Fit Denim Jeans" : "Cafe Latte Double"}
-                        </span>
-                        <span style={{ color: qrSettings.themeColor }} className="text-[7px] font-bold">
-                          {isFashion ? "Rp 299k" : "Rp 28k"}
-                        </span>
-                      </div>
-                    </div>
-                    <div className="p-2 border-t border-border bg-card">
-                      <button style={{ backgroundColor: qrSettings.themeColor }} className="w-full py-1 text-white text-[7px] font-bold rounded">
-                        {isFashion ? "Beli Sekarang (0 Item)" : "Keranjang (0 Item)"}
-                      </button>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      alert(isFashion ? "Pengaturan tema QR Katalog berhasil disimpan dan dipublikasikan." : "Pengaturan tema QR Menu berhasil disimpan dan dipublikasikan.");
-                    }}
-                    className="px-4 py-2 bg-primary text-primary-foreground font-bold rounded-xl text-xs hover:bg-primary/95 transition-all shadow-sm"
-                  >
-                    Simpan & Terapkan Tema
-                  </button>
-                </div>
               </div>
             </div>
           )}

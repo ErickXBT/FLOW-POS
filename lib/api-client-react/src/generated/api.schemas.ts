@@ -148,6 +148,8 @@ export interface Tenant {
   enableDelivery?: boolean;
   deliveryFeeNear?: number;
   deliveryFeeFar?: number;
+  showVariants?: boolean;
+  showToppings?: boolean;
   createdAt: string;
 }
 
@@ -183,6 +185,8 @@ export interface TenantUpdate {
   enableDelivery?: boolean;
   deliveryFeeNear?: number;
   deliveryFeeFar?: number;
+  showVariants?: boolean;
+  showToppings?: boolean;
 }
 
 export type SubscriptionPlanProperty = typeof SubscriptionPlanProperty[keyof typeof SubscriptionPlanProperty];
@@ -265,6 +269,8 @@ export interface Product {
   tenantId: number;
   isActive?: boolean;
   isBestSeller?: boolean;
+  /** @nullable */
+  variantSettings?: string | null;
   createdAt?: string;
 }
 
@@ -287,6 +293,8 @@ export interface ProductInput {
   imageUrl?: string;
   categoryId?: number;
   isBestSeller?: boolean;
+  /** @nullable */
+  variantSettings?: string | null;
 }
 
 export interface ProductUpdate {
@@ -303,6 +311,8 @@ export interface ProductUpdate {
   categoryId?: number | null;
   isActive?: boolean;
   isBestSeller?: boolean;
+  /** @nullable */
+  variantSettings?: string | null;
 }
 
 export interface TopProduct {
@@ -392,6 +402,10 @@ export interface OrderItemInput {
   productId: number;
   quantity: number;
   price: number;
+  /** @nullable */
+  variantSelection?: string | null;
+  /** @nullable */
+  notes?: string | null;
 }
 
 export interface OrderInput {

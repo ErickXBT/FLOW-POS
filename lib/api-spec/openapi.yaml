@@ -1395,6 +1395,10 @@ components:
           type: integer
         deliveryFeeFar:
           type: integer
+        showVariants:
+          type: boolean
+        showToppings:
+          type: boolean
         createdAt:
           type: string
 
@@ -1425,6 +1429,10 @@ components:
           type: integer
         deliveryFeeFar:
           type: integer
+        showVariants:
+          type: boolean
+        showToppings:
+          type: boolean
 
     # ── Subscription ──────────────────────────────────────────────────────
     Subscription:
@@ -1548,6 +1556,8 @@ components:
           type: boolean
         isBestSeller:
           type: boolean
+        variantSettings:
+          type: ["string", "null"]
         createdAt:
           type: string
 
@@ -1577,6 +1587,8 @@ components:
           type: integer
         isBestSeller:
           type: boolean
+        variantSettings:
+          type: ["string", "null"]
 
     ProductUpdate:
       type: object
@@ -1605,6 +1617,8 @@ components:
           type: boolean
         isBestSeller:
           type: boolean
+        variantSettings:
+          type: ["string", "null"]
 
     TopProduct:
       type: object
@@ -1735,6 +1749,10 @@ components:
           type: integer
         price:
           type: number
+        variantSelection:
+          type: ["string", "null"]
+        notes:
+          type: ["string", "null"]
 
     OrderStatusUpdate:
       type: object

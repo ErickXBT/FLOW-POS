@@ -10,4 +10,8 @@ export interface OrderItemInput {
   productId: number;
   quantity: number;
   price: number;
+  /** @nullable */
+  variantSelection?: string | null;
+  /** @nullable */
+  notes?: string | null;
 }

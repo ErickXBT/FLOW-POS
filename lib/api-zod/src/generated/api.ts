@@ -117,6 +117,8 @@ export const ListAdminTenantsResponse = zod.object({
   "enableDelivery": zod.boolean().optional(),
   "deliveryFeeNear": zod.number().optional(),
   "deliveryFeeFar": zod.number().optional(),
+  "showVariants": zod.boolean().optional(),
+  "showToppings": zod.boolean().optional(),
   "createdAt": zod.string()
 })),
   "total": zod.number(),
@@ -149,6 +151,8 @@ export const GetAdminTenantResponse = zod.object({
   "enableDelivery": zod.boolean().optional(),
   "deliveryFeeNear": zod.number().optional(),
   "deliveryFeeFar": zod.number().optional(),
+  "showVariants": zod.boolean().optional(),
+  "showToppings": zod.boolean().optional(),
   "createdAt": zod.string()
 })
 
@@ -189,6 +193,8 @@ export const UpdateTenantStatusResponse = zod.object({
   "enableDelivery": zod.boolean().optional(),
   "deliveryFeeNear": zod.number().optional(),
   "deliveryFeeFar": zod.number().optional(),
+  "showVariants": zod.boolean().optional(),
+  "showToppings": zod.boolean().optional(),
   "createdAt": zod.string()
 })
 
@@ -213,6 +219,8 @@ export const GetTenantResponse = zod.object({
   "enableDelivery": zod.boolean().optional(),
   "deliveryFeeNear": zod.number().optional(),
   "deliveryFeeFar": zod.number().optional(),
+  "showVariants": zod.boolean().optional(),
+  "showToppings": zod.boolean().optional(),
   "createdAt": zod.string()
 })
 
@@ -232,7 +240,9 @@ export const UpdateTenantBody = zod.object({
   "receiptFooter": zod.string().optional(),
   "enableDelivery": zod.boolean().optional(),
   "deliveryFeeNear": zod.number().optional(),
-  "deliveryFeeFar": zod.number().optional()
+  "deliveryFeeFar": zod.number().optional(),
+  "showVariants": zod.boolean().optional(),
+  "showToppings": zod.boolean().optional()
 })
 
 export const UpdateTenantResponse = zod.object({
@@ -252,6 +262,8 @@ export const UpdateTenantResponse = zod.object({
   "enableDelivery": zod.boolean().optional(),
   "deliveryFeeNear": zod.number().optional(),
   "deliveryFeeFar": zod.number().optional(),
+  "showVariants": zod.boolean().optional(),
+  "showToppings": zod.boolean().optional(),
   "createdAt": zod.string()
 })
 
@@ -361,6 +373,7 @@ export const ListProductsResponse = zod.object({
   "tenantId": zod.number(),
   "isActive": zod.boolean().optional(),
   "isBestSeller": zod.boolean().optional(),
+  "variantSettings": zod.string().nullish(),
   "createdAt": zod.string().optional()
 })),
   "total": zod.number(),
@@ -383,7 +396,8 @@ export const CreateProductBody = zod.object({
   "minStock": zod.number().optional(),
   "imageUrl": zod.string().optional(),
   "categoryId": zod.number().optional(),
-  "isBestSeller": zod.boolean().optional()
+  "isBestSeller": zod.boolean().optional(),
+  "variantSettings": zod.string().nullish()
 })
 
 
@@ -428,6 +442,7 @@ export const GetProductResponse = zod.object({
   "tenantId": zod.number(),
   "isActive": zod.boolean().optional(),
   "isBestSeller": zod.boolean().optional(),
+  "variantSettings": zod.string().nullish(),
   "createdAt": zod.string().optional()
 })
 
@@ -451,7 +466,8 @@ export const UpdateProductBody = zod.object({
   "imageUrl": zod.string().optional(),
   "categoryId": zod.number().nullish(),
   "isActive": zod.boolean().optional(),
-  "isBestSeller": zod.boolean().optional()
+  "isBestSeller": zod.boolean().optional(),
+  "variantSettings": zod.string().nullish()
 })
 
 export const UpdateProductResponse = zod.object({
@@ -470,6 +486,7 @@ export const UpdateProductResponse = zod.object({
   "tenantId": zod.number(),
   "isActive": zod.boolean().optional(),
   "isBestSeller": zod.boolean().optional(),
+  "variantSettings": zod.string().nullish(),
   "createdAt": zod.string().optional()
 })
 
@@ -533,7 +550,9 @@ export const CreateOrderBody = zod.object({
   "items": zod.array(zod.object({
   "productId": zod.number(),
   "quantity": zod.number(),
-  "price": zod.number()
+  "price": zod.number(),
+  "variantSelection": zod.string().nullish(),
+  "notes": zod.string().nullish()
 })),
   "paymentMethod": zod.enum(['cash', 'qris', 'bank_transfer', 'ewallet', 'credit_card']),
   "subtotal": zod.number().optional(),

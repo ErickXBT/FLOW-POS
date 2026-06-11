@@ -18,4 +18,6 @@ export interface ProductInput {
   imageUrl?: string;
   categoryId?: number;
   isBestSeller?: boolean;
+  /** @nullable */
+  variantSettings?: string | null;
 }

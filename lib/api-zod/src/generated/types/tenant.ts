@@ -34,5 +34,7 @@ export interface Tenant {
   enableDelivery?: boolean;
   deliveryFeeNear?: number;
   deliveryFeeFar?: number;
+  showVariants?: boolean;
+  showToppings?: boolean;
   createdAt: string;
 }

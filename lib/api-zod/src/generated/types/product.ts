@@ -29,5 +29,7 @@ export interface Product {
   tenantId: number;
   isActive?: boolean;
   isBestSeller?: boolean;
+  /** @nullable */
+  variantSettings?: string | null;
   createdAt?: string;
 }

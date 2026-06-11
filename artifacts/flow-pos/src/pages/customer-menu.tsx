@@ -17,6 +17,7 @@ interface TenantInfo {
   enableDineIn: boolean; enableTakeAway: boolean; enableDelivery: boolean;
   enableCash: boolean; enableQris: boolean; enableBankTransfer: boolean; enableEwallet: boolean;
   deliveryFeeNear?: number; deliveryFeeFar?: number;
+  showVariants?: boolean; showToppings?: boolean;
 }
 
 interface BranchInfo {
@@ -93,6 +94,18 @@ const ORDER_TYPE_LABELS: Record<string, string> = {
 };
 
 function formatRp(v: number) { return `Rp ${v.toLocaleString("id-ID")}`; }
+
+const DEFAULT_VARIANTS = [
+  { name: "Regular", price: 0 },
+  { name: "Large", price: 0 }
+];
+
+const DEFAULT_TOPPINGS = [
+  { name: "Ekstra Sambal", price: 2000 },
+  { name: "Telur Mata Sapi", price: 2000 },
+  { name: "Keju Parut", price: 2000 },
+  { name: "Kerupuk Bawang", price: 2000 }
+];
 
 const loadLeaflet = (cb: () => void) => {
   if ((window as any).L) {
@@ -389,6 +402,8 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
   const [modalToppings, setModalToppings] = useState<string[]>([]);
   const [modalQty, setModalQty] = useState(1);
   const [modalNotes, setModalNotes] = useState("");
+  const [modalVariantsList, setModalVariantsList] = useState<{ name: string; price: number }[]>([]);
+  const [modalToppingsList, setModalToppingsList] = useState<{ name: string; price: number }[]>([]);
 
   // Checkout inputs
   const [orderType, setOrderType] = useState("dine_in");
@@ -503,18 +518,32 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
     setModalQty(1);
     setModalNotes("");
     
-    // Parse variants if available
+    let variants = DEFAULT_VARIANTS;
+    let toppings = DEFAULT_TOPPINGS;
+
     if (product.variantSettings) {
       try {
         const parsed = JSON.parse(product.variantSettings);
-        if (parsed.variants && parsed.variants.length > 0) {
-          setModalVariant(parsed.variants[0].name);
-        } else {
-          setModalVariant("");
+        if (parsed.variants && Array.isArray(parsed.variants)) {
+          variants = parsed.variants;
         }
-      } catch {
-        setModalVariant("");
+        if (parsed.toppings && Array.isArray(parsed.toppings)) {
+          toppings = parsed.toppings;
+        }
+      } catch (e) {
+        variants = DEFAULT_VARIANTS;
+        toppings = DEFAULT_TOPPINGS;
       }
+    } else {
+      variants = DEFAULT_VARIANTS;
+      toppings = DEFAULT_TOPPINGS;
+    }
+
+    setModalVariantsList(variants);
+    setModalToppingsList(toppings);
+
+    if (tenant?.showVariants !== false && variants.length > 0) {
+      setModalVariant(variants[0].name);
     } else {
       setModalVariant("");
     }
@@ -526,18 +555,29 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
     
     // Build cart item details
     const price = selectedProduct.promoPrice ?? selectedProduct.price;
-    const toppingsPrice = modalToppings.length * 2000; // Mock topping flat rate
-    const itemTotalPrice = (price + toppingsPrice) * modalQty;
+    const toppings = tenant?.showToppings !== false ? modalToppings : [];
+    const variant = tenant?.showVariants !== false ? modalVariant : "";
+
+    let variantPrice = 0;
+    const variantObj = modalVariantsList.find(v => v.name === variant);
+    if (variantObj) variantPrice = variantObj.price;
+
+    const toppingsPrice = toppings.reduce((sum, name) => {
+      const t = modalToppingsList.find(x => x.name === name);
+      return sum + (t ? t.price : 2000);
+    }, 0);
+
+    const itemTotalPrice = (price + variantPrice + toppingsPrice) * modalQty;
     
-    const cartId = `${selectedProduct.id}-${modalVariant}-${modalToppings.sort().join(",")}-${modalNotes}`;
+    const cartId = `${selectedProduct.id}-${variant}-${toppings.sort().join(",")}-${modalNotes}`;
 
     const newCartItem: CartItem = {
       id: cartId,
       product: selectedProduct,
       quantity: modalQty,
       notes: modalNotes,
-      selectedVariant: modalVariant,
-      selectedToppings: modalToppings,
+      selectedVariant: variant,
+      selectedToppings: toppings,
       totalPrice: itemTotalPrice
     };
 
@@ -574,11 +614,34 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
       const updated = prev.map(item => {
         if (item.id !== itemId) return item;
         const basePrice = item.product.promoPrice ?? item.product.price;
-        const toppingsPrice = item.selectedToppings.length * 2000;
+        
+        let variantPrice = 0;
+        let toppingsPrice = 0;
+        
+        const settingsStr = item.product.variantSettings;
+        let variantsList = DEFAULT_VARIANTS;
+        let toppingsList = DEFAULT_TOPPINGS;
+        
+        if (settingsStr) {
+          try {
+            const parsed = JSON.parse(settingsStr);
+            if (parsed.variants && Array.isArray(parsed.variants)) variantsList = parsed.variants;
+            if (parsed.toppings && Array.isArray(parsed.toppings)) toppingsList = parsed.toppings;
+          } catch {}
+        }
+        
+        const variantObj = variantsList.find(v => v.name === item.selectedVariant);
+        if (variantObj) variantPrice = variantObj.price;
+        
+        toppingsPrice = item.selectedToppings.reduce((sum, name) => {
+          const t = toppingsList.find(x => x.name === name);
+          return sum + (t ? t.price : 2000);
+        }, 0);
+
         return {
           ...item,
           quantity: newQuantity,
-          totalPrice: (basePrice + toppingsPrice) * newQuantity
+          totalPrice: (basePrice + variantPrice + toppingsPrice) * newQuantity
         };
       });
       syncCartToBackend(updated);
@@ -753,11 +816,22 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
           <div className="font-black text-gray-900 text-sm flex items-center gap-1.5">
             <Sparkles size={16} className="text-amber-500" /> Promo Spesial
           </div>
-          <div className="flex gap-4 overflow-x-auto no-scrollbar py-1">
+          <div className="flex gap-4 scroll-x-container no-scrollbar py-1">
             {promoBanners.map(pb => (
-              <div key={pb.id} className="flex-none w-76 sm:w-84 md:w-[350px] h-36 sm:h-40 md:h-[160px] rounded-3xl overflow-hidden shadow-sm border border-gray-100 relative group transition-all duration-300 hover:shadow-md">
+              <div key={pb.id} className={`flex-none h-36 sm:h-40 md:h-[160px] rounded-3xl overflow-hidden shadow-sm border border-gray-100 relative group transition-all duration-300 hover:shadow-md ${
+                pb.imageUrl ? "w-auto min-w-[280px] sm:min-w-[320px]" : "w-76 sm:w-84 md:w-[350px]"
+              }`}>
                 {pb.imageUrl ? (
-                  <img src={pb.imageUrl} alt="Promo" className="w-full h-full object-cover group-hover:scale-102 transition-transform duration-500" />
+                  <div className="relative h-full w-auto">
+                    <img src={pb.imageUrl} alt={pb.title || "Promo"} className="h-full w-auto object-contain group-hover:scale-102 transition-transform duration-500 rounded-3xl" />
+                    {pb.title && (
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent flex flex-col justify-end p-4">
+                        <div className="text-white font-black text-sm sm:text-base leading-snug drop-shadow">
+                          {pb.title}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   <div
                     style={{ backgroundColor: pb.bgColor, color: pb.textColor }}
@@ -778,7 +852,7 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
           <div className="font-black text-gray-900 text-sm flex items-center gap-1.5">
             <Sparkles size={16} className="text-amber-500" /> Promo Rekomendasi
           </div>
-          <div className="flex gap-3 overflow-x-auto no-scrollbar py-1">
+          <div className="flex gap-3 scroll-x-container no-scrollbar py-1">
             {bestSellers.map(p => (
               <div key={p.id} onClick={() => handleOpenDetailModal(p)} className="flex-none w-64 bg-white border border-gray-100 rounded-3xl p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer flex gap-3">
                 <div className="w-20 h-20 bg-gray-50 rounded-2xl flex-shrink-0 overflow-hidden relative">
@@ -822,7 +896,7 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
           </div>
 
           {/* Sticky category tabs */}
-          <div className="flex gap-2 px-4 pb-2.5 overflow-x-auto no-scrollbar">
+          <div className="flex gap-2 px-4 pb-2.5 scroll-x-container no-scrollbar">
             <button
               onClick={() => setActiveCat(null)}
               className={`flex-none px-4 py-2 rounded-full text-xs font-bold transition-all ${!activeCat ? "text-white shadow-sm" : "bg-gray-50 text-gray-600 border"}`}
@@ -936,37 +1010,41 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
                 </div>
 
                 {/* Variant selection */}
-                <div className="space-y-2">
-                  <div className="text-xs font-black text-gray-700 uppercase tracking-wide">Pilihan Ukuran / Varian</div>
-                  <div className="flex gap-2">
-                    {["Regular", "Large"].map(v => (
-                      <button key={v} onClick={() => setModalVariant(v)}
-                        className={`px-4 py-2.5 rounded-2xl text-xs font-bold border transition-all ${modalVariant === v ? "text-white shadow-sm" : "bg-gray-50 text-gray-600"}`}
-                        style={modalVariant === v ? { backgroundColor: primary, borderColor: primary } : {}}>
-                        {v}
-                      </button>
-                    ))}
+                {tenant?.showVariants !== false && modalVariantsList.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-xs font-black text-gray-700 uppercase tracking-wide">Pilihan Ukuran / Varian</div>
+                    <div className="flex gap-2">
+                      {modalVariantsList.map(v => (
+                        <button key={v.name} onClick={() => setModalVariant(v.name)}
+                          className={`px-4 py-2.5 rounded-2xl text-xs font-bold border transition-all ${modalVariant === v.name ? "text-white shadow-sm" : "bg-gray-50 text-gray-600"}`}
+                          style={modalVariant === v.name ? { backgroundColor: primary, borderColor: primary } : {}}>
+                          {v.name} {v.price > 0 && `(+${formatRp(v.price)})`}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Toppings selection */}
-                <div className="space-y-2">
-                  <div className="text-xs font-black text-gray-700 uppercase tracking-wide">Topping / Tambahan (+Rp 2.000)</div>
-                  <div className="grid grid-cols-2 gap-2">
-                    {["Ekstra Sambal", "Telur Mata Sapi", "Keju Parut", "Kerupuk Bawang"].map(t => {
-                      const selected = modalToppings.includes(t);
-                      return (
-                        <button key={t}
-                          onClick={() => setModalToppings(prev => selected ? prev.filter(x => x !== t) : [...prev, t])}
-                          className={`px-3 py-2 rounded-2xl text-xs font-bold text-left border flex items-center justify-between transition-all ${selected ? "bg-blue-50/50" : "bg-gray-50"}`}
-                          style={selected ? { borderColor: primary, color: primary } : {}}>
-                          <span>{t}</span>
-                          {selected && <CheckCircle2 size={14} style={{ color: primary }} />}
-                        </button>
-                      );
-                    })}
+                {tenant?.showToppings !== false && modalToppingsList.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-xs font-black text-gray-700 uppercase tracking-wide">Topping / Tambahan</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {modalToppingsList.map(t => {
+                        const selected = modalToppings.includes(t.name);
+                        return (
+                          <button key={t.name}
+                            onClick={() => setModalToppings(prev => selected ? prev.filter(x => x !== t.name) : [...prev, t.name])}
+                            className={`px-3 py-2 rounded-2xl text-xs font-bold text-left border flex items-center justify-between transition-all ${selected ? "bg-blue-50/50" : "bg-gray-50"}`}
+                            style={selected ? { borderColor: primary, color: primary } : {}}>
+                            <span>{t.name} {t.price > 0 && `(+${formatRp(t.price)})`}</span>
+                            {selected && <CheckCircle2 size={14} style={{ color: primary }} />}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {/* Notes Input */}
                 <div className="space-y-1.5">
@@ -992,13 +1070,32 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
                   <Plus size={14} />
                 </button>
               </div>
-              <button
-                onClick={handleAddToCart}
-                className="flex-1 py-3.5 rounded-2xl text-white font-bold text-xs flex items-center justify-center gap-2"
-                style={{ backgroundColor: primary }}
-              >
-                <span>Masukkan Keranjang • {formatRp(( (selectedProduct.promoPrice ?? selectedProduct.price) + (modalToppings.length * 2000) ) * modalQty)}</span>
-              </button>
+              {(() => {
+                const basePrice = selectedProduct.promoPrice ?? selectedProduct.price;
+                const toppings = tenant?.showToppings !== false ? modalToppings : [];
+                const variant = tenant?.showVariants !== false ? modalVariant : "";
+
+                let variantPrice = 0;
+                const variantObj = modalVariantsList.find(v => v.name === variant);
+                if (variantObj) variantPrice = variantObj.price;
+
+                const toppingsPrice = toppings.reduce((sum, name) => {
+                  const t = modalToppingsList.find(x => x.name === name);
+                  return sum + (t ? t.price : 2000);
+                }, 0);
+
+                const totalPrice = (basePrice + variantPrice + toppingsPrice) * modalQty;
+
+                return (
+                  <button
+                    onClick={handleAddToCart}
+                    className="flex-1 py-3.5 rounded-2xl text-white font-bold text-xs flex items-center justify-center gap-2"
+                    style={{ backgroundColor: primary }}
+                  >
+                    <span>Masukkan Keranjang • {formatRp(totalPrice)}</span>
+                  </button>
+                );
+              })()}
             </div>
           </div>
         </div>

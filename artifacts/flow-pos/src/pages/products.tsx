@@ -10,6 +10,7 @@ import {
   useUpdateCategory,
   useDeleteCategory,
   getListCategoriesQueryKey,
+  useGetTenant,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, Edit2, Trash2, Package, X, Star, Tag, UploadCloud } from "lucide-react";
@@ -24,9 +25,10 @@ interface ProductFormProps {
   onSubmit: (data: any) => void;
   onClose: () => void;
   loading: boolean;
+  businessType?: string;
 }
 
-function ProductForm({ initial, categories, onSubmit, onClose, loading }: ProductFormProps) {
+function ProductForm({ initial, categories, onSubmit, onClose, loading, businessType }: ProductFormProps) {
   const [form, setForm] = useState({
     name: initial?.name || "",
     sku: initial?.sku || "",
@@ -39,6 +41,26 @@ function ProductForm({ initial, categories, onSubmit, onClose, loading }: Produc
     categoryId: initial?.categoryId || "",
     imageUrl: initial?.imageUrl || "",
     isBestSeller: initial?.isBestSeller ?? false,
+  });
+
+  const [variantsList, setVariantsList] = useState<{ name: string; price: number }[]>(() => {
+    if (!initial?.variantSettings) return [];
+    try {
+      const parsed = JSON.parse(initial.variantSettings);
+      return parsed.variants || [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  const [toppingsList, setToppingsList] = useState<{ name: string; price: number }[]>(() => {
+    if (!initial?.variantSettings) return [];
+    try {
+      const parsed = JSON.parse(initial.variantSettings);
+      return parsed.toppings || [];
+    } catch (e) {
+      return [];
+    }
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -124,24 +146,28 @@ function ProductForm({ initial, categories, onSubmit, onClose, loading }: Produc
                 className="w-full px-3.5 py-2.5 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400"
               />
             </div>
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">SKU</label>
-              <input
-                type="text"
-                value={form.sku}
-                onChange={e => setForm(p => ({ ...p, sku: e.target.value }))}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Barcode</label>
-              <input
-                type="text"
-                value={form.barcode}
-                onChange={e => setForm(p => ({ ...p, barcode: e.target.value }))}
-                className="w-full px-3.5 py-2.5 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400"
-              />
-            </div>
+            {businessType === "fashion" && (
+              <>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">SKU</label>
+                  <input
+                    type="text"
+                    value={form.sku}
+                    onChange={e => setForm(p => ({ ...p, sku: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Barcode</label>
+                  <input
+                    type="text"
+                    value={form.barcode}
+                    onChange={e => setForm(p => ({ ...p, barcode: e.target.value }))}
+                    className="w-full px-3.5 py-2.5 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400"
+                  />
+                </div>
+              </>
+            )}
             <div className="col-span-2">
               <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Deskripsi</label>
               <textarea
@@ -270,6 +296,113 @@ function ProductForm({ initial, categories, onSubmit, onClose, loading }: Produc
                 {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </select>
             </div>
+            {/* Varian Section */}
+            <div className="col-span-2 space-y-2">
+              <div className="flex items-center justify-between border-b pb-1.5 border-border">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Pilihan Ukuran / Varian</span>
+                <button
+                  type="button"
+                  onClick={() => setVariantsList(prev => [...prev, { name: "", price: 0 }])}
+                  className="text-xs font-bold text-amber-500 hover:text-amber-600 transition-colors"
+                >
+                  + Tambah Varian
+                </button>
+              </div>
+              
+              {variantsList.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic">Belum ada varian ditambahkan.</p>
+              ) : (
+                <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                  {variantsList.map((variant, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder="Nama Varian (misal: Large)"
+                        value={variant.name}
+                        onChange={e => {
+                          const updated = [...variantsList];
+                          updated[index].name = e.target.value;
+                          setVariantsList(updated);
+                        }}
+                        className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Tambahan Harga (Rp)"
+                        value={variant.price || ""}
+                        onChange={e => {
+                          const updated = [...variantsList];
+                          updated[index].price = Number(e.target.value) || 0;
+                          setVariantsList(updated);
+                        }}
+                        className="w-32 px-3 py-2 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setVariantsList(prev => prev.filter((_, idx) => idx !== index))}
+                        className="p-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Topping Section */}
+            <div className="col-span-2 space-y-2">
+              <div className="flex items-center justify-between border-b pb-1.5 border-border">
+                <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Topping / Tambahan</span>
+                <button
+                  type="button"
+                  onClick={() => setToppingsList(prev => [...prev, { name: "", price: 0 }])}
+                  className="text-xs font-bold text-amber-500 hover:text-amber-600 transition-colors"
+                >
+                  + Tambah Topping
+                </button>
+              </div>
+
+              {toppingsList.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic">Belum ada topping ditambahkan.</p>
+              ) : (
+                <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                  {toppingsList.map((topping, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        placeholder="Nama Topping (misal: Boba)"
+                        value={topping.name}
+                        onChange={e => {
+                          const updated = [...toppingsList];
+                          updated[index].name = e.target.value;
+                          setToppingsList(updated);
+                        }}
+                        className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400"
+                      />
+                      <input
+                        type="number"
+                        placeholder="Harga Topping (Rp)"
+                        value={topping.price || ""}
+                        onChange={e => {
+                          const updated = [...toppingsList];
+                          updated[index].price = Number(e.target.value) || 0;
+                          setToppingsList(updated);
+                        }}
+                        className="w-32 px-3 py-2 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setToppingsList(prev => prev.filter((_, idx) => idx !== index))}
+                        className="p-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="col-span-2 pt-2">
               <label className="relative inline-flex items-center cursor-pointer select-none">
                 <input
@@ -286,7 +419,28 @@ function ProductForm({ initial, categories, onSubmit, onClose, loading }: Produc
         </div>
         <div className="flex gap-3 px-6 pb-6">
           <button onClick={onClose} className="flex-1 py-2.5 border border-border rounded-xl text-sm font-medium hover:bg-muted transition-colors">Batal</button>
-          <button onClick={() => onSubmit(form)} disabled={loading || !form.name || form.price === ""}
+          <button onClick={() => {
+            const cleanVariants = variantsList
+              .map(v => ({ name: v.name.trim(), price: Number(v.price) }))
+              .filter(v => v.name !== "");
+
+            const cleanToppings = toppingsList
+              .map(t => ({ name: t.name.trim(), price: Number(t.price) }))
+              .filter(t => t.name !== "");
+
+            let variantSettingsStr = null;
+            if (cleanVariants.length > 0 || cleanToppings.length > 0) {
+              variantSettingsStr = JSON.stringify({
+                variants: cleanVariants,
+                toppings: cleanToppings
+              });
+            }
+
+            onSubmit({
+              ...form,
+              variantSettings: variantSettingsStr
+            });
+          }} disabled={loading || !form.name || form.price === ""}
             className="flex-1 py-2.5 bg-amber-400 hover:bg-amber-500 text-black rounded-xl text-sm font-bold disabled:opacity-50 transition-colors">
             {loading ? "Menyimpan..." : "Simpan"}
           </button>
@@ -338,6 +492,7 @@ export default function ProductsPage() {
   const [editCat, setEditCat] = useState<any>(null);
   const qc = useQueryClient();
 
+  const { data: tenant } = useGetTenant();
   const { data: productsData, isLoading } = useListProducts({ search: search || undefined, limit: 50 });
   const { data: categories, isLoading: isCatLoading } = useListCategories();
   const createProduct = useCreateProduct();
@@ -625,6 +780,7 @@ export default function ProductsPage() {
           onSubmit={handleCreateProduct}
           onClose={() => setShowForm(false)}
           loading={createProduct.isPending}
+          businessType={tenant?.businessType}
         />
       )}
       {editProduct && (
@@ -634,6 +790,7 @@ export default function ProductsPage() {
           onSubmit={handleUpdateProduct}
           onClose={() => setEditProduct(null)}
           loading={updateProduct.isPending}
+          businessType={tenant?.businessType}
         />
       )}
       {showCatForm && (

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, gte, lte, count, sql, desc } from "drizzle-orm";
-import { db, ordersTable, orderItemsTable, productsTable, customersTable, employeesTable } from "@workspace/db";
+import { db, ordersTable, orderItemsTable, productsTable, customersTable, employeesTable, branchesTable } from "@workspace/db";
 import { GetSalesReportQueryParams, GetSalesChartDataQueryParams } from "@workspace/api-zod";
 import { extractToken } from "./auth";
 
@@ -236,6 +236,56 @@ router.get("/reports/sales/chart", async (req, res): Promise<void> => {
   }));
 
   res.json(result);
+});
+
+router.get("/reports/branches-comparison", async (req, res): Promise<void> => {
+  const claims = requireTenant(req, res);
+  if (!claims) return;
+
+  const tid = claims.tenantId!;
+  
+  // Get all branches for this tenant
+  const branches = await db.select().from(branchesTable).where(eq(branchesTable.tenantId, tid));
+  
+  const monthStart = startOf("month");
+  
+  // Also count how many products are low stock
+  const inventory = await db.select({ stock: productsTable.stock, minStock: productsTable.minStock })
+    .from(productsTable).where(eq(productsTable.tenantId, tid));
+  const lowStockCount = inventory.filter(p => p.stock <= p.minStock).length;
+  
+  const comparison = await Promise.all(branches.map(async (b) => {
+    const [salesAgg] = await db.select({
+      total: sql<number>`COALESCE(SUM(CAST(total AS DECIMAL)), 0)`,
+      transaksi: count()
+    })
+    .from(ordersTable)
+    .where(and(
+      eq(ordersTable.tenantId, tid),
+      eq(ordersTable.branchId, b.id),
+      eq(ordersTable.status, "completed"),
+      gte(ordersTable.createdAt, monthStart)
+    ));
+    
+    const [staffAgg] = await db.select({ count: count() })
+      .from(employeesTable)
+      .where(and(
+        eq(employeesTable.tenantId, tid),
+        eq(employeesTable.branchId, b.id)
+      ));
+      
+    return {
+      id: b.id,
+      name: b.name,
+      sales: Number(salesAgg.total) || 0,
+      transaksi: Number(salesAgg.transaksi) || 0,
+      staff: Number(staffAgg.count) || 0,
+      stockAlerts: lowStockCount,
+      status: b.status === "locked" ? "Terkunci" : "Aktif"
+    };
+  }));
+  
+  res.json(comparison);
 });
 
 export default router;

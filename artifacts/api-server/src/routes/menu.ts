@@ -126,6 +126,8 @@ router.get("/menu/:slug", async (req, res): Promise<void> => {
       enableQris: (tenant as any).enableQris ?? true,
       enableBankTransfer: (tenant as any).enableBankTransfer ?? false,
       enableEwallet: (tenant as any).enableEwallet ?? false,
+      showVariants: (tenant as any).showVariants ?? true,
+      showToppings: (tenant as any).showToppings ?? true,
     },
     branch: branch ? {
       id: branch.id,
@@ -281,7 +283,7 @@ router.get("/menu/:slug/products", async (req, res): Promise<void> => {
       imageUrl: p.imageUrl,
       isAvailable: p.isActive,
       stock: p.stock,
-      variantSettings: null,
+      variantSettings: p.variantSettings,
       publicMenuCategoryId: p.categoryId,
       isBestSeller: p.isBestSeller,
     }));
@@ -318,11 +320,22 @@ router.post("/menu/:slug/orders", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Menu tidak ditemukan" }); return;
   }
 
-  const { orderType, customerName, customerPhone, tableNumber,
+  const { branchId, orderType, customerName, customerPhone, tableNumber,
     deliveryAddress, deliveryNotes, deliveryFee, paymentMethod, items, notes } = req.body;
 
   if (!customerName || !items || items.length === 0) {
     res.status(400).json({ error: "Nama pelanggan dan item pesanan wajib diisi" }); return;
+  }
+
+  let activeBranchId = Number(branchId);
+  if (!activeBranchId) {
+    const branches = await db.select().from(branchesTable).where(eq(branchesTable.tenantId, tenant.id)).limit(1);
+    if (branches.length > 0) {
+      activeBranchId = branches[0].id;
+    } else {
+      res.status(400).json({ error: "Tenant tidak memiliki cabang terdaftar" });
+      return;
+    }
   }
 
   const productIds = items.map((i: any) => i.productId);
@@ -346,7 +359,7 @@ router.post("/menu/:slug/orders", async (req, res): Promise<void> => {
   const orderNum = `MENU-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
   const [order] = await db.insert(customerOrdersTable).values({
-    orderNumber: orderNum, tenantId: tenant.id,
+    orderNumber: orderNum, tenantId: tenant.id, branchId: activeBranchId,
     orderType: orderType ?? "dine_in", customerName,
     customerPhone: customerPhone ?? null, tableNumber: tableNumber ?? null,
     deliveryAddress: deliveryAddress ?? null, deliveryNotes: deliveryNotes ?? null,
@@ -356,7 +369,7 @@ router.post("/menu/:slug/orders", async (req, res): Promise<void> => {
   }).returning();
 
   const insertedItems = await db.insert(customerOrderItemsTable)
-    .values(orderItems.map((i: any) => ({ ...i, customerOrderId: order.id }))).returning();
+    .values(orderItems.map((i: any) => ({ ...i, customerOrderId: order.id, tenantId: tenant.id, branchId: activeBranchId }))).returning();
 
   const formatted = formatCustomerOrder(order, insertedItems);
   broadcastNewOrder(tenant.id, formatted);
@@ -491,6 +504,7 @@ router.patch("/tenant/settings", async (req, res): Promise<void> => {
   const allowed = [
     "slug", "enableDineIn", "enableTakeAway", "enableDelivery",
     "enableCash", "enableQris", "enableBankTransfer", "enableEwallet",
+    "showVariants", "showToppings",
   ];
   const updates: Record<string, any> = {};
   for (const key of allowed) {

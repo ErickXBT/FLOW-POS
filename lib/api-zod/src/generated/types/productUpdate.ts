@@ -20,4 +20,6 @@ export interface ProductUpdate {
   categoryId?: number | null;
   isActive?: boolean;
   isBestSeller?: boolean;
+  /** @nullable */
+  variantSettings?: string | null;
 }

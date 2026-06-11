@@ -38,6 +38,7 @@ export default function QrManagerPage() {
     enableDineIn: true, enableTakeAway: true, enableDelivery: false,
     enableCash: true, enableQris: true, enableBankTransfer: false, enableEwallet: false,
     deliveryFeeNear: 0, deliveryFeeFar: 5000,
+    showVariants: true, showToppings: true,
   });
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
@@ -89,6 +90,8 @@ export default function QrManagerPage() {
         enableEwallet: t.enableEwallet ?? false,
         deliveryFeeNear: t.deliveryFeeNear !== undefined ? Number(t.deliveryFeeNear) : 0,
         deliveryFeeFar: t.deliveryFeeFar !== undefined ? Number(t.deliveryFeeFar) : 5000,
+        showVariants: t.showVariants ?? true,
+        showToppings: t.showToppings ?? true,
       });
     }
     setLoading(false);
@@ -282,7 +285,7 @@ export default function QrManagerPage() {
           </button>
         </div>
         
-        <div className="grid grid-cols-2 gap-6 pt-2">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
           <div>
             <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-3">Jenis Pesanan</div>
             <div className="space-y-3">
@@ -346,6 +349,31 @@ export default function QrManagerPage() {
                 { key: "enableQris", label: "QRIS", emoji: "📱" },
                 { key: "enableBankTransfer", label: "Transfer Bank", emoji: "🏦" },
                 { key: "enableEwallet", label: "E-Wallet", emoji: "💳" },
+              ].map(({ key, label, emoji }) => (
+                <div key={key} className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setSettings(s => ({ ...s, [key]: !(s as any)[key] }))}
+                    className={`w-9 h-5 rounded-full transition-colors relative focus:outline-none flex-shrink-0 ${(settings as any)[key] ? "bg-primary" : "bg-zinc-300"}`}
+                  >
+                    <span
+                      className={`absolute top-[2px] left-[2px] w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${(settings as any)[key] ? "translate-x-4" : "translate-x-0"}`}
+                    />
+                  </button>
+                  <span className="text-sm font-medium text-foreground flex items-center gap-1.5 font-sans">
+                    <span>{emoji}</span> {label}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-3">Modul Menu / Tambahan</div>
+            <div className="space-y-3">
+              {[
+                { key: "showVariants", label: "Pilihan Ukuran / Varian", emoji: "🏷️" },
+                { key: "showToppings", label: "Topping / Tambahan", emoji: "➕" },
               ].map(({ key, label, emoji }) => (
                 <div key={key} className="flex items-center gap-3">
                   <button

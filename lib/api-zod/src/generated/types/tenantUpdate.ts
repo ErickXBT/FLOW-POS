@@ -19,4 +19,6 @@ export interface TenantUpdate {
   enableDelivery?: boolean;
   deliveryFeeNear?: number;
   deliveryFeeFar?: number;
+  showVariants?: boolean;
+  showToppings?: boolean;
 }

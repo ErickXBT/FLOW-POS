@@ -191,8 +191,8 @@ router.post("/orders", async (req, res): Promise<void> => {
           quantity: i.quantity,
           price: String(i.price),
           subtotal: String(i.price * i.quantity),
-          variantSelection: null,
-          notes: null,
+          variantSelection: i.variantSelection ?? null,
+          notes: i.notes ?? null,
         }))
       );
 
@@ -203,6 +203,8 @@ router.post("/orders", async (req, res): Promise<void> => {
         quantity: i.quantity,
         price: Number(i.price),
         subtotal: Number(i.price * i.quantity),
+        variantSelection: i.variantSelection ?? null,
+        notes: i.notes ?? null,
       }));
 
       const formatted = {
@@ -216,7 +218,7 @@ router.post("/orders", async (req, res): Promise<void> => {
         items: itemsForBroadcast,
       };
 
-      broadcastNewOrder(claims.tenantId, formatted);
+      broadcastNewOrder(claims.tenantId!, formatted);
     }
   } catch (err) {
     console.error("Failed to sync POS order to KDS/customer_orders:", err);
