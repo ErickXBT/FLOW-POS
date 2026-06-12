@@ -219,7 +219,7 @@ export default function QrManagerPage() {
         
         <div className="flex gap-2">
           <div className="flex-1 flex items-center bg-muted/40 rounded-lg border border-input px-3 py-2 text-sm">
-            <span className="text-muted-foreground font-medium select-none pr-1">yourapp.com/menu/</span>
+            <span className="text-muted-foreground font-medium select-none pr-1">flowapp.id/menu/</span>
             <input
               value={slugInput}
               onChange={e => setSlugInput(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))}
