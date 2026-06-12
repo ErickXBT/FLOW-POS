@@ -37,12 +37,6 @@ app.use("/api/uploads", express.static(path.join(process.cwd(), "uploads")));
 
 // Dynamic SEO menu preview endpoint for crawlers / shared links
 app.get("/menu/:slug", async (req, res, next) => {
-  const accept = req.headers.accept || "";
-  // Check if request expects HTML (like browsers and link-preview crawlers)
-  if (!accept.includes("text/html")) {
-    return next();
-  }
-
   const { slug } = req.params;
 
   try {
