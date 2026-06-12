@@ -274,6 +274,7 @@ function InviteModal({ employee, onClose }: { employee: any; onClose: () => void
 
 export default function EmployeesPage() {
   const { user } = useAuth();
+  const isFashion = user?.businessType === "fashion";
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);
