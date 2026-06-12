@@ -143,10 +143,11 @@ app.get("/menu/:slug", async (req, res, next) => {
       );
     }
 
+    res.setHeader("X-Served-By", "Express-SEO-Preview");
     res.setHeader("Content-Type", "text/html");
     return res.send(html);
-  } catch (err) {
-    logger.error({ err, slug }, "Error rendering dynamic SEO menu page");
+  } catch (err: any) {
+    logger.error({ err, message: err?.message, slug }, "Error rendering dynamic SEO menu page");
     return next();
   }
 });
