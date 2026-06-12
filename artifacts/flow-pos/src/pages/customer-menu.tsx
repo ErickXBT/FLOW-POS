@@ -128,7 +128,7 @@ const loadLeaflet = (cb: () => void) => {
 };
 
 // ── Tracking View Component ──────────────────────────────────────────────────
-function TrackingView({ orderId, slug, primary, onBack }: { orderId: number; slug: string; primary: string; onBack: () => void }) {
+function TrackingView({ orderId, slug, primary, onBack, isFashion }: { orderId: number; slug: string; primary: string; onBack: () => void; isFashion: boolean }) {
   const [order, setOrder] = useState<any>(null);
   const [error, setError] = useState("");
 
@@ -165,7 +165,23 @@ function TrackingView({ orderId, slug, primary, onBack }: { orderId: number; slu
     </div>
   );
 
-  const curr = STATUS_STEPS[order.status];
+  const statusSteps = isFashion ? {
+    pending:     { label: "Menunggu Konfirmasi", icon: Clock, step: 1 },
+    confirmed:   { label: "Pesanan Dikonfirmasi", icon: CheckCircle2, step: 2 },
+    preparing:   { label: "Sedang Dipacking", icon: Package, step: 3 },
+    ready:       { label: "Siap Dikirim/Diambil", icon: Package, step: 4 },
+    on_delivery: { label: "Dalam Pengiriman", icon: Truck, step: 5 },
+    completed:   { label: "Pesanan Selesai", icon: Star, step: 6 },
+    cancelled:   { label: "Pesanan Dibatalkan", icon: X, step: 0 },
+  } : STATUS_STEPS;
+
+  const displayOrderTypeLabels = isFashion ? {
+    dine_in: "Coba di Fitting Room (Dine In)",
+    take_away: "Ambil di Toko (Pick Up)",
+    delivery: "Antar ke Alamat (Delivery)",
+  } : ORDER_TYPE_LABELS;
+
+  const curr = (statusSteps as any)[order.status];
   const steps = ["confirmed", "preparing", "ready", order.orderType === "delivery" ? "on_delivery" : null, "completed"].filter(Boolean) as string[];
 
   return (
@@ -184,7 +200,7 @@ function TrackingView({ orderId, slug, primary, onBack }: { orderId: number; slu
           {curr && <curr.icon className="mx-auto mb-3 animate-pulse" size={40} />}
           <div className="text-xl font-black">{curr?.label ?? order.status.toUpperCase()}</div>
           <div className="text-xs opacity-90 mt-1.5 bg-white/20 inline-block px-3 py-1 rounded-full font-bold">
-            {ORDER_TYPE_LABELS[order.orderType] ?? order.orderType}
+            {displayOrderTypeLabels[order.orderType] ?? order.orderType}
           </div>
         </div>
 
@@ -194,7 +210,7 @@ function TrackingView({ orderId, slug, primary, onBack }: { orderId: number; slu
             <div className="text-xs font-bold text-gray-400 uppercase tracking-wide">Status Alur Kerja</div>
             <div className="relative flex justify-between items-center">
               {steps.map((s, i) => {
-                const step = STATUS_STEPS[s];
+                const step = (statusSteps as any)[s];
                 const done = (curr?.step ?? 0) >= (step?.step ?? 0);
                 return (
                   <div key={s} className="flex flex-col items-center gap-1.5 flex-1 relative z-10">
@@ -241,7 +257,7 @@ function TrackingView({ orderId, slug, primary, onBack }: { orderId: number; slu
           <div className="text-xs text-gray-500 space-y-2 border-b pb-3">
             <div className="flex justify-between"><span>Nama Pelanggan</span><span className="font-bold text-gray-800">{order.customerName}</span></div>
             {order.customerPhone && <div className="flex justify-between"><span>Nomor Telepon</span><span className="font-bold text-gray-800">{order.customerPhone}</span></div>}
-            {order.tableNumber && <div className="flex justify-between"><span>Nomor Meja</span><span className="font-bold text-gray-800">Meja #{order.tableNumber}</span></div>}
+            {order.tableNumber && <div className="flex justify-between"><span>{isFashion ? "Fitting Room / Area" : "Nomor Meja"}</span><span className="font-bold text-gray-800">{isFashion ? "Fitting Room" : "Meja"} #{order.tableNumber}</span></div>}
             <div className="flex justify-between"><span>Metode Pembayaran</span><span className="font-bold text-gray-800">{PAY_LABELS[order.paymentMethod] ?? order.paymentMethod}</span></div>
           </div>
           <div className="space-y-3">
@@ -593,7 +609,7 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
     setModalNotes("");
     
     let variants = DEFAULT_VARIANTS;
-    let toppings = DEFAULT_TOPPINGS;
+    let toppings = isFashion ? [] : DEFAULT_TOPPINGS;
 
     if (product.variantSettings) {
       try {
@@ -606,11 +622,11 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
         }
       } catch (e) {
         variants = DEFAULT_VARIANTS;
-        toppings = DEFAULT_TOPPINGS;
+        toppings = isFashion ? [] : DEFAULT_TOPPINGS;
       }
     } else {
       variants = DEFAULT_VARIANTS;
-      toppings = DEFAULT_TOPPINGS;
+      toppings = isFashion ? [] : DEFAULT_TOPPINGS;
     }
 
     setModalVariantsList(variants);
@@ -694,7 +710,7 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
         
         const settingsStr = item.product.variantSettings;
         let variantsList = DEFAULT_VARIANTS;
-        let toppingsList = DEFAULT_TOPPINGS;
+        let toppingsList = isFashion ? [] : DEFAULT_TOPPINGS;
         
         if (settingsStr) {
           try {
@@ -755,7 +771,7 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
 
   const handleSubmitOrder = async () => {
     if (!form.customerName.trim()) { setSubmitError("Nama pelanggan wajib diisi"); return; }
-    if (orderType === "dine_in" && !form.tableNumber.trim()) { setSubmitError("Nomor meja wajib diisi"); return; }
+    if (orderType === "dine_in" && !form.tableNumber.trim()) { setSubmitError(isFashion ? "Nomor fitting room wajib diisi" : "Nomor meja wajib diisi"); return; }
     if (orderType === "delivery" && !form.deliveryAddress.trim()) { setSubmitError("Alamat pengiriman wajib diisi"); return; }
     if (orderType !== "dine_in" && !form.customerPhone.trim()) { setSubmitError("Nomor telepon wajib diisi"); return; }
     
@@ -808,11 +824,18 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
     setSubmitting(false);
   };
 
+  const isFashion = tenant?.businessType === "fashion";
+  const displayOrderTypeLabels = isFashion ? {
+    dine_in: "Coba di Fitting Room",
+    take_away: "Ambil di Toko",
+    delivery: "Antar ke Alamat",
+  } : ORDER_TYPE_LABELS;
+
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="text-center">
         <div className="w-10 h-10 border-3 border-t-transparent rounded-full animate-spin mx-auto mb-3" style={{ borderColor: primary, borderTopColor: "transparent" }} />
-        <div className="text-sm font-bold text-gray-500">Memuat Menu Branded...</div>
+        <div className="text-sm font-bold text-gray-500">{isFashion ? "Memuat Katalog Branded..." : "Memuat Menu Branded..."}</div>
       </div>
     </div>
   );
@@ -820,15 +843,15 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
   if (error || !tenant || !menu) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
       <div className="text-center bg-white p-8 rounded-3xl shadow-sm border max-w-sm">
-        <div className="text-6xl mb-4">🍽️</div>
-        <div className="text-xl font-black text-gray-800 mb-2">Menu Tidak Aktif</div>
-        <div className="text-gray-400 text-sm mb-6">{error || "Menu restoran tidak ditemukan atau sedang dinonaktifkan."}</div>
+        <div className="text-6xl mb-4">{isFashion ? "👗" : "🍽️"}</div>
+        <div className="text-xl font-black text-gray-800 mb-2">{isFashion ? "Katalog Tidak Aktif" : "Menu Tidak Aktif"}</div>
+        <div className="text-gray-400 text-sm mb-6">{error || (isFashion ? "Katalog toko tidak ditemukan atau sedang dinonaktifkan." : "Menu restoran tidak ditemukan atau sedang dinonaktifkan.")}</div>
       </div>
     </div>
   );
 
   if (step === "success" && trackingId) {
-    return <TrackingView orderId={trackingId} slug={slug!} primary={primary} onBack={() => { setStep("menu"); setTrackingId(null); }} />;
+    return <TrackingView orderId={trackingId} slug={slug!} primary={primary} onBack={() => { setStep("menu"); setTrackingId(null); }} isFashion={isFashion} />;
   }
 
   return (
@@ -932,7 +955,7 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
             {bestSellers.map(p => (
               <div key={p.id} onClick={() => handleOpenDetailModal(p)} className="flex-none w-64 bg-white border border-gray-100 rounded-3xl p-3 shadow-sm hover:shadow-md transition-shadow cursor-pointer flex gap-3">
                 <div className="w-20 h-20 bg-gray-50 rounded-2xl flex-shrink-0 overflow-hidden relative">
-                  {p.imageUrl ? <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" /> : <span className="text-3xl flex items-center justify-center h-full">🍔</span>}
+                  {p.imageUrl ? <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" /> : <span className="text-3xl flex items-center justify-center h-full">{isFashion ? "👗" : "🍔"}</span>}
                   {p.isBestSeller ? (
                     <span className="absolute top-1 left-1 bg-amber-500 text-black font-extrabold text-[8px] px-1.5 py-0.5 rounded-md flex items-center gap-0.5 leading-none">🔥 BEST</span>
                   ) : (
@@ -942,7 +965,7 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
                 <div className="flex-1 min-w-0 flex flex-col justify-between">
                   <div>
                     <div className="font-bold text-xs text-gray-800 truncate">{p.name}</div>
-                    <p className="text-[10px] text-gray-400 line-clamp-2 mt-0.5 leading-relaxed">{p.description || "Rasa lezat tiada tanding."}</p>
+                    <p className="text-[10px] text-gray-400 line-clamp-2 mt-0.5 leading-relaxed">{p.description || (isFashion ? "Koleksi pakaian premium terbaik." : "Rasa lezat tiada tanding.")}</p>
                   </div>
                   <div className="flex items-baseline gap-1.5">
                     <span className="text-xs font-black text-red-500">{formatRp(p.promoPrice || p.price)}</span>
@@ -965,7 +988,7 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Cari makanan & minuman favorit..."
+                placeholder={isFashion ? "Cari pakaian & produk favorit..." : "Cari makanan & minuman favorit..."}
                 className="w-full pl-9 pr-4 py-2.5 bg-gray-100 border border-transparent focus:border-gray-200 rounded-2xl text-xs text-gray-700 focus:outline-none transition-all"
               />
             </div>
@@ -977,7 +1000,7 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
               onClick={() => setActiveCat(null)}
               className={`flex-none px-4 py-2 rounded-full text-xs font-bold transition-all ${!activeCat ? "text-white shadow-sm" : "bg-gray-50 text-gray-600 border"}`}
               style={!activeCat ? { backgroundColor: primary } : {}}
-            >Semua Menu</button>
+            >{isFashion ? "Semua Produk" : "Semua Menu"}</button>
             {categories.map(c => (
               <button key={c.id}
                 onClick={() => setActiveCat(c.id)}
@@ -993,8 +1016,8 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
       <div className="p-4 max-w-7xl mx-auto w-full">
         {filteredProducts.length === 0 ? (
           <div className="text-center py-16 text-gray-400 bg-white rounded-3xl border border-gray-100">
-            <div className="text-5xl mb-3">🍽️</div>
-            <div className="text-sm font-semibold">Menu tidak ditemukan</div>
+            <div className="text-5xl mb-3">{isFashion ? "👗" : "🍽️"}</div>
+            <div className="text-sm font-semibold">{isFashion ? "Produk tidak ditemukan" : "Menu tidak ditemukan"}</div>
             <p className="text-xs text-gray-300 mt-1">Coba gunakan kata kunci pencarian lain.</p>
           </div>
         ) : (
@@ -1086,14 +1109,14 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
                   return displayImg ? (
                     <img src={displayImg} alt={selectedProduct.name} className="w-full h-full object-cover" />
                   ) : (
-                    <span className="text-6xl">🍛</span>
+                    <span className="text-6xl">{isFashion ? "👗" : "🍛"}</span>
                   );
                 })()}
               </div>
               <div className="p-5 space-y-4">
                 <div>
                   <h2 className="text-lg font-black text-gray-900 leading-tight">{selectedProduct.name}</h2>
-                  <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">{selectedProduct.description || "Menu istimewa yang dibuat dengan bahan segar berkualitas tinggi."}</p>
+                  <p className="text-xs text-gray-500 mt-1.5 leading-relaxed">{selectedProduct.description || (isFashion ? "Koleksi pakaian premium terbaik dengan bahan berkualitas tinggi." : "Menu istimewa yang dibuat dengan bahan segar berkualitas tinggi.")}</p>
                 </div>
 
                 {/* Bundling items list */}
@@ -1131,7 +1154,7 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
                   }
                   return tenant?.showVariants !== false && modalVariantsList.length > 0 && (
                     <div className="space-y-2">
-                      <div className="text-xs font-black text-gray-700 uppercase tracking-wide">Pilihan Ukuran / Varian</div>
+                      <div className="text-xs font-black text-gray-700 uppercase tracking-wide">{isFashion ? "Varian Ukuran / Warna" : "Pilihan Ukuran / Varian"}</div>
                       <div className="flex gap-2">
                         {modalVariantsList.map(v => (
                           <button key={v.name} onClick={() => setModalVariant(v.name)}
@@ -1153,7 +1176,7 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
                       if (parsed.isBundle) return null;
                     } catch (e) {}
                   }
-                  return tenant?.showToppings !== false && modalToppingsList.length > 0 && (
+                  return !isFashion && tenant?.showToppings !== false && modalToppingsList.length > 0 && (
                     <div className="space-y-2">
                       <div className="text-xs font-black text-gray-700 uppercase tracking-wide">Topping / Tambahan</div>
                       <div className="grid grid-cols-2 gap-2">
@@ -1306,10 +1329,12 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
                   className={`w-full p-5 rounded-3xl border text-left flex gap-4 transition-all hover:bg-white hover:shadow-sm ${orderType === "dine_in" ? "bg-white border-2" : "bg-white/60"}`}
                   style={orderType === "dine_in" ? { borderColor: primary } : {}}
                 >
-                  <div className="text-3xl bg-blue-50 p-3 rounded-2xl">🪑</div>
+                  <div className="text-3xl bg-blue-50 p-3 rounded-2xl">{isFashion ? "👚" : "🪑"}</div>
                   <div>
-                    <div className="font-bold text-gray-900 text-sm">Makan di Tempat</div>
-                    <p className="text-xs text-gray-400 mt-1 leading-relaxed">Pesan dan makan langsung di meja restoran</p>
+                    <div className="font-bold text-gray-900 text-sm">{isFashion ? "Coba di Fitting Room" : "Makan di Tempat"}</div>
+                    <p className="text-xs text-gray-400 mt-1 leading-relaxed">
+                      {isFashion ? "Pesan pakaian untuk dicoba langsung di Fitting Room / Kamar Pas" : "Pesan dan makan langsung di meja restoran"}
+                    </p>
                   </div>
                 </button>
               )}
@@ -1322,8 +1347,10 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
                 >
                   <div className="text-3xl bg-amber-50 p-3 rounded-2xl">🛍️</div>
                   <div>
-                    <div className="font-bold text-gray-900 text-sm">Bawa Pulang</div>
-                    <p className="text-xs text-gray-400 mt-1 leading-relaxed">Pesan online, ambil langsung di outlet kasir</p>
+                    <div className="font-bold text-gray-900 text-sm">{isFashion ? "Ambil di Toko" : "Bawa Pulang"}</div>
+                    <p className="text-xs text-gray-400 mt-1 leading-relaxed">
+                      {isFashion ? "Pesan online, ambil langsung di kasir toko" : "Pesan online, ambil langsung di outlet kasir"}
+                    </p>
                   </div>
                 </button>
               )}
@@ -1337,7 +1364,9 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
                   <div className="text-3xl bg-purple-50 p-3 rounded-2xl">🛵</div>
                   <div>
                     <div className="font-bold text-gray-900 text-sm">Antar ke Alamat</div>
-                    <p className="text-xs text-gray-400 mt-1 leading-relaxed">Kurir kami akan mengantarkan pesanan langsung ke pintu Anda</p>
+                    <p className="text-xs text-gray-400 mt-1 leading-relaxed">
+                      {isFashion ? "Kurir akan mengirimkan pakaian langsung ke alamat Anda" : "Kurir kami akan mengantarkan pesanan langsung ke pintu Anda"}
+                    </p>
                   </div>
                 </button>
               )}
@@ -1355,7 +1384,7 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
               <button onClick={() => setStep("order-type")} className="text-gray-500 hover:bg-gray-100 p-1.5 rounded-full"><ArrowLeft size={18} /></button>
               <div>
                 <div className="font-black text-gray-900 text-sm">Lengkapi Data Pemesanan</div>
-                <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{ORDER_TYPE_LABELS[orderType]}</div>
+                <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{displayOrderTypeLabels[orderType]}</div>
               </div>
             </div>
 
@@ -1381,10 +1410,10 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
 
                 {orderType === "dine_in" && (
                   <div>
-                    <label className="text-xs font-bold text-gray-600 block mb-1">Nomor Meja *</label>
+                    <label className="text-xs font-bold text-gray-600 block mb-1">{isFashion ? "Nomor Fitting Room *" : "Nomor Meja *"}</label>
                     <input value={form.tableNumber} onChange={e => setForm(f => ({ ...f, tableNumber: e.target.value }))}
-                      placeholder="Nomor meja yang Anda duduki"
-                      className="w-full px-4 py-3 bg-gray-50 rounded-2xl text-xs border border-transparent focus:border-gray-200 focus:bg-white focus:outline-none transition-all" />
+                      placeholder={isFashion ? "Nomor Fitting Room / Kabin Anda" : "Nomor meja yang Anda duduki"}
+                      className="w-full px-4 py-3 bg-gray-55 rounded-2xl text-xs border border-transparent focus:border-gray-200 focus:bg-white focus:outline-none transition-all" />
                   </div>
                 )}
 

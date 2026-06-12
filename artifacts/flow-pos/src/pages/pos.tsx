@@ -28,6 +28,7 @@ function formatRp(val: number) {
 
 export default function POSPage() {
   const { data: tenant } = useGetTenant();
+  const isFashion = tenant?.businessType === "fashion";
   const [search, setSearch] = useState("");
   const [activeCat, setActiveCat] = useState<number | null>(null);
 
@@ -179,7 +180,7 @@ export default function POSPage() {
     setModalNotes("");
     
     let variants = DEFAULT_VARIANTS;
-    let toppings = DEFAULT_TOPPINGS;
+    let toppings = isFashion ? [] : DEFAULT_TOPPINGS;
 
     if (product.variantSettings) {
       try {
@@ -192,11 +193,11 @@ export default function POSPage() {
         }
       } catch (e) {
         variants = DEFAULT_VARIANTS;
-        toppings = DEFAULT_TOPPINGS;
+        toppings = isFashion ? [] : DEFAULT_TOPPINGS;
       }
     } else {
       variants = DEFAULT_VARIANTS;
-      toppings = DEFAULT_TOPPINGS;
+      toppings = isFashion ? [] : DEFAULT_TOPPINGS;
     }
 
     setModalVariantsList(variants);
@@ -588,9 +589,9 @@ export default function POSPage() {
             </div>
             <div className="grid grid-cols-3 gap-1.5">
               {[
-                { value: "dine_in", label: "Dine In", icon: "🪑" },
-                { value: "take_away", label: "Bawa Pulang", icon: "🛍️" },
-                { value: "delivery", label: "Delivery", icon: "🛵" }
+                { value: "dine_in", label: isFashion ? "Fitting Room" : "Dine In", icon: isFashion ? "👚" : "🪑" },
+                { value: "take_away", label: isFashion ? "Ambil di Toko" : "Bawa Pulang", icon: "🛍️" },
+                { value: "delivery", label: isFashion ? "Kirim Kurir" : "Delivery", icon: "🛵" }
               ].map(ot => (
                 <button
                   key={ot.value}
@@ -620,10 +621,10 @@ export default function POSPage() {
             {/* Dine-in inputs */}
             {orderType === "dine_in" && (
               <div className="space-y-1">
-                <label className="text-[10px] font-semibold text-muted-foreground">Nomor Meja</label>
+                <label className="text-[10px] font-semibold text-muted-foreground">{isFashion ? "Nomor Fitting Room" : "Nomor Meja"}</label>
                 <input
                   type="text"
-                  placeholder="Contoh: Meja #5"
+                  placeholder={isFashion ? "Contoh: Kabin #3" : "Contoh: Meja #5"}
                   value={tableNumber}
                   onChange={e => setTableNumber(e.target.value)}
                   className="w-full px-3 py-2 border border-input rounded-lg text-xs bg-background focus:outline-none focus:ring-1 focus:ring-primary"
@@ -778,7 +779,7 @@ export default function POSPage() {
                 if (parsedSettings?.isBundle) return null;
                 return tenant?.showVariants !== false && modalVariantsList.length > 0 && (
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Pilihan Ukuran / Varian</label>
+                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">{isFashion ? "Ukuran / Warna (Varian)" : "Pilihan Ukuran / Varian"}</label>
                     <div className="grid grid-cols-2 gap-2">
                       {modalVariantsList.map((v) => (
                         <button
@@ -808,7 +809,7 @@ export default function POSPage() {
                   try { return JSON.parse(selectedProduct.variantSettings); } catch (e) { return null; }
                 })();
                 if (parsedSettings?.isBundle) return null;
-                return tenant?.showToppings !== false && modalToppingsList.length > 0 && (
+                return !isFashion && tenant?.showToppings !== false && modalToppingsList.length > 0 && (
                   <div className="space-y-2">
                     <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Topping / Tambahan</label>
                     <div className="grid grid-cols-2 gap-2">

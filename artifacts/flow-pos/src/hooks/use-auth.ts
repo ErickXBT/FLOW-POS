@@ -23,6 +23,7 @@ export interface AuthUser {
   permissions?: string[];
   branchId?: number | null;
   branchName?: string | null;
+  businessType?: string;
 }
 
 export function getStoredToken(): string | null {

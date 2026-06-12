@@ -33,7 +33,34 @@ const ROLE_COLORS: Record<string, string> = {
   staff: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
 };
 
+const getDisplayRoleLabel = (role: string, isFashion: boolean) => {
+  if (isFashion) {
+    if (role === "cashier") return "Kasir Retail";
+    if (role === "kitchen_staff") return "Staff Packing";
+    if (role === "delivery_staff") return "Kurir Toko";
+  }
+  return ROLE_LABELS[role] ?? role;
+};
+
+const getDisplayRolesList = (isFashion: boolean) => {
+  if (!isFashion) return ALL_ROLES;
+  return ALL_ROLES.map(r => {
+    if (r.value === "cashier") {
+      return { ...r, label: "Kasir Retail", desc: "POS dan transaksi ritel" };
+    }
+    if (r.value === "kitchen_staff") {
+      return { ...r, label: "Staff Packing", icon: "📦", desc: "Packing display system" };
+    }
+    if (r.value === "delivery_staff") {
+      return { ...r, label: "Kurir Toko", desc: "Pesanan kurir toko" };
+    }
+    return r;
+  });
+};
+
 function EmployeeForm({ initial, onSubmit, onClose, loading }: any) {
+  const { user } = useAuth();
+  const isFashion = user?.businessType === "fashion";
   const { data: branches } = useListBranches();
   const { data: customRoles } = useListRoles();
 
@@ -123,7 +150,7 @@ function EmployeeForm({ initial, onSubmit, onClose, loading }: any) {
 
             {roleType === "standard" ? (
               <div className="grid grid-cols-1 gap-2">
-                {ALL_ROLES.map(r => (
+                {getDisplayRolesList(isFashion).map(r => (
                   <button key={r.value} type="button" onClick={() => setForm(p => ({ ...p, role: r.value }))}
                     className={`flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-colors ${form.role === r.value ? "border-primary bg-primary/5" : "border-border hover:border-border/80"}`}>
                     <span className="text-xl">{r.icon}</span>
@@ -170,6 +197,8 @@ function EmployeeForm({ initial, onSubmit, onClose, loading }: any) {
 }
 
 function InviteModal({ employee, onClose }: { employee: any; onClose: () => void }) {
+  const { user } = useAuth();
+  const isFashion = user?.businessType === "fashion";
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [done, setDone] = useState(false);
@@ -202,7 +231,7 @@ function InviteModal({ employee, onClose }: { employee: any; onClose: () => void
             <div className="text-4xl mb-3">✅</div>
             <div className="font-semibold text-foreground mb-1">Akun berhasil dibuat!</div>
             <div className="text-sm text-muted-foreground mb-1">Email: <strong>{employee.email}</strong></div>
-            <div className="text-sm text-muted-foreground mb-4">Role: <strong>{ROLE_LABELS[employee.role] ?? employee.role}</strong></div>
+            <div className="text-sm text-muted-foreground mb-4">Role: <strong>{getDisplayRoleLabel(employee.role, isFashion)}</strong></div>
             <div className="bg-muted rounded-xl px-4 py-3 text-xs text-muted-foreground mb-4">
               Karyawan dapat login dengan email dan password yang ditetapkan. Dashboard akan disesuaikan dengan role mereka.
             </div>
@@ -214,7 +243,7 @@ function InviteModal({ employee, onClose }: { employee: any; onClose: () => void
               <div className="text-sm font-medium text-foreground">{employee.name}</div>
               <div className="text-xs text-muted-foreground">{employee.email}</div>
               <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_COLORS[employee.role] ?? "bg-primary/10 text-primary"}`}>
-                {ROLE_LABELS[employee.role] ?? employee.role}
+                {getDisplayRoleLabel(employee.role, isFashion)}
               </span>
             </div>
             {!employee.email && (
@@ -340,7 +369,7 @@ export default function EmployeesPage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <span className="font-semibold text-foreground text-sm md:text-base">{emp.name}</span>
                     <span className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${isCustomRole ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400" : (ROLE_COLORS[emp.role] ?? "bg-muted text-muted-foreground")}`}>
-                      {isCustomRole ? `Role Custom: ${customRoleName || emp.role}` : (ROLE_LABELS[emp.role] ?? emp.role)}
+                      {isCustomRole ? `Role Custom: ${customRoleName || emp.role}` : getDisplayRoleLabel(emp.role, isFashion)}
                     </span>
                     {branchName && (
                       <span className="text-xs px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-600 dark:bg-blue-950/20 dark:text-blue-400 flex items-center gap-1">

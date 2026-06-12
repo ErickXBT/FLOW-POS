@@ -59,6 +59,13 @@ export async function getUserExtraDetails(userId: number, role: string, tenantId
   if (!tenantId || role === "super_admin") {
     return { permissions: role === "super_admin" ? ["super_admin"] : [], branchId: null, branchName: null };
   }
+
+  const [tenant] = await db
+    .select({ businessType: tenantsTable.businessType })
+    .from(tenantsTable)
+    .where(eq(tenantsTable.id, tenantId))
+    .limit(1);
+  const businessType = tenant?.businessType || "fnb";
   
   if (role === "owner") {
     return {
@@ -68,7 +75,8 @@ export async function getUserExtraDetails(userId: number, role: string, tenantId
         "view_pos", "view_kitchen", "view_delivery", "view_activity_logs", "view_sessions"
       ],
       branchId: null,
-      branchName: null
+      branchName: null,
+      businessType,
     };
   }
 
@@ -86,7 +94,7 @@ export async function getUserExtraDetails(userId: number, role: string, tenantId
     .limit(1);
 
   if (!emp) {
-    return { permissions: getDefaultPermissions(role), branchId: null, branchName: null };
+    return { permissions: getDefaultPermissions(role), branchId: null, branchName: null, businessType };
   }
 
   let permissions: string[] = [];
@@ -100,6 +108,7 @@ export async function getUserExtraDetails(userId: number, role: string, tenantId
     permissions,
     branchId: emp.employee.branchId,
     branchName: emp.branchName || null,
+    businessType,
   };
 }
 

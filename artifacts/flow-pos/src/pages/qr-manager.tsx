@@ -42,6 +42,8 @@ export default function QrManagerPage() {
   });
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
+  const [businessType, setBusinessType] = useState("fnb");
+  const isFashion = businessType === "fashion";
   const token = useRef(localStorage.getItem("flow_token") ?? "");
 
   async function fetchData() {
@@ -80,6 +82,7 @@ export default function QrManagerPage() {
     });
     if (rt.ok) {
       const t = await rt.json();
+      setBusinessType(t.businessType || "fnb");
       setSettings({
         enableDineIn: t.enableDineIn ?? true,
         enableTakeAway: t.enableTakeAway ?? true,
@@ -207,14 +210,14 @@ export default function QrManagerPage() {
   return (
     <div className="p-6 space-y-6 max-w-4xl font-sans">
       <div>
-        <h1 className="text-xl font-bold text-foreground">QR Menu & Online Order</h1>
-        <p className="text-muted-foreground text-sm">Kelola link menu publik dan QR code meja</p>
+        <h1 className="text-xl font-bold text-foreground">{isFashion ? "QR Katalog & Pesanan Online" : "QR Menu & Online Order"}</h1>
+        <p className="text-muted-foreground text-sm">{isFashion ? "Kelola link katalog publik dan QR code fitting room" : "Kelola link menu publik dan QR code meja"}</p>
       </div>
 
       {/* Card 1: Link Menu Publik */}
       <div className="bg-card border border-card-border rounded-xl p-5 shadow-sm space-y-4">
         <div className="flex items-center gap-2 font-semibold text-foreground">
-          <Globe size={18} className="text-primary" /> Link Menu Publik
+          <Globe size={18} className="text-primary" /> {isFashion ? "Link Katalog Publik" : "Link Menu Publik"}
         </div>
         
         <div className="flex gap-2">
@@ -236,7 +239,7 @@ export default function QrManagerPage() {
         
         {!slug && (
           <div className="text-amber-600 text-xs bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-            ⚠️ Tentukan slug terlebih dahulu untuk mengaktifkan pembuatan QR Code Menu publik
+            ⚠️ {isFashion ? "Tentukan slug terlebih dahulu untuk mengaktifkan pembuatan QR Code Katalog publik" : "Tentukan slug terlebih dahulu untuk mengaktifkan pembuatan QR Code Menu publik"}
           </div>
         )}
 
@@ -256,15 +259,17 @@ export default function QrManagerPage() {
 
             <div className="bg-muted/10 border border-border rounded-xl p-4 flex gap-4 items-center">
               {storeQrImg ? (
-                <img src={storeQrImg} alt="QR Code Toko" className="w-24 h-24 rounded-lg border border-border flex-shrink-0 bg-white p-1" />
+                <img src={storeQrImg} alt={isFashion ? "QR Code Katalog Toko" : "QR Code Toko"} className="w-24 h-24 rounded-lg border border-border flex-shrink-0 bg-white p-1" />
               ) : (
                 <div className="w-24 h-24 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 p-1">
                   <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                 </div>
               )}
               <div className="space-y-1.5 flex-1">
-                <div className="font-bold text-foreground text-sm">QR Code Toko</div>
-                <p className="text-muted-foreground text-xs leading-relaxed">Pelanggan scan QR ini untuk membuka menu langsung di ponsel mereka</p>
+                <div className="font-bold text-foreground text-sm">{isFashion ? "QR Code Katalog Toko" : "QR Code Toko"}</div>
+                <p className="text-muted-foreground text-xs leading-relaxed">
+                  {isFashion ? "Pelanggan scan QR ini untuk membuka katalog langsung di ponsel mereka" : "Pelanggan scan QR ini untuk membuka menu langsung di ponsel mereka"}
+                </p>
                 <button onClick={() => downloadQR(storeQrImg, `store-${slug}`)}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground text-xs font-semibold rounded-lg hover:bg-primary/90 transition-colors mt-1">
                   <Download size={13} /> Download QR
@@ -278,7 +283,7 @@ export default function QrManagerPage() {
       {/* Card 2: Pengaturan Menu Online */}
       <div className="bg-card border border-card-border rounded-xl p-5 shadow-sm space-y-4">
         <div className="flex items-center justify-between">
-          <div className="font-semibold text-foreground text-sm font-sans">Pengaturan Menu Online</div>
+          <div className="font-semibold text-foreground text-sm font-sans">{isFashion ? "Pengaturan Katalog Online" : "Pengaturan Menu Online"}</div>
           <button onClick={saveSettings} disabled={settingsSaving}
             className="flex items-center gap-1.5 text-xs bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 font-semibold font-sans">
             {settingsSaved ? <><Check size={12} /> Tersimpan</> : settingsSaving ? "Menyimpan..." : "Simpan Pengaturan"}
@@ -290,8 +295,8 @@ export default function QrManagerPage() {
             <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-3">Jenis Pesanan</div>
             <div className="space-y-3">
               {[
-                { key: "enableDineIn", label: "Makan di Tempat", emoji: "🪑" },
-                { key: "enableTakeAway", label: "Bawa Pulang", emoji: "🛍️" },
+                { key: "enableDineIn", label: isFashion ? "Coba di Fitting Room" : "Makan di Tempat", emoji: isFashion ? "👚" : "🪑" },
+                { key: "enableTakeAway", label: isFashion ? "Ambil di Toko" : "Bawa Pulang", emoji: "🛍️" },
                 { key: "enableDelivery", label: "Antar ke Alamat", emoji: "🛵" },
               ].map(({ key, label, emoji }) => (
                 <div key={key} className="flex items-center gap-3">
@@ -369,12 +374,12 @@ export default function QrManagerPage() {
           </div>
 
           <div>
-            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-3">Modul Menu / Tambahan</div>
+            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-3">{isFashion ? "Modul Katalog / Varian" : "Modul Menu / Tambahan"}</div>
             <div className="space-y-3">
               {[
-                { key: "showVariants", label: "Pilihan Ukuran / Varian", emoji: "🏷️" },
-                { key: "showToppings", label: "Topping / Tambahan", emoji: "➕" },
-              ].map(({ key, label, emoji }) => (
+                { key: "showVariants", label: isFashion ? "Varian Ukuran / Warna" : "Pilihan Ukuran / Varian", emoji: "🏷️" },
+                !isFashion && { key: "showToppings", label: "Topping / Tambahan", emoji: "➕" },
+              ].filter(Boolean).map(({ key, label, emoji }: any) => (
                 <div key={key} className="flex items-center gap-3">
                   <button
                     type="button"
@@ -399,13 +404,13 @@ export default function QrManagerPage() {
       {slug && (
         <div className="bg-card border border-card-border rounded-xl p-5 shadow-sm space-y-4">
           <div className="font-semibold text-foreground text-sm flex items-center gap-2">
-            <QrCode size={18} className="text-primary" /> QR Code per Meja
+            <QrCode size={18} className="text-primary" /> {isFashion ? "QR Code per Fitting Room" : "QR Code per Meja"}
           </div>
           
           <div className="flex flex-col md:flex-row gap-3">
             <input
               type="text"
-              placeholder="Nomor meja (contoh: 5)"
+              placeholder={isFashion ? "Nomor fitting room (contoh: 3)" : "Nomor meja (contoh: 5)"}
               value={newTable}
               onChange={e => setNewTable(e.target.value)}
               className="flex-1 px-4 py-2 border border-border rounded-lg bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary transition-all font-sans"
@@ -436,14 +441,14 @@ export default function QrManagerPage() {
                 return (
                   <div key={qr.id} className="border border-border rounded-xl p-4 flex gap-4 bg-muted/10 items-start">
                     {qrImg ? (
-                      <img src={qrImg} alt={`QR Meja ${qr.tableId}`} className="w-24 h-24 rounded-lg border border-border flex-shrink-0 bg-white p-1" />
+                      <img src={qrImg} alt={isFashion ? `QR Fitting Room ${qr.tableId}` : `QR Meja ${qr.tableId}`} className="w-24 h-24 rounded-lg border border-border flex-shrink-0 bg-white p-1" />
                     ) : (
                       <div className="w-24 h-24 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
                         <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                       </div>
                     )}
                     <div className="flex-1 min-w-0 space-y-1">
-                      <div className="font-bold text-foreground text-sm font-sans">Meja {qr.tableId}</div>
+                      <div className="font-bold text-foreground text-sm font-sans">{isFashion ? "Fitting Room" : "Meja"} {qr.tableId}</div>
                       <div className="text-xs text-muted-foreground flex items-center gap-1 font-sans"><MapPin size={10} /> {branchName}</div>
                       {qr.label && <div className="text-xs text-primary font-semibold font-sans">Tag: {qr.label}</div>}
                       <div className="text-[10px] font-mono text-muted-foreground truncate">{url}</div>
@@ -455,7 +460,7 @@ export default function QrManagerPage() {
                           Salin Link
                         </button>
                         {qrImg && (
-                          <button onClick={() => downloadQR(qrImg, `qr-meja-${qr.tableId}`)}
+                          <button onClick={() => downloadQR(qrImg, isFashion ? `qr-fitting-${qr.tableId}` : `qr-meja-${qr.tableId}`)}
                             className="flex items-center gap-1 text-[10px] bg-primary/10 text-primary px-2 py-1 rounded-md hover:bg-primary/20 transition-colors font-sans">
                             <Download size={10} /> Save PNG
                           </button>

@@ -19,7 +19,24 @@ const ALL_PERMISSIONS = [
   { key: "manage_employees", label: "Kelola Karyawan", desc: "Menambah karyawan, assign role, atur cabang dan buat akun login", category: "Karyawan & Akses" },
 ];
 
+const getDisplayPermissions = (isFashion: boolean) => {
+  return ALL_PERMISSIONS.map(p => {
+    if (p.key === "view_kitchen") {
+      return {
+        ...p,
+        label: isFashion ? "Display Packing (PDS)" : "Display Dapur (KDS)",
+        desc: isFashion
+          ? "Melihat pesanan masuk dan mengubah status packing/pengemasan produk"
+          : "Melihat pesanan masuk dan mengubah status pengerjaan makanan",
+      };
+    }
+    return p;
+  });
+};
+
 function RoleForm({ initial, onSubmit, onClose, loading }: any) {
+  const { user } = useAuth();
+  const isFashion = user?.businessType === "fashion";
   const [name, setName] = useState(initial?.name || "");
   const [selected, setSelected] = useState<string[]>(initial?.permissions || []);
 
@@ -29,7 +46,7 @@ function RoleForm({ initial, onSubmit, onClose, loading }: any) {
     );
   };
 
-  const categories = Array.from(new Set(ALL_PERMISSIONS.map(p => p.category)));
+  const categories = Array.from(new Set(getDisplayPermissions(isFashion).map(p => p.category)));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
@@ -62,7 +79,7 @@ function RoleForm({ initial, onSubmit, onClose, loading }: any) {
                 <div key={cat} className="space-y-2.5">
                   <h3 className="text-xs font-bold uppercase tracking-wider text-primary border-b border-border pb-1.5">{cat}</h3>
                   <div className="grid md:grid-cols-2 gap-3">
-                    {ALL_PERMISSIONS.filter(p => p.category === cat).map(p => {
+                    {getDisplayPermissions(isFashion).filter(p => p.category === cat).map(p => {
                       const checked = selected.includes(p.key);
                       return (
                         <button
@@ -104,6 +121,7 @@ function RoleForm({ initial, onSubmit, onClose, loading }: any) {
 
 export default function RolesPage() {
   const { user } = useAuth();
+  const isFashion = user?.businessType === "fashion";
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);
@@ -195,7 +213,7 @@ export default function RolesPage() {
                 </div>
                 <div className="flex flex-wrap gap-1 mt-3">
                   {r.permissions.map((p: string) => {
-                    const label = ALL_PERMISSIONS.find(ap => ap.key === p)?.label || p;
+                    const label = getDisplayPermissions(isFashion).find(ap => ap.key === p)?.label || p;
                     return (
                       <span key={p} className="text-[10px] font-medium bg-muted text-foreground px-2 py-0.5 rounded">
                         {label}

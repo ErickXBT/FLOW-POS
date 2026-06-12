@@ -28,6 +28,40 @@ function timeAgo(iso: string) {
 export default function CustomerOrdersPage() {
   const { user } = useAuth();
   const [orders, setOrders] = useState<any[]>([]);
+  const isFashion = user?.businessType === "fashion";
+
+  const getStatusConfig = (status: string) => {
+    const defaultCfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.pending;
+    if (!isFashion) return defaultCfg;
+
+    if (status === "preparing") {
+      return {
+        ...defaultCfg,
+        label: "Sedang Dipacking",
+        icon: Package,
+      };
+    }
+    if (status === "ready") {
+      return {
+        ...defaultCfg,
+        label: "Siap Kirim/Ambil",
+      };
+    }
+    return defaultCfg;
+  };
+
+  const displayTypeLabels = isFashion ? {
+    dine_in: "Fitting Room",
+    take_away: "Ambil di Toko",
+    delivery: "Kirim Kurir",
+  } : TYPE_LABEL;
+
+  const displayTypeIcons = isFashion ? {
+    dine_in: "👚",
+    take_away: "🛍️",
+    delivery: "🛵",
+  } : TYPE_ICON;
+
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("");
   const [connected, setConnected] = useState(false);
@@ -129,8 +163,8 @@ export default function CustomerOrdersPage() {
           { v: "", label: "Semua" },
           { v: "pending", label: "Menunggu" },
           { v: "confirmed", label: "Dikonfirmasi" },
-          { v: "preparing", label: "Diproses" },
-          { v: "ready", label: "Siap" },
+          { v: "preparing", label: isFashion ? "Sedang Dipacking" : "Diproses" },
+          { v: "ready", label: isFashion ? "Siap Kirim/Ambil" : "Siap" },
           { v: "on_delivery", label: "Dikirim" },
           { v: "completed", label: "Selesai" },
           { v: "cancelled", label: "Dibatalkan" },
@@ -150,12 +184,12 @@ export default function CustomerOrdersPage() {
         <div className="text-center py-20">
           <div className="text-5xl mb-3">📋</div>
           <div className="text-muted-foreground text-sm">Belum ada pesanan online</div>
-          <p className="text-xs text-muted-foreground mt-1">Bagikan link QR Menu ke pelanggan Anda</p>
+          <p className="text-xs text-muted-foreground mt-1">{isFashion ? "Bagikan link QR Katalog ke pelanggan Anda" : "Bagikan link QR Menu ke pelanggan Anda"}</p>
         </div>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {orders.map(order => {
-            const cfg = STATUS_CONFIG[order.status] ?? STATUS_CONFIG.pending;
+            const cfg = getStatusConfig(order.status);
             const Icon = cfg.icon;
             const isNew = order.status === "pending";
             return (
@@ -176,8 +210,8 @@ export default function CustomerOrdersPage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
-                    <span>{TYPE_ICON[order.orderType]} {TYPE_LABEL[order.orderType] ?? order.orderType}</span>
-                    {order.tableNumber && <span>• Meja #{order.tableNumber}</span>}
+                    <span>{displayTypeIcons[order.orderType]} {displayTypeLabels[order.orderType] ?? order.orderType}</span>
+                    {order.tableNumber && <span>• {isFashion ? "Fitting Room" : "Meja"} #{order.tableNumber}</span>}
                     <span>• {PAY_LABEL[order.paymentMethod] ?? order.paymentMethod}</span>
                   </div>
                 </div>
@@ -237,14 +271,14 @@ export default function CustomerOrdersPage() {
                     <button onClick={() => updateStatus(order.id, "preparing")}
                       disabled={updating === order.id}
                       className="w-full py-2 rounded-xl text-xs font-semibold bg-purple-600 text-white hover:bg-purple-700 transition-colors disabled:opacity-60">
-                      {updating === order.id ? "..." : "🍳 Mulai Memasak"}
+                      {updating === order.id ? "..." : isFashion ? "📦 Mulai Packing" : "🍳 Mulai Memasak"}
                     </button>
                   )}
                   {order.status === "preparing" && (
                     <button onClick={() => updateStatus(order.id, order.orderType === "delivery" ? "on_delivery" : "ready")}
                       disabled={updating === order.id}
                       className="w-full py-2 rounded-xl text-xs font-semibold bg-green-600 text-white hover:bg-green-700 transition-colors disabled:opacity-60">
-                      {updating === order.id ? "..." : (order.orderType === "delivery" ? "🛵 Kirim Sekarang" : "✓ Siap Diambil")}
+                      {updating === order.id ? "..." : (order.orderType === "delivery" ? "🛵 Kirim Sekarang" : (isFashion ? "✓ Siap Dikirim/Ambil" : "✓ Siap Diambil"))}
                     </button>
                   )}
                   {(order.status === "ready" || order.status === "on_delivery") && (

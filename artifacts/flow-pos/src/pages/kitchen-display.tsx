@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { ChefHat, Clock, CheckCircle2, Package, RefreshCw, Wifi, WifiOff, Bell } from "lucide-react";
+import { ChefHat, Clock, CheckCircle2, Package, RefreshCw, Wifi, WifiOff, Bell, ShoppingBag } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -100,15 +100,17 @@ export default function KitchenDisplayPage() {
   const pendingOrders = orders.filter(o => o.status === "pending" || o.status === "confirmed");
   const preparingOrders = orders.filter(o => o.status === "preparing");
 
+  const isFashion = user?.businessType === "fashion";
+
   return (
     <div className="min-h-screen bg-gray-955 text-white flex flex-col" style={{ backgroundColor: "#0b0f19" }}>
       {/* Top bar */}
       <header className="bg-gray-900 border-b border-gray-800 px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <ChefHat size={22} className="text-orange-400" />
+          {isFashion ? <ShoppingBag size={22} className="text-blue-400" /> : <ChefHat size={22} className="text-orange-400" />}
           <div>
-            <div className="font-bold text-white">Kitchen Display System</div>
-            <div className="text-xs text-gray-400">Tampilan Dapur {user?.branchName ? `(${user.branchName})` : ""}</div>
+            <div className="font-bold text-white">{isFashion ? "Packing Display System" : "Kitchen Display System"}</div>
+            <div className="text-xs text-gray-400">{isFashion ? "Tampilan Pengemasan" : "Tampilan Dapur"} {user?.branchName ? `(${user.branchName})` : ""}</div>
           </div>
         </div>
         <div className="flex items-center gap-4">
@@ -163,8 +165,8 @@ export default function KitchenDisplayPage() {
           <div className="flex flex-col">
             <div className="px-4 py-3 bg-purple-900/20 border-b border-gray-800 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <ChefHat size={16} className="text-purple-400" />
-                <span className="font-semibold text-purple-300 text-sm">Sedang Dimasak</span>
+                {isFashion ? <ShoppingBag size={16} className="text-purple-400" /> : <ChefHat size={16} className="text-purple-400" />}
+                <span className="font-semibold text-purple-300 text-sm">{isFashion ? "Sedang Dipacking" : "Sedang Dimasak"}</span>
               </div>
               {preparingOrders.length > 0 && (
                 <span className="bg-purple-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{preparingOrders.length}</span>
@@ -173,7 +175,7 @@ export default function KitchenDisplayPage() {
             <div className="flex-1 overflow-y-auto p-3 space-y-3">
               {preparingOrders.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-gray-600 py-16">
-                  <ChefHat size={40} className="mb-3 opacity-30" />
+                  {isFashion ? <ShoppingBag size={40} className="mb-3 opacity-30" /> : <ChefHat size={40} className="mb-3 opacity-30" />}
                   <div className="text-sm">Tidak ada pesanan diproses</div>
                 </div>
               ) : preparingOrders.map(order => (
@@ -189,6 +191,8 @@ export default function KitchenDisplayPage() {
 }
 
 function KitchenOrderCard({ order, updating, onConfirm, onPrepare, onReady, onCancel }: any) {
+  const { user } = useAuth();
+  const isFashion = user?.businessType === "fashion";
   const [tick, setTick] = useState(0);
   useEffect(() => { const iv = setInterval(() => setTick(t => t + 1), 30000); return () => clearInterval(iv); }, []);
   const mins = Math.floor((Date.now() - new Date(order.createdAt).getTime()) / 60000);
@@ -202,7 +206,7 @@ function KitchenOrderCard({ order, updating, onConfirm, onPrepare, onReady, onCa
           <div className="font-bold text-white text-sm">{order.customerName}</div>
           <div className="text-xs text-gray-400 flex items-center gap-2 mt-0.5">
             <span>{TYPE_ICON[order.orderType]} {TYPE_LABEL[order.orderType]}</span>
-            {order.tableNumber && <span className="bg-gray-700 px-1.5 py-0.5 rounded text-gray-300">Meja #{order.tableNumber}</span>}
+            {order.tableNumber && <span className="bg-gray-700 px-1.5 py-0.5 rounded text-gray-300">{isFashion ? "Fitting Room" : "Meja"} #{order.tableNumber}</span>}
           </div>
         </div>
         <div className={`text-right ${isUrgent ? "text-red-400" : "text-gray-400"}`}>
@@ -237,7 +241,7 @@ function KitchenOrderCard({ order, updating, onConfirm, onPrepare, onReady, onCa
           <>
             <button onClick={onPrepare} disabled={updating === order.id}
               className="flex-1 py-2 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-xs font-bold transition-colors disabled:opacity-50">
-              {updating === order.id ? "..." : "🍳 Mulai Masak"}
+              {updating === order.id ? "..." : isFashion ? "📦 Mulai Packing" : "🍳 Mulai Masak"}
             </button>
             {onCancel && (
               <button onClick={onCancel} disabled={updating === order.id}
@@ -250,7 +254,7 @@ function KitchenOrderCard({ order, updating, onConfirm, onPrepare, onReady, onCa
         {order.status === "preparing" && (
           <button onClick={onReady} disabled={updating === order.id}
             className="flex-1 py-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-bold transition-colors disabled:opacity-50">
-            {updating === order.id ? "..." : "✓ Siap Disajikan"}
+            {updating === order.id ? "..." : isFashion ? "✓ Siap Dikirim" : "✓ Siap Disajikan"}
           </button>
         )}
       </div>

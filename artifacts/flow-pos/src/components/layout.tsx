@@ -4,7 +4,7 @@ import {
   LayoutDashboard, ShoppingCart, Package, Tag, ClipboardList,
   Users, UserCheck, BarChart3, Warehouse, Settings,
   Shield, LogOut, Menu, X, Sun, Moon, Smartphone,
-  ChefHat, Truck, Activity, MapPin, ShieldCheck, QrCode
+  ChefHat, Truck, Activity, MapPin, ShieldCheck, QrCode, ShoppingBag
 } from "lucide-react";
 import flowLogo from "@assets/FLOW_LOGO_1780799864457.png";
 import type { AuthUser } from "@/hooks/use-auth";
@@ -51,6 +51,7 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
     navItems.push({ href: "/admin", label: "Super Admin", icon: <Shield size={18} /> });
   } else {
     // Normal / Custom tenant users
+    const isFashion = user.businessType === "fashion";
     if (hasPermission(user, "view_dashboard")) {
       navItems.push({ href: "/dashboard", label: "Dashboard", icon: <LayoutDashboard size={18} /> });
     }
@@ -61,7 +62,11 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
       navItems.push({ href: "/customer-orders", label: "Pesanan Online", icon: <Smartphone size={18} /> });
     }
     if (hasPermission(user, "view_kitchen")) {
-      navItems.push({ href: "/kitchen", label: "Display Dapur", icon: <ChefHat size={18} /> });
+      navItems.push({
+        href: "/kitchen",
+        label: isFashion ? "Display Packing" : "Display Dapur",
+        icon: isFashion ? <ShoppingBag size={18} /> : <ChefHat size={18} />
+      });
     }
     if (hasPermission(user, "view_delivery")) {
       navItems.push({ href: "/delivery", label: "Delivery", icon: <Truck size={18} /> });
@@ -91,7 +96,11 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
       navItems.push({ href: "/reports", label: "Laporan", icon: <BarChart3 size={18} /> });
     }
     if (hasPermission(user, "manage_qr_menu")) {
-      navItems.push({ href: "/qr-menu", label: "QR Menu", icon: <QrCode size={18} /> });
+      navItems.push({
+        href: "/qr-menu",
+        label: isFashion ? "QR Katalog" : "QR Menu",
+        icon: <QrCode size={18} />
+      });
     }
     if (hasPermission(user, "view_activity_logs")) {
       navItems.push({ href: "/activity-logs", label: "Log Aktivitas", icon: <Activity size={18} /> });
