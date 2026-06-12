@@ -71,7 +71,7 @@ export default function LoginPage({ onLogin }: { onLogin: (token: string, user: 
         </div>
         <div>
           <h2 className="text-white text-4xl font-bold leading-tight mb-4">
-            Kelola bisnis Anda<br />lebih efisien dengan<br />Flow POS
+            Kelola bisnis Anda<br />lebih efisien dengan<br />FlowApp
           </h2>
           <p className="text-white/80 text-lg font-medium">
             Platform POS multi-tenant modern untuk restoran, kafe, fashion, salon, dan minimarket.

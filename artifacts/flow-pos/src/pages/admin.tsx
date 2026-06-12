@@ -145,7 +145,7 @@ export default function AdminPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-foreground tracking-tight">Super Admin Dashboard</h1>
-            <p className="text-muted-foreground text-sm">Pusat kendali ekosistem SaaS Flow POS</p>
+            <p className="text-muted-foreground text-sm">Pusat kendali ekosistem SaaS FlowApp</p>
           </div>
         </div>
         <div className="flex gap-2">
@@ -937,7 +937,7 @@ function SettingsTab() {
   const [loading, setLoading] = useState(false);
 
   const value = (dbSettings?.value as any) || {
-    branding: { title: "Flow POS Platform", primaryColor: "#1D4EF5" },
+    branding: { title: "FlowApp Platform", primaryColor: "#1D4EF5" },
     gateways: { qrisActive: true, stripeActive: false, xenditActive: true },
     tax: { defaultRate: 11, active: true },
     email: { smtpHost: "smtp.mailtrap.io", smtpPort: 2525, active: true },

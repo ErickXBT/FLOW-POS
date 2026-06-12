@@ -70,15 +70,15 @@ export default function ResetPasswordPage() {
   return (
     <div className="min-h-screen bg-background flex">
       {/* Left branding */}
-      <div className="hidden lg:flex flex-col justify-between w-1/2 bg-[hsl(var(--sidebar))] p-12">
+      <div className="hidden lg:flex flex-col justify-between w-1/2 bg-primary p-12">
         <div>
           <img src={flowLogo} alt="Flow" className="h-10 brightness-0 invert" />
         </div>
         <div>
           <h2 className="text-white text-4xl font-bold leading-tight mb-4">
-            Kelola bisnis Anda<br />lebih efisien dengan<br />Flow POS
+            Kelola bisnis Anda<br />lebih efisien dengan<br />FlowApp
           </h2>
-          <p className="text-[hsl(var(--sidebar-foreground))] opacity-60 text-lg">
+          <p className="text-white/80 text-lg font-medium">
             Platform POS multi-tenant modern untuk restoran, kafe, fashion, salon, dan minimarket.
           </p>
         </div>
@@ -86,7 +86,7 @@ export default function ResetPasswordPage() {
           {[["10K+", "Bisnis"], ["1M+", "Transaksi"], ["99.9%", "Uptime"]].map(([num, label]) => (
             <div key={label}>
               <div className="text-white text-2xl font-bold">{num}</div>
-              <div className="text-[hsl(var(--sidebar-foreground))] opacity-50 text-sm">{label}</div>
+              <div className="text-white/60 text-sm font-medium">{label}</div>
             </div>
           ))}
         </div>
