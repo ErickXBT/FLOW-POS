@@ -530,6 +530,37 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
     }
   }, [tenant]);
 
+  useEffect(() => {
+    if (tenant) {
+      document.title = `${tenant.name} - Menu Online`;
+
+      const updateMeta = (name: string, content: string, isProperty = false) => {
+        let el = document.querySelector(isProperty ? `meta[property="${name}"]` : `meta[name="${name}"]`);
+        if (!el) {
+          el = document.createElement("meta");
+          if (isProperty) el.setAttribute("property", name);
+          else el.setAttribute("name", name);
+          document.head.appendChild(el);
+        }
+        el.setAttribute("content", content);
+      };
+
+      const description = tenant.bio || `Menu digital online resmi dari ${tenant.name}. Silakan pesan menu favorit Anda secara online langsung dari smartphone Anda.`;
+      updateMeta("description", description);
+      updateMeta("og:title", `${tenant.name} - Menu Online`, true);
+      updateMeta("og:description", description, true);
+      
+      const absoluteLogoUrl = tenant.logoUrl
+        ? (tenant.logoUrl.startsWith("http") ? tenant.logoUrl : `${window.location.origin}${tenant.logoUrl}`)
+        : `${window.location.origin}/flow_logo.png`;
+
+      updateMeta("og:image", absoluteLogoUrl, true);
+      updateMeta("twitter:title", `${tenant.name} - Menu Online`);
+      updateMeta("twitter:description", description);
+      updateMeta("twitter:image", absoluteLogoUrl);
+    }
+  }, [tenant]);
+
   const primary = tenant?.primaryColor ?? "#1D4EF5";
 
   // Sync cart data to backend on update
