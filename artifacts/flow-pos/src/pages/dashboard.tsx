@@ -272,15 +272,7 @@ function OwnerDashboard() {
         }
       } catch (err) {}
       
-      const defaults = isFashion ? [
-        { id: 1, title: "Spesial Weekend: Diskon 20% Koleksi Denim", bgColor: "#8B5CF6", textColor: "#FFFFFF" },
-        { id: 2, title: "Promo Member Baru: Cashback Rp 50.000", bgColor: "#10B981", textColor: "#FFFFFF" },
-      ] : [
-        { id: 1, title: "Spesial Weekend: Beli 1 Gratis 1 Latte", bgColor: "#1D4EF5", textColor: "#FFFFFF" },
-        { id: 2, title: "Diskon 20% bagi Pelanggan Setia POS", bgColor: "#10B981", textColor: "#FFFFFF" },
-      ];
-      setMarketingBanners(defaults);
-      localStorage.setItem(`flow_marketing_banners_${tenant.id}`, JSON.stringify(defaults));
+      setMarketingBanners([]);
     }
   }, [tenant?.id, isFashion]);
 
@@ -358,7 +350,7 @@ function OwnerDashboard() {
   useEffect(() => {
     if (isDemo && tenant?.id) {
       const stored = localStorage.getItem(`flow_coupons_${tenant.id}`);
-      if (!stored || JSON.parse(stored).length === 0) {
+      if (!stored) {
         let defaults = [];
         if (isFashion) {
           defaults = [
@@ -383,7 +375,7 @@ function OwnerDashboard() {
   useEffect(() => {
     if (isDemo && tenant?.id) {
       const stored = localStorage.getItem(`flow_expenses_${tenant.id}`);
-      if (!stored || JSON.parse(stored).length === 0) {
+      if (!stored) {
         const demoExpenses = [
           { id: 1, desc: "Sewa Tempat (Bulanan)", category: "Operasional", amount: 4500000, date: "2026-06-01" },
           { id: 2, desc: "Gaji Karyawan (Grup)", category: "Gaji", amount: 7800000, date: "2026-06-05" },

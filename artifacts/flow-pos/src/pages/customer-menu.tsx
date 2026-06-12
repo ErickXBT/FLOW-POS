@@ -523,14 +523,7 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
           if (oldStored) {
             setPromoBanners(JSON.parse(oldStored));
           } else {
-            const defaults = tenant.businessType === "fashion" ? [
-              { id: 1, title: "Spesial Weekend: Diskon 20% Koleksi Denim", bgColor: "#8B5CF6", textColor: "#FFFFFF" },
-              { id: 2, title: "Promo Member Baru: Cashback Rp 50.000", bgColor: "#10B981", textColor: "#FFFFFF" },
-            ] : [
-              { id: 1, title: "Spesial Weekend: Beli 1 Gratis 1 Latte", bgColor: "#1D4EF5", textColor: "#FFFFFF" },
-              { id: 2, title: "Diskon 20% bagi Pelanggan Setia POS", bgColor: "#10B981", textColor: "#FFFFFF" },
-            ];
-            setPromoBanners(defaults);
+            setPromoBanners([]);
           }
         }
       } catch (err) {}
