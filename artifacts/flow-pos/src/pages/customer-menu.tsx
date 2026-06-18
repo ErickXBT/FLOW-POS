@@ -4,7 +4,7 @@ import {
   ShoppingCart, Plus, Minus, Trash2, X, ChevronRight, MapPin,
   Phone, User, FileText, CheckCircle2, Clock, ChefHat,
   Package, Truck, Star, Search, ArrowLeft, QrCode, Sparkles,
-  Map, DollarSign, CreditCard, Bell, Info
+  Map, DollarSign, CreditCard, Bell, Info, Download, ClipboardList
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -128,7 +128,23 @@ const loadLeaflet = (cb: () => void) => {
 };
 
 // ── Tracking View Component ──────────────────────────────────────────────────
-function TrackingView({ orderId, slug, primary, onBack, isFashion }: { orderId: number; slug: string; primary: string; onBack: () => void; isFashion: boolean }) {
+function TrackingView({
+  orderId,
+  slug,
+  primary,
+  onBack,
+  isFashion,
+  tenantName,
+  branchName
+}: {
+  orderId: number;
+  slug: string;
+  primary: string;
+  onBack: () => void;
+  isFashion: boolean;
+  tenantName: string;
+  branchName: string;
+}) {
   const [order, setOrder] = useState<any>(null);
   const [error, setError] = useState("");
 
@@ -145,6 +161,271 @@ function TrackingView({ orderId, slug, primary, onBack, isFashion }: { orderId: 
     const iv = setInterval(fetchOrder, 5000);
     return () => clearInterval(iv);
   }, [fetchOrder]);
+
+  const handleDownloadReceipt = () => {
+    if (!order) return;
+
+    // Create dynamic canvas for print struk
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Helper for word wrap
+    const wordWrap = (str: string, maxLength: number): string[] => {
+      const words = str.split(" ");
+      const lines: string[] = [];
+      let currentLine = "";
+      for (const word of words) {
+        if ((currentLine + " " + word).trim().length <= maxLength) {
+          currentLine = (currentLine + " " + word).trim();
+        } else {
+          if (currentLine) lines.push(currentLine);
+          currentLine = word;
+        }
+      }
+      if (currentLine) lines.push(currentLine);
+      return lines;
+    };
+
+    const formattedDate = new Date(order.createdAt).toLocaleString("id-ID", {
+      day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
+    });
+
+    // 1. Prepare Metadata Rows
+    const metaRows = [
+      { label: "Tanggal", value: formattedDate },
+      { label: "Tipe", value: order.orderType === "dine_in" ? "Dine In" : order.orderType === "take_away" ? "Take Away" : "Delivery" }
+    ];
+    if (order.orderType === "delivery" && order.deliveryAddress) {
+      metaRows.push({ label: "Alamat", value: order.deliveryAddress });
+    } else if (order.orderType === "dine_in" && order.tableNumber) {
+      metaRows.push({ label: "Meja", value: order.tableNumber });
+    }
+    metaRows.push({ label: "Nama", value: order.customerName || "-" });
+    
+    // Get Payment Method Label
+    let paymentLabel = order.paymentMethod;
+    if (order.paymentMethod === "cash" && order.orderType === "delivery") {
+      paymentLabel = "Delivery Cash";
+    } else {
+      switch (order.paymentMethod) {
+        case "cash":
+        case "cashier":
+          paymentLabel = "Cash at Cashier";
+          break;
+        case "qris":
+        case "ewallet":
+          paymentLabel = "QRIS / e-Wallet";
+          break;
+        case "bank_transfer":
+          paymentLabel = "Bank Transfer";
+          break;
+      }
+    }
+    
+    metaRows.push({ label: "Pembayaran", value: paymentLabel });
+    metaRows.push({ label: "Kasir", value: order.employeeName || "seren" });
+
+    // Format Metadata Lines
+    const formattedMetaLines: string[] = [];
+    metaRows.forEach(row => {
+      const paddedLabel = row.label.padEnd(10, " ");
+      const prefix = `${paddedLabel} : `;
+      const valLines = wordWrap(row.value, 29);
+      valLines.forEach((line, idx) => {
+        if (idx === 0) {
+          formattedMetaLines.push(prefix + line);
+        } else {
+          formattedMetaLines.push("".padEnd(13, " ") + line);
+        }
+      });
+    });
+
+    // 2. Prepare Items
+    const processedItems = (order.items || []).map((item: any) => {
+      const nameLines = wordWrap(item.productName, 27);
+      const varLines = item.variantSelection ? wordWrap(item.variantSelection, 45) : [];
+      return { item, nameLines, varLines };
+    });
+
+    // 3. Calculate dynamic canvas height
+    const headerH = 135;
+    const divider1H = 20;
+    const metaH = formattedMetaLines.length * 22;
+    const divider2H = 20;
+    
+    let itemsH = 0;
+    processedItems.forEach(pi => {
+      itemsH += pi.nameLines.length * 22;
+      itemsH += pi.varLines.length * 16;
+      itemsH += 8; // spacing between items
+    });
+    
+    const divider3H = 20;
+    
+    // Totals calculations
+    let totalsCount = 1; // TOTAL
+    if (Number(order.subtotal) > 0) totalsCount++;
+    if ((Number(order.deliveryFee) || 0) > 0) totalsCount++;
+    if ((Number(order.discount) || 0) > 0) totalsCount++;
+    const totalsH = totalsCount * 22 + 25; // separator line spacing
+    
+    const divider4H = 20;
+    const footerH = 80;
+
+    canvas.width = 400;
+    canvas.height = headerH + divider1H + metaH + divider2H + itemsH + divider3H + totalsH + divider4H + footerH;
+
+    // Render receipt background
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = "#000000";
+    ctx.textAlign = "center";
+
+    // Store / Brand name
+    const brandName = tenantName || "FreshMood";
+    ctx.font = "bold 28px 'Courier New', monospace";
+    ctx.fillText(brandName, canvas.width / 2, 45);
+
+    ctx.font = "bold 15px 'Courier New', monospace";
+    ctx.fillText("Struk Pembelian", canvas.width / 2, 75);
+    
+    ctx.font = "14px 'Courier New', monospace";
+    ctx.fillText(`Order #${order.id}`, canvas.width / 2, 98);
+
+    ctx.textAlign = "left";
+    const divider = "------------------------------------------";
+    
+    let y = 125;
+    ctx.font = "14px 'Courier New', monospace";
+    ctx.fillText(divider, 20, y);
+    y += 20;
+
+    // Draw Metadata Lines
+    formattedMetaLines.forEach(line => {
+      ctx.font = "14px 'Courier New', monospace";
+      ctx.fillText(line, 20, y);
+      y += 22;
+    });
+
+    ctx.fillText(divider, 20, y);
+    y += 20;
+
+    // Draw Items
+    processedItems.forEach(pi => {
+      ctx.font = "14px 'Courier New', monospace";
+      
+      // Quantity (orange/brown highlight)
+      ctx.fillStyle = "#d97706";
+      ctx.fillText(`${pi.item.quantity}x`, 20, y);
+      
+      // First line of product name
+      ctx.fillStyle = "#000000";
+      ctx.fillText(pi.nameLines[0], 50, y);
+
+      // Price (right aligned)
+      ctx.textAlign = "right";
+      ctx.font = "bold 14px 'Courier New', monospace";
+      ctx.fillText(formatRp(Number(pi.item.subtotal)), canvas.width - 20, y);
+      ctx.textAlign = "left";
+      y += 22;
+
+      // Other lines of product name
+      ctx.font = "14px 'Courier New', monospace";
+      for (let i = 1; i < pi.nameLines.length; i++) {
+        ctx.fillText(pi.nameLines[i], 50, y);
+        y += 22;
+      }
+
+      // Variant selections
+      ctx.font = "11px 'Courier New', monospace";
+      ctx.fillStyle = "#555555";
+      pi.varLines.forEach(line => {
+        ctx.fillText(line, 50, y);
+        y += 16;
+      });
+      ctx.fillStyle = "#000000";
+      
+      y += 8; // small space after item
+    });
+
+    // Divider
+    ctx.font = "14px 'Courier New', monospace";
+    ctx.fillText(divider, 20, y);
+    y += 20;
+
+    // Totals
+    const drawTotalRow = (label: string, value: string, isBold = false) => {
+      ctx.font = isBold ? "bold 16px 'Courier New', monospace" : "14px 'Courier New', monospace";
+      ctx.fillText(label, 20, y);
+      ctx.textAlign = "right";
+      ctx.fillText(value, canvas.width - 20, y);
+      ctx.textAlign = "left";
+      y += 22;
+    };
+
+    drawTotalRow("Subtotal", formatRp(Number(order.subtotal)));
+    if ((Number(order.deliveryFee) || 0) > 0) {
+      drawTotalRow("Delivery Fee", formatRp(Number(order.deliveryFee)));
+    }
+    if ((Number(order.discount) || 0) > 0) {
+      drawTotalRow("Diskon", `-${formatRp(Number(order.discount))}`);
+    }
+
+    // Horizontal Separator Line before TOTAL
+    y += 5;
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = "#000000";
+    ctx.beginPath();
+    ctx.moveTo(20, y);
+    ctx.lineTo(canvas.width - 20, y);
+    ctx.stroke();
+    y += 20; // safe spacing after the line
+
+    drawTotalRow("TOTAL", formatRp(Number(order.total)), true);
+
+    ctx.font = "14px 'Courier New', monospace";
+    ctx.fillText(divider, 20, y);
+    y += 20;
+
+    // Footer
+    ctx.textAlign = "center";
+    ctx.font = "italic 13px 'Courier New', monospace";
+    ctx.fillText(`Terima kasih telah memesan di ${brandName}!`, canvas.width / 2, y);
+    y += 20;
+    ctx.fillText("Selamat menikmati 🍽️", canvas.width / 2, y);
+
+    // Trigger image download
+    let tenantCode = "FM";
+    if (brandName) {
+      const lower = brandName.toLowerCase();
+      if (lower.includes("freshmood") || lower.includes("fresh mood")) {
+        tenantCode = "FM";
+      } else {
+        const words = brandName.trim().split(/\s+/);
+        if (words.length >= 2) {
+          tenantCode = (words[0].charAt(0) + words[1].charAt(0)).toUpperCase();
+        } else {
+          tenantCode = brandName.slice(0, 2).toUpperCase();
+        }
+      }
+    }
+    const filename = `${tenantCode}${order.id}.jpg`;
+
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.style.display = "none";
+      link.download = filename;
+      link.href = url;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+    }, "image/jpeg", 0.95);
+  };
 
   if (error) return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
@@ -269,7 +550,7 @@ function TrackingView({ orderId, slug, primary, onBack, isFashion }: { orderId: 
                 </div>
                 {item.variantSelection && (
                   <div className="text-[10px] text-gray-400 mt-0.5">
-                    {JSON.parse(item.variantSelection)}
+                    {item.variantSelection}
                   </div>
                 )}
                 {item.notes && <div className="text-[10px] text-amber-600 mt-0.5 italic">"Catatan: {item.notes}"</div>}
@@ -287,6 +568,14 @@ function TrackingView({ orderId, slug, primary, onBack, isFashion }: { orderId: 
             </div>
           </div>
         </div>
+
+        <button
+          onClick={handleDownloadReceipt}
+          className="w-full flex items-center justify-center gap-2 text-white py-3.5 rounded-2xl font-bold text-sm shadow-md hover:opacity-95 transition-opacity mb-3"
+          style={{ backgroundColor: primary }}
+        >
+          <Download size={16} /> Download Struk
+        </button>
 
         <button onClick={onBack} className="w-full bg-white border border-gray-200 py-3.5 rounded-2xl text-gray-700 font-bold text-sm shadow-sm hover:bg-gray-50 transition-colors">
           Kembali Belanja
@@ -412,6 +701,10 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
   const [step, setStep] = useState<"menu" | "order-type" | "form" | "success">("menu");
   const [trackingId, setTrackingId] = useState<number | null>(null);
 
+  // Order history and tracking states
+  const [customerOrders, setCustomerOrders] = useState<any[]>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
+
   // Selected product for detail modal
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [modalVariant, setModalVariant] = useState("");
@@ -445,6 +738,10 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
     });
     return list;
   }, [promoBanners, products]);
+
+  const activeOrders = useMemo(() => {
+    return customerOrders.filter(o => o.status !== "completed" && o.status !== "cancelled");
+  }, [customerOrders]);
 
   // Checkout inputs
   const [orderType, setOrderType] = useState("dine_in");
@@ -527,6 +824,42 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
       setLoading(false);
     })();
   }, [slug]);
+
+  // Load saved orders from localStorage and check status
+  const loadSavedOrders = useCallback(async () => {
+    if (!slug) return;
+    try {
+      const stored = localStorage.getItem(`customer_orders_${slug}`);
+      if (!stored) return;
+      const orderIds = JSON.parse(stored);
+      if (!Array.isArray(orderIds) || orderIds.length === 0) return;
+
+      const fetchedOrders = await Promise.all(
+        orderIds.map(async (id) => {
+          try {
+            const res = await fetch(`${BASE}/api/menu/${slug}/orders/${id}`);
+            if (res.ok) {
+              return await res.json();
+            }
+          } catch (err) {
+            console.error("Error fetching order status:", err);
+          }
+          return null;
+        })
+      );
+
+      const validOrders = fetchedOrders.filter(Boolean);
+      setCustomerOrders(validOrders);
+    } catch (err) {
+      console.error("Failed to load customer orders history:", err);
+    }
+  }, [slug]);
+
+  useEffect(() => {
+    loadSavedOrders();
+    const interval = setInterval(loadSavedOrders, 10000);
+    return () => clearInterval(interval);
+  }, [slug, loadSavedOrders]);
 
   useEffect(() => {
     if (tenant?.id) {
@@ -816,6 +1149,22 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
       }
       
       const order = await r.json();
+      
+      // Save order ID to localStorage
+      try {
+        const stored = localStorage.getItem(`customer_orders_${slug}`);
+        const list = stored ? JSON.parse(stored) : [];
+        if (!list.includes(order.id)) {
+          list.push(order.id);
+          localStorage.setItem(`customer_orders_${slug}`, JSON.stringify(list));
+        }
+        setTimeout(() => {
+          loadSavedOrders();
+        }, 100);
+      } catch (err) {
+        console.error("Failed to save order history:", err);
+      }
+
       setTrackingId(order.id);
       setCart([]);
       syncCartToBackend([]);
@@ -853,7 +1202,17 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
   );
 
   if (step === "success" && trackingId) {
-    return <TrackingView orderId={trackingId} slug={slug!} primary={primary} onBack={() => { setStep("menu"); setTrackingId(null); }} isFashion={isFashion} />;
+    return (
+      <TrackingView
+        orderId={trackingId}
+        slug={slug!}
+        primary={primary}
+        tenantName={tenant?.name || "FreshMood"}
+        branchName={branch?.name || "Utama"}
+        onBack={() => { setStep("menu"); setTrackingId(null); }}
+        isFashion={isFashion}
+      />
+    );
   }
 
   return (
@@ -896,9 +1255,18 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
                 </p>
               )}
             </div>
-            <span className="flex-shrink-0 text-[10px] font-bold bg-green-50 text-green-600 px-3 py-1 rounded-full border border-green-200 uppercase tracking-wide flex items-center gap-1">
-              <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" /> Buka
-            </span>
+            <div className="flex flex-col items-end gap-2 flex-shrink-0">
+              <span className="text-[10px] font-bold bg-green-50 text-green-600 px-3 py-1 rounded-full border border-green-200 uppercase tracking-wide flex items-center gap-1">
+                <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" /> Buka
+              </span>
+              <button
+                onClick={() => setHistoryOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-full text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors shadow-sm"
+              >
+                <ClipboardList size={13} style={{ color: primary }} />
+                <span>Riwayat</span>
+              </button>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-bold text-gray-700 bg-gray-50 p-3 rounded-2xl">
@@ -1615,6 +1983,118 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
                   </>
                 )}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Active Order Floating Notification */}
+      {activeOrders.length > 0 && step === "menu" && (
+        <div className="fixed bottom-24 left-4 right-4 z-35 max-w-md mx-auto w-full animate-slide-up">
+          <button
+            onClick={() => {
+              if (activeOrders.length === 1) {
+                setTrackingId(activeOrders[0].id);
+                setStep("success");
+              } else {
+                setHistoryOpen(true);
+              }
+            }}
+            className="w-full flex items-center justify-between px-5 py-3.5 rounded-3xl bg-amber-500 text-white shadow-xl hover:opacity-95 transition-all border border-amber-400 font-bold text-xs"
+          >
+            <div className="flex items-center gap-2">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+              </span>
+              <span>Pesanan Aktif ({activeOrders.length}): Sedang diproses...</span>
+            </div>
+            <span className="underline font-black">Pantau Pesanan</span>
+          </button>
+        </div>
+      )}
+
+      {/* Order History Modal */}
+      {historyOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+          <div className="relative bg-white rounded-3xl w-full max-w-md flex flex-col shadow-2xl overflow-hidden animate-slide-up border max-h-[80vh]">
+            <div className="bg-white border-b px-5 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ClipboardList size={18} style={{ color: primary }} />
+                <span className="font-black text-gray-900 text-sm">Riwayat & Pelacakan Pesanan</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setHistoryOpen(false)}
+                className="text-gray-400 hover:bg-gray-100 p-1.5 rounded-full"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-4 space-y-3">
+              {customerOrders.length === 0 ? (
+                <div className="text-center py-12 text-gray-400">
+                  <ClipboardList size={48} className="mx-auto mb-3 opacity-25" />
+                  <div className="text-sm font-semibold">Belum ada riwayat pesanan</div>
+                  <p className="text-xs text-gray-300 mt-1">Pesanan Anda akan muncul di sini setelah Anda melakukan order.</p>
+                </div>
+              ) : (
+                [...customerOrders].reverse().map((o) => {
+                  const isActive = o.status !== "completed" && o.status !== "cancelled";
+                  const stepInfo = STATUS_STEPS[o.status] || { label: o.status, icon: Clock };
+                  const formattedDate = new Date(o.createdAt).toLocaleString("id-ID", {
+                    day: "numeric", month: "short", hour: "2-digit", minute: "2-digit"
+                  });
+                  return (
+                    <div key={o.id} className="bg-gray-50 border border-gray-100 rounded-2xl p-4 flex flex-col justify-between gap-3 hover:border-gray-200 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-bold text-xs text-gray-900 font-mono">Order #{o.id}</div>
+                          <div className="text-[10px] text-gray-400 mt-0.5">{formattedDate}</div>
+                        </div>
+                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border flex items-center gap-1 ${
+                          o.status === "completed" ? "bg-green-50 text-green-700 border-green-200" :
+                          o.status === "cancelled" ? "bg-red-50 text-red-700 border-red-200" :
+                          "bg-amber-50 text-amber-700 border-amber-200"
+                        }`}>
+                          {stepInfo.label}
+                        </span>
+                      </div>
+                      
+                      <div className="text-xs text-gray-650 space-y-1">
+                        <div className="flex justify-between">
+                          <span>Tipe Pesanan:</span>
+                          <span className="font-semibold">{ORDER_TYPE_LABELS[o.orderType] || o.orderType}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Total Bayar:</span>
+                          <span className="font-black text-gray-900">{formatRp(Number(o.total))}</span>
+                        </div>
+                      </div>
+                      
+                      <button
+                        onClick={() => {
+                          setTrackingId(o.id);
+                          setStep("success");
+                          setHistoryOpen(false);
+                        }}
+                        className="w-full py-2.5 text-center text-xs font-bold rounded-xl transition-all shadow-sm flex items-center justify-center gap-1.5"
+                        style={{ backgroundColor: primary, color: "#ffffff" }}
+                      >
+                        {isActive ? (
+                          <>
+                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                            <span>Lacak Status Pesanan</span>
+                          </>
+                        ) : (
+                          <span>Lihat Rincian & Struk</span>
+                        )}
+                      </button>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>

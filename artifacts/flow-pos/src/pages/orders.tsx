@@ -94,14 +94,90 @@ function OrderDetail({ id, onClose }: { id: number; onClose: () => void }) {
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Calculate receipt height dynamically
+    // Helper for word wrap
+    const wordWrap = (str: string, maxLength: number): string[] => {
+      const words = str.split(" ");
+      const lines: string[] = [];
+      let currentLine = "";
+      for (const word of words) {
+        if ((currentLine + " " + word).trim().length <= maxLength) {
+          currentLine = (currentLine + " " + word).trim();
+        } else {
+          if (currentLine) lines.push(currentLine);
+          currentLine = word;
+        }
+      }
+      if (currentLine) lines.push(currentLine);
+      return lines;
+    };
+
+    const formattedDate = new Date(order.createdAt).toLocaleString("id-ID", {
+      day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
+    });
+
+    // 1. Prepare Metadata Rows
+    const metaRows = [
+      { label: "Tanggal", value: formattedDate },
+      { label: "Tipe", value: order.orderType === "dine_in" ? "Dine In" : order.orderType === "take_away" ? "Take Away" : "Delivery" }
+    ];
+    if (order.orderType === "delivery" && order.deliveryAddress) {
+      metaRows.push({ label: "Alamat", value: order.deliveryAddress });
+    } else if (order.orderType === "dine_in" && order.tableNumber) {
+      metaRows.push({ label: "Meja", value: order.tableNumber });
+    }
+    metaRows.push({ label: "Nama", value: order.customerName || "-" });
+    metaRows.push({ label: "Pembayaran", value: getPaymentDetails(order).label });
+    metaRows.push({ label: "Kasir", value: order.employeeName || "seren" });
+
+    // Format Metadata Lines
+    const formattedMetaLines: string[] = [];
+    metaRows.forEach(row => {
+      const paddedLabel = row.label.padEnd(10, " ");
+      const prefix = `${paddedLabel} : `;
+      const valLines = wordWrap(row.value, 29);
+      valLines.forEach((line, idx) => {
+        if (idx === 0) {
+          formattedMetaLines.push(prefix + line);
+        } else {
+          formattedMetaLines.push("".padEnd(13, " ") + line);
+        }
+      });
+    });
+
+    // 2. Prepare Items
+    const processedItems = (order.items || []).map((item: any) => {
+      const nameLines = wordWrap(item.productName, 27);
+      const varLines = item.variantSelection ? wordWrap(item.variantSelection, 45) : [];
+      return { item, nameLines, varLines };
+    });
+
+    // 3. Calculate dynamic canvas height
     const headerH = 135;
-    const metaH = 150 + (order.orderType === "delivery" && order.deliveryAddress ? 25 : 0) + (order.orderType === "dine_in" && order.tableNumber ? 25 : 0);
-    const itemsH = (order.items || []).length * 40 + (order.items || []).filter((i: any) => i.variantSelection).length * 18;
-    const totalsH = 110;
+    const divider1H = 20;
+    const metaH = formattedMetaLines.length * 22;
+    const divider2H = 20;
+    
+    let itemsH = 0;
+    processedItems.forEach(pi => {
+      itemsH += pi.nameLines.length * 22;
+      itemsH += pi.varLines.length * 16;
+      itemsH += 8; // spacing between items
+    });
+    
+    const divider3H = 20;
+    
+    // Totals calculations
+    let totalsCount = 1; // TOTAL
+    if (Number(order.subtotal) > 0) totalsCount++;
+    if ((Number(order.deliveryFee) || 0) > 0) totalsCount++;
+    if ((Number(order.discount) || 0) > 0) totalsCount++;
+    const totalsH = totalsCount * 22 + 25; // separator line spacing
+    
+    const divider4H = 20;
     const footerH = 80;
+
     canvas.width = 400;
-    canvas.height = headerH + metaH + itemsH + totalsH + footerH;
+    canvas.height = headerH + divider1H + metaH + divider2H + itemsH + divider3H + totalsH + divider4H + footerH;
 
     // Render receipt background
     ctx.fillStyle = "#ffffff";
@@ -111,8 +187,9 @@ function OrderDetail({ id, onClose }: { id: number; onClose: () => void }) {
     ctx.textAlign = "center";
 
     // Store / Brand name
+    const brandName = (user as any)?.tenantName || user?.branchName || "FreshMood";
     ctx.font = "bold 28px 'Courier New', monospace";
-    ctx.fillText((user as any)?.tenantName || user?.branchName || "FreshMood", canvas.width / 2, 45);
+    ctx.fillText(brandName, canvas.width / 2, 45);
 
     ctx.font = "bold 15px 'Courier New', monospace";
     ctx.fillText("Struk Pembelian", canvas.width / 2, 75);
@@ -122,80 +199,73 @@ function OrderDetail({ id, onClose }: { id: number; onClose: () => void }) {
 
     ctx.textAlign = "left";
     const divider = "------------------------------------------";
-    ctx.fillText(divider, 20, 125);
+    
+    let y = 125;
+    ctx.font = "14px 'Courier New', monospace";
+    ctx.fillText(divider, 20, y);
+    y += 20;
 
-    // Metadata lines
-    let y = 150;
-    const drawRow = (label: string, value: string) => {
-      ctx.font = "bold 14px 'Courier New', monospace";
-      ctx.fillText(label, 25, y);
-      ctx.textAlign = "right";
+    // Draw Metadata Lines
+    formattedMetaLines.forEach(line => {
       ctx.font = "14px 'Courier New', monospace";
-      ctx.fillText(value, canvas.width - 25, y);
-      ctx.textAlign = "left";
-      y += 25;
-    };
-
-    const formattedDate = new Date(order.createdAt).toLocaleString("id-ID", {
-      day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
+      ctx.fillText(line, 20, y);
+      y += 22;
     });
 
-    drawRow("Tanggal", formattedDate);
-    drawRow("Tipe", order.orderType === "dine_in" ? "Dine In" : order.orderType === "take_away" ? "Take Away" : "Delivery");
-    
-    if (order.orderType === "delivery" && order.deliveryAddress) {
-      drawRow("Alamat", order.deliveryAddress);
-    } else if (order.orderType === "dine_in" && order.tableNumber) {
-      drawRow("Meja", order.tableNumber);
-    }
-    
-    drawRow("Nama", order.customerName || "-");
-    drawRow("Pembayaran", getPaymentDetails(order).label);
-    drawRow("Kasir", order.employeeName || "seren");
-
-    ctx.fillStyle = "#000000";
     ctx.fillText(divider, 20, y);
-    y += 25;
+    y += 20;
 
-    // Items Section
-    (order.items || []).forEach((item: any) => {
-      ctx.font = "bold 14px 'Courier New', monospace";
+    // Draw Items
+    processedItems.forEach(pi => {
+      ctx.font = "14px 'Courier New', monospace";
       
-      // Quantity highlight
-      ctx.fillStyle = "#d97706"; 
-      ctx.fillText(`${item.quantity}x`, 25, y);
+      // Quantity (orange/brown highlight)
+      ctx.fillStyle = "#d97706";
+      ctx.fillText(`${pi.item.quantity}x`, 20, y);
       
+      // First line of product name
       ctx.fillStyle = "#000000";
-      ctx.fillText(`  ${item.productName}`, 25, y);
+      ctx.fillText(pi.nameLines[0], 50, y);
 
+      // Price (right aligned)
       ctx.textAlign = "right";
       ctx.font = "bold 14px 'Courier New', monospace";
-      ctx.fillText(formatRp(Number(item.subtotal)), canvas.width - 25, y);
-      
+      ctx.fillText(formatRp(Number(pi.item.subtotal)), canvas.width - 20, y);
       ctx.textAlign = "left";
-      y += 25;
+      y += 22;
 
-      if (item.variantSelection) {
-        ctx.font = "11px 'Courier New', monospace";
-        ctx.fillStyle = "#555555";
-        ctx.fillText(`   ${item.variantSelection}`, 25, y);
-        y += 18;
+      // Other lines of product name
+      ctx.font = "14px 'Courier New', monospace";
+      for (let i = 1; i < pi.nameLines.length; i++) {
+        ctx.fillText(pi.nameLines[i], 50, y);
+        y += 22;
       }
+
+      // Variant selections
+      ctx.font = "11px 'Courier New', monospace";
+      ctx.fillStyle = "#555555";
+      pi.varLines.forEach(line => {
+        ctx.fillText(line, 50, y);
+        y += 16;
+      });
+      ctx.fillStyle = "#000000";
+      
+      y += 8; // small space after item
     });
 
     // Divider
-    ctx.fillStyle = "#000000";
+    ctx.font = "14px 'Courier New', monospace";
     ctx.fillText(divider, 20, y);
-    y += 25;
+    y += 20;
 
     // Totals
     const drawTotalRow = (label: string, value: string, isBold = false) => {
       ctx.font = isBold ? "bold 16px 'Courier New', monospace" : "14px 'Courier New', monospace";
-      ctx.fillText(label, 25, y);
+      ctx.fillText(label, 20, y);
       ctx.textAlign = "right";
-      ctx.fillText(value, canvas.width - 25, y);
+      ctx.fillText(value, canvas.width - 20, y);
       ctx.textAlign = "left";
-      y += 25;
+      y += 22;
     };
 
     drawTotalRow("Subtotal", formatRp(Number(order.subtotal)));
@@ -206,27 +276,30 @@ function OrderDetail({ id, onClose }: { id: number; onClose: () => void }) {
       drawTotalRow("Diskon", `-${formatRp(Number(order.discount))}`);
     }
 
-    ctx.lineWidth = 2;
+    // Horizontal Separator Line before TOTAL
+    y += 5;
+    ctx.lineWidth = 1.5;
     ctx.strokeStyle = "#000000";
     ctx.beginPath();
-    ctx.moveTo(20, y - 5);
-    ctx.lineTo(canvas.width - 20, y - 5);
+    ctx.moveTo(20, y);
+    ctx.lineTo(canvas.width - 20, y);
     ctx.stroke();
+    y += 20; // safe spacing after the line
 
     drawTotalRow("TOTAL", formatRp(Number(order.total)), true);
 
+    ctx.font = "14px 'Courier New', monospace";
     ctx.fillText(divider, 20, y);
-    y += 25;
+    y += 20;
 
-    // Footer lines
+    // Footer
     ctx.textAlign = "center";
     ctx.font = "italic 13px 'Courier New', monospace";
-    ctx.fillText(`Terima kasih telah memesan di ${(user as any)?.tenantName || user?.branchName || "FreshMood"}!`, canvas.width / 2, y);
+    ctx.fillText(`Terima kasih telah memesan di ${brandName}!`, canvas.width / 2, y);
     y += 20;
     ctx.fillText("Selamat menikmati 🍽️", canvas.width / 2, y);
 
     // Trigger image download
-    const brandName = (user as any)?.tenantName || user?.branchName || "FreshMood";
     let tenantCode = "FM";
     if (brandName) {
       const lower = brandName.toLowerCase();
