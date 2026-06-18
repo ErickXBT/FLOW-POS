@@ -801,7 +801,9 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
             quantity: c.quantity,
             price: c.product.promoPrice ?? c.product.price,
             notes: c.notes || null,
-            variantSelection: c.selectedVariant ? `${c.selectedVariant} ${c.selectedToppings.join(", ")}` : null,
+            variantSelection: c.selectedVariant
+              ? `${c.selectedVariant}${c.selectedToppings && c.selectedToppings.length > 0 ? " " + c.selectedToppings.join(", ") : ""}`
+              : (c.selectedToppings && c.selectedToppings.length > 0 ? c.selectedToppings.join(", ") : null),
           })),
         }),
       });

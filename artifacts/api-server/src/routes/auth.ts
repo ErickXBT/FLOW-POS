@@ -138,6 +138,17 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     return;
   }
 
+  // If the user is an employee, verify their employee profile is active
+  if (user.role !== "super_admin" && user.role !== "owner") {
+    const [emp] = await db.select().from(employeesTable)
+      .where(eq(employeesTable.userId, user.id))
+      .limit(1);
+    if (emp && !emp.isActive) {
+      res.status(403).json({ error: "Akun karyawan Anda telah dinonaktifkan" });
+      return;
+    }
+  }
+
   const token = signToken({ userId: user.id, tenantId: user.tenantId, role: user.role });
 
   // Log login + create session
@@ -290,7 +301,16 @@ router.get("/auth/me", async (req, res): Promise<void> => {
   const claims = extractToken(req);
   if (!claims) { res.status(401).json({ error: "Unauthorized" }); return; }
   const [user] = await db.select().from(usersTable).where(eq(usersTable.id, claims.userId));
-  if (!user) { res.status(404).json({ error: "User not found" }); return; }
+  if (!user) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  // If the user is an employee, verify their employee profile is active
+  if (user.role !== "super_admin" && user.role !== "owner") {
+    const [emp] = await db.select().from(employeesTable).where(eq(employeesTable.userId, user.id)).limit(1);
+    if (emp && !emp.isActive) {
+      res.status(401).json({ error: "Akun karyawan dinonaktifkan" });
+      return;
+    }
+  }
 
   const extra = await getUserExtraDetails(user.id, user.role, user.tenantId);
 

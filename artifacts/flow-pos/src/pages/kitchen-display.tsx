@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { ChefHat, Clock, CheckCircle2, Package, RefreshCw, Wifi, WifiOff, Bell, ShoppingBag } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useActiveBranch } from "@/hooks/use-active-branch";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -19,9 +20,22 @@ function elapsed(iso: string) {
   if (secs < 3600) return `${Math.floor(secs / 60)}m`;
   return `${Math.floor(secs / 3600)}j ${Math.floor((secs % 3600) / 60)}m`;
 }
+const formatTableNumber = (num: string, isFashion: boolean) => {
+  if (!num) return "";
+  let clean = num.trim();
+  const prefix = isFashion ? "Fitting Room" : "Meja";
+  if (clean.toLowerCase().startsWith(prefix.toLowerCase())) {
+    return clean;
+  }
+  if (clean.startsWith("#")) {
+    return `${prefix} ${clean}`;
+  }
+  return `${prefix} #${clean}`;
+};
 
 export default function KitchenDisplayPage() {
   const { user } = useAuth();
+  const { activeBranchId, activeBranchName } = useActiveBranch();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [connected, setConnected] = useState(false);
@@ -43,7 +57,7 @@ export default function KitchenDisplayPage() {
 
   async function fetchOrders() {
     let url = `${BASE}/api/tenant/customer-orders?status=pending,confirmed,preparing`;
-    if (user?.branchId) url += `&branchId=${user.branchId}`;
+    if (activeBranchId) url += `&branchId=${activeBranchId}`;
 
     const r = await fetch(url, {
       headers: { Authorization: `Bearer ${tokenRef.current}` },
@@ -56,7 +70,7 @@ export default function KitchenDisplayPage() {
     setLoading(false);
   }
 
-  useEffect(() => { fetchOrders(); }, [user?.branchId]);
+  useEffect(() => { fetchOrders(); }, [activeBranchId]);
 
   useEffect(() => {
     const token = tokenRef.current;
@@ -66,7 +80,7 @@ export default function KitchenDisplayPage() {
     evtSrc.onmessage = (e) => {
       const data = JSON.parse(e.data);
       if (data.type === "new_order") {
-        if (!user?.branchId || data.order.branchId === user.branchId) {
+        if (!activeBranchId || data.order.branchId === activeBranchId) {
           setOrders(prev => [data.order, ...prev]);
           setNewAlerts(n => n + 1);
           playAlert();
@@ -79,7 +93,7 @@ export default function KitchenDisplayPage() {
       }
     };
     return () => evtSrc.close();
-  }, [user?.branchId]);
+  }, [activeBranchId]);
 
   async function updateStatus(orderId: number, status: string) {
     setUpdating(orderId);
@@ -110,7 +124,7 @@ export default function KitchenDisplayPage() {
           {isFashion ? <ShoppingBag size={22} className="text-blue-400" /> : <ChefHat size={22} className="text-orange-400" />}
           <div>
             <div className="font-bold text-white">{isFashion ? "Packing Display System" : "Kitchen Display System"}</div>
-            <div className="text-xs text-gray-400">{isFashion ? "Tampilan Pengemasan" : "Tampilan Dapur"} {user?.branchName ? `(${user.branchName})` : ""}</div>
+            <div className="text-xs text-gray-400">{isFashion ? "Tampilan Pengemasan" : "Tampilan Dapur"} {activeBranchName ? `(${activeBranchName})` : "(Semua Cabang)"}</div>
           </div>
         </div>
         <div className="flex items-center gap-4">
@@ -206,7 +220,7 @@ function KitchenOrderCard({ order, updating, onConfirm, onPrepare, onReady, onCa
           <div className="font-bold text-white text-sm">{order.customerName}</div>
           <div className="text-xs text-gray-400 flex items-center gap-2 mt-0.5">
             <span>{TYPE_ICON[order.orderType]} {TYPE_LABEL[order.orderType]}</span>
-            {order.tableNumber && <span className="bg-gray-700 px-1.5 py-0.5 rounded text-gray-300">{isFashion ? "Fitting Room" : "Meja"} #{order.tableNumber}</span>}
+            {order.tableNumber && <span className="bg-gray-700 px-1.5 py-0.5 rounded text-gray-300">{formatTableNumber(order.tableNumber, isFashion)}</span>}
           </div>
         </div>
         <div className={`text-right ${isUrgent ? "text-red-400" : "text-gray-400"}`}>

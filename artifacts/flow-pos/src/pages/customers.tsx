@@ -74,8 +74,15 @@ export default function CustomersPage() {
 
       <div className="relative mb-4">
         <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Cari pelanggan..."
-          className="pl-9 pr-4 py-2.5 rounded-lg border border-input bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring max-w-sm w-full" />
+        <input
+          type="search"
+          name="customer-search"
+          autoComplete="off"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Cari pelanggan..."
+          className="pl-9 pr-4 py-2.5 rounded-lg border border-input bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring max-w-sm w-full"
+        />
       </div>
 
       <div className="bg-card border border-card-border rounded-xl shadow-sm overflow-hidden">

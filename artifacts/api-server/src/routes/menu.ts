@@ -379,7 +379,15 @@ router.post("/menu/:slug/orders", async (req, res): Promise<void> => {
     const price = product ? Number(product.price) : Number(i.price ?? 0);
     const itemSubtotal = price * i.quantity;
     subtotal += itemSubtotal;
-    return { productId: i.productId, productName: product?.name ?? String(i.productId), quantity: i.quantity, price: String(price), subtotal: String(itemSubtotal), notes: i.notes ?? null };
+    return { 
+      productId: i.productId, 
+      productName: product?.name ?? String(i.productId), 
+      quantity: i.quantity, 
+      price: String(price), 
+      subtotal: String(itemSubtotal), 
+      notes: i.notes ?? null,
+      variantSelection: i.variantSelection ?? null
+    };
   });
 
   const fee = Number(deliveryFee ?? 0);
@@ -430,7 +438,19 @@ router.get("/tenant/customer-orders", async (req, res): Promise<void> => {
   const offset = (page - 1) * limit;
 
   const conditions: any[] = [eq(customerOrdersTable.tenantId, claims.tenantId)];
-  if (status) conditions.push(eq(customerOrdersTable.status, status));
+  
+  if (status) {
+    if (status.includes(",")) {
+      conditions.push(inArray(customerOrdersTable.status, status.split(",")));
+    } else {
+      conditions.push(eq(customerOrdersTable.status, status));
+    }
+  }
+
+  const branchId = req.query.branchId ? Number(req.query.branchId) : null;
+  if (branchId) {
+    conditions.push(eq(customerOrdersTable.branchId, branchId));
+  }
 
   const orders = await db.select().from(customerOrdersTable)
     .where(and(...conditions)).orderBy(desc(customerOrdersTable.createdAt))

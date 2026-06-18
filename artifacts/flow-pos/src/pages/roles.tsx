@@ -3,6 +3,7 @@ import { useListRoles, useCreateRole, useUpdateRole, useDeleteRole, getListRoles
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, ShieldAlert, CheckSquare, Square, Edit2, Trash2, X, Shield, Lock, Eye } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 
 const ALL_PERMISSIONS = [
   { key: "view_dashboard", label: "Lihat Dashboard", desc: "Melihat grafik ringkasan penjualan & analitik bisnis", category: "Analitik" },
@@ -121,10 +122,12 @@ function RoleForm({ initial, onSubmit, onClose, loading }: any) {
 
 export default function RolesPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const isFashion = user?.businessType === "fashion";
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const queryClient = useQueryClient();
 
   const { data: roles, isLoading } = useListRoles();
@@ -144,10 +147,8 @@ export default function RolesPage() {
     setEditing(null);
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Hapus role custom ini? Anggota tim dengan role ini tidak akan memiliki hak akses custom lagi dan fallback ke default staff.")) return;
-    await deleteRole.mutateAsync({ id });
-    queryClient.invalidateQueries({ queryKey: getListRolesQueryKey() });
+  const handleDelete = (id: number) => {
+    setDeletingId(id);
   };
 
   const filtered = (roles || []).filter(r =>
@@ -176,6 +177,9 @@ export default function RolesPage() {
       <div className="relative">
         <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <input
+          type="search"
+          name="role-search"
+          autoComplete="off"
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Cari nama role..."
@@ -257,6 +261,56 @@ export default function RolesPage() {
           onClose={() => setEditing(null)}
           loading={updateRole.isPending}
         />
+      )}
+
+      {deletingId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-card border border-card-border rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4 animate-scale-up">
+            <div className="text-center space-y-2">
+              <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-955/20 text-red-600 flex items-center justify-center mx-auto text-xl">
+                ⚠️
+              </div>
+              <h3 className="text-lg font-bold text-foreground">Hapus Role Custom</h3>
+              <p className="text-sm text-muted-foreground">
+                Apakah Anda yakin ingin menghapus role custom ini? Anggota tim dengan role ini tidak akan memiliki hak akses custom lagi dan fallback ke default staff.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setDeletingId(null)}
+                disabled={deleteRole.isPending}
+                className="flex-1 py-2.5 border border-border rounded-xl text-sm font-medium hover:bg-muted text-foreground transition-colors disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await deleteRole.mutateAsync({ id: deletingId });
+                    toast({
+                      title: "Role custom dihapus",
+                      description: "Role custom berhasil dihapus dari sistem.",
+                    });
+                    queryClient.invalidateQueries({ queryKey: getListRolesQueryKey() });
+                    setDeletingId(null);
+                  } catch (err: any) {
+                    toast({
+                      variant: "destructive",
+                      title: "Gagal menghapus",
+                      description: err.message || "Terjadi kesalahan saat menghapus role custom.",
+                    });
+                  }
+                }}
+                disabled={deleteRole.isPending}
+                className="flex-1 py-2.5 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 transition-colors shadow-md shadow-red-500/10 disabled:opacity-50 flex items-center justify-center gap-1"
+              >
+                {deleteRole.isPending ? "Menghapus..." : "Hapus"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

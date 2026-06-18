@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, ShoppingCart, Package, Tag, ClipboardList,
@@ -9,6 +9,8 @@ import {
 import flowLogo from "@assets/FLOW_LOGO_1780799864457.png";
 import type { AuthUser } from "@/hooks/use-auth";
 import { ROLE_LABELS, hasPermission } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
+import { useActiveBranch } from "@/hooks/use-active-branch";
 
 interface NavItem {
   href: string;
@@ -36,6 +38,8 @@ interface LayoutProps {
 }
 
 export default function Layout({ user, onLogout, isImpersonating, exitImpersonate, children }: LayoutProps) {
+  const { activeBranchId, setActiveBranchId, branches } = useActiveBranch();
+  const isOwnerOrManager = user.role === "owner" || user.role === "manager";
   const [location] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [dark, setDark] = useState(() => document.documentElement.classList.contains("dark"));
@@ -44,6 +48,63 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
     document.documentElement.classList.toggle("dark");
     setDark(d => !d);
   };
+
+  const { toast } = useToast();
+  const tokenRef = useRef(localStorage.getItem("flow_token") ?? "");
+
+  useEffect(() => {
+    if (!user || user.role === "super_admin") return;
+    const token = localStorage.getItem("flow_token") ?? "";
+    tokenRef.current = token;
+    if (!token) return;
+
+    const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+    const evtSrc = new EventSource(`${BASE}/api/tenant/orders/events?token=${encodeURIComponent(token)}`);
+
+    evtSrc.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.type === "new_order") {
+          if (!user.branchId || data.order.branchId === user.branchId) {
+            // Check if user is on pages that already handle sound to prevent duplicates
+            const onHandledPage = location === "/customer-orders" || location === "/kitchen";
+            
+            if (!onHandledPage) {
+              try {
+                const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+                const osc = ctx.createOscillator();
+                const gain = ctx.createGain();
+                osc.connect(gain); gain.connect(ctx.destination);
+                osc.frequency.value = 880; gain.gain.value = 0.3;
+                osc.start(); osc.stop(ctx.currentTime + 0.15);
+                setTimeout(() => {
+                  const osc2 = ctx.createOscillator();
+                  const gain2 = ctx.createGain();
+                  osc2.connect(gain2); gain2.connect(ctx.destination);
+                  osc2.frequency.value = 1100; gain2.gain.value = 0.3;
+                  osc2.start(); osc2.stop(ctx.currentTime + 0.15);
+                }, 200);
+              } catch (err) {
+                console.error("Audio playback failed:", err);
+              }
+            }
+
+            toast({
+              title: "Pesanan Baru Masuk!",
+              description: `Pesanan #${data.order.orderNumber} oleh ${data.order.customerName} (${data.order.orderType === "delivery" ? "Delivery" : data.order.orderType === "dine_in" ? "Dine In" : "Take Away"})`,
+              duration: 8000,
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Error processing SSE message in Layout:", err);
+      }
+    };
+
+    return () => {
+      evtSrc.close();
+    };
+  }, [user?.branchId, location]);
 
   const navItems: NavItem[] = [];
 
@@ -145,7 +206,7 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
           </div>
           <div className="flex-1 min-w-0">
             <div className="text-sidebar-foreground text-sm font-medium truncate">{user.name}</div>
-            <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium mt-0.5 ${ROLE_COLORS[user.role] ?? ""}`}>
+            <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium mt-0.5 ${ROLE_COLORS[user.role] ?? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"}`}>
               {ROLE_LABELS[user.role as keyof typeof ROLE_LABELS] ?? user.role}
             </span>
           </div>
@@ -211,10 +272,30 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
               <button className="lg:hidden text-foreground" onClick={() => setSidebarOpen(true)}>
                 <Menu size={20} />
               </button>
-              {user.branchName && (
-                <div className="flex items-center gap-1.5 text-xs font-semibold bg-primary/10 text-primary px-3 py-1.5 rounded-lg border border-primary/25">
-                  <MapPin size={12} /> Cabang: {user.branchName}
+              {isOwnerOrManager ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-semibold text-muted-foreground flex items-center gap-1">
+                    <MapPin size={12} className="text-primary" /> Outlet:
+                  </span>
+                  <select
+                    value={activeBranchId || ""}
+                    onChange={e => setActiveBranchId(e.target.value ? Number(e.target.value) : undefined)}
+                    className="px-2.5 py-1.5 border border-input rounded-xl bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-semibold min-w-[130px]"
+                  >
+                    <option value="">Semua Cabang</option>
+                    {branches.map((b: any) => (
+                      <option key={b.id} value={b.id} className={b.status === "locked" ? "text-red-500 font-bold" : ""}>
+                        {b.status === "locked" ? `🔒 [TERKUNCI] ${b.name}` : b.name}
+                      </option>
+                    ))}
+                  </select>
                 </div>
+              ) : (
+                user.branchName && (
+                  <div className="flex items-center gap-1.5 text-xs font-semibold bg-primary/10 text-primary px-3 py-1.5 rounded-lg border border-primary/25">
+                    <MapPin size={12} /> Cabang: {user.branchName}
+                  </div>
+                )
               )}
               <div className="flex-1" />
               <button onClick={toggleDark} className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-muted">

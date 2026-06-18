@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, and } from "drizzle-orm";
-import { db, customRolesTable } from "@workspace/db";
+import { eq, and, inArray } from "drizzle-orm";
+import { db, customRolesTable, employeesTable, usersTable } from "@workspace/db";
 import { extractToken } from "./auth";
 import { logActivity } from "./activity";
 
@@ -106,6 +106,23 @@ router.delete("/roles/:id", async (req, res): Promise<void> => {
   if (!claims) return;
 
   const id = Number(req.params.id);
+
+  // Find employees using this custom role
+  const affected = await db.select().from(employeesTable)
+    .where(and(eq(employeesTable.customRoleId, id), eq(employeesTable.tenantId, claims.tenantId!)));
+
+  const userIds = affected.map(emp => emp.userId).filter((uid): uid is number => uid !== null);
+
+  if (userIds.length > 0) {
+    // Delete associated login user accounts so they cannot access the system anymore
+    await db.delete(usersTable)
+      .where(inArray(usersTable.id, userIds));
+  }
+
+  // Clear role references and reset user ID links on those employees
+  await db.update(employeesTable)
+    .set({ customRoleId: null, userId: null, role: "staff" })
+    .where(and(eq(employeesTable.customRoleId, id), eq(employeesTable.tenantId, claims.tenantId!)));
 
   const [deleted] = await db.delete(customRolesTable)
     .where(and(eq(customRolesTable.id, id), eq(customRolesTable.tenantId, claims.tenantId!)))

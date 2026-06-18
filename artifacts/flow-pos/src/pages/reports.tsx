@@ -3,6 +3,7 @@ import { useGetSalesReport, useGetSalesChartData, useListBranches, getListBranch
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from "recharts";
 import { TrendingUp, ShoppingCart, Package, CreditCard } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useActiveBranch } from "@/hooks/use-active-branch";
 
 function formatRp(v: number) { return `Rp ${v.toLocaleString("id-ID")}`; }
 
@@ -23,11 +24,10 @@ export default function ReportsPage() {
   const { user } = useAuth();
   const isOwnerOrAdmin = user?.role === "owner" || user?.role === "super_admin";
   const [period, setPeriod] = useState("month");
-  const [selectedBranchId, setSelectedBranchId] = useState<number | undefined>(undefined);
+  const { activeBranchId, setActiveBranchId, branches } = useActiveBranch();
 
-  const { data: branches } = useListBranches({ query: { enabled: isOwnerOrAdmin, queryKey: getListBranchesQueryKey() } });
-  const { data: report, isLoading } = useGetSalesReport({ period: period as any, branchId: selectedBranchId });
-  const { data: chartData } = useGetSalesChartData({ period: period === "today" ? "week" : (period as any), branchId: selectedBranchId });
+  const { data: report, isLoading } = useGetSalesReport({ period: period as any, branchId: activeBranchId });
+  const { data: chartData } = useGetSalesChartData({ period: period === "today" ? "week" : (period as any), branchId: activeBranchId });
 
   const r = report || { totalRevenue: 0, totalOrders: 0, totalItems: 0, averageOrderValue: 0, topProducts: [], byPaymentMethod: [] };
 
@@ -43,8 +43,8 @@ export default function ReportsPage() {
             <div className="flex items-center gap-2">
               <label className="text-sm font-medium text-muted-foreground">Cabang:</label>
               <select
-                value={selectedBranchId || ""}
-                onChange={e => setSelectedBranchId(e.target.value ? Number(e.target.value) : undefined)}
+                value={activeBranchId || ""}
+                onChange={e => setActiveBranchId(e.target.value ? Number(e.target.value) : undefined)}
                 className="px-3 py-1.5 border border-input rounded-xl bg-card text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-medium min-w-[160px]"
               >
                 <option value="">Semua Cabang</option>

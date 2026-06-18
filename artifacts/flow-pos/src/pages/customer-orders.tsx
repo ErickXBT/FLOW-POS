@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Clock, ChefHat, Package, Truck, CheckCircle2, XCircle, RefreshCw, Wifi, WifiOff, Navigation } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useActiveBranch } from "@/hooks/use-active-branch";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -24,9 +25,22 @@ function timeAgo(iso: string) {
   if (diff < 3600) return `${Math.floor(diff / 60)}m lalu`;
   return `${Math.floor(diff / 3600)}j lalu`;
 }
+const formatTableNumber = (num: string, isFashion: boolean) => {
+  if (!num) return "";
+  let clean = num.trim();
+  const prefix = isFashion ? "Fitting Room" : "Meja";
+  if (clean.toLowerCase().startsWith(prefix.toLowerCase())) {
+    return clean;
+  }
+  if (clean.startsWith("#")) {
+    return `${prefix} ${clean}`;
+  }
+  return `${prefix} #${clean}`;
+};
 
 export default function CustomerOrdersPage() {
   const { user } = useAuth();
+  const { activeBranchId, activeBranchName } = useActiveBranch();
   const [orders, setOrders] = useState<any[]>([]);
   const isFashion = user?.businessType === "fashion";
 
@@ -85,7 +99,7 @@ export default function CustomerOrdersPage() {
     let url = `${BASE}/api/tenant/customer-orders`;
     const params: string[] = [];
     if (statusFilter) params.push(`status=${statusFilter}`);
-    if (user?.branchId) params.push(`branchId=${user.branchId}`);
+    if (activeBranchId) params.push(`branchId=${activeBranchId}`);
     if (params.length > 0) url += `?${params.join("&")}`;
 
     const r = await fetch(url, { headers: { Authorization: `Bearer ${tokenRef.current}` } });
@@ -93,7 +107,7 @@ export default function CustomerOrdersPage() {
     setLoading(false);
   }
 
-  useEffect(() => { fetchOrders(); }, [statusFilter, user?.branchId]);
+  useEffect(() => { fetchOrders(); }, [statusFilter, activeBranchId]);
 
   useEffect(() => {
     const token = localStorage.getItem("flow_token") ?? "";
@@ -106,7 +120,7 @@ export default function CustomerOrdersPage() {
     evtSrc.onmessage = (e) => {
       const data = JSON.parse(e.data);
       if (data.type === "new_order") {
-        if (!user?.branchId || data.order.branchId === user.branchId) {
+        if (!activeBranchId || data.order.branchId === activeBranchId) {
           setOrders(prev => [data.order, ...prev]);
           playAlert();
         }
@@ -115,7 +129,7 @@ export default function CustomerOrdersPage() {
       }
     };
     return () => { evtSrc.close(); setConnected(false); };
-  }, [user?.branchId]);
+  }, [activeBranchId]);
 
   async function updateStatus(orderId: number, status: string) {
     setUpdating(orderId);
@@ -138,7 +152,7 @@ export default function CustomerOrdersPage() {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-foreground">Pesanan Online</h1>
-          <p className="text-muted-foreground text-sm">Pesanan dari QR Menu pelanggan {user?.branchName ? `(${user.branchName})` : ""}</p>
+          <p className="text-muted-foreground text-sm">Pesanan dari QR Menu pelanggan {activeBranchName ? `(${activeBranchName})` : "(Semua Cabang)"}</p>
         </div>
         <div className="flex items-center gap-3">
           <div className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-full ${connected ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}>
@@ -211,17 +225,29 @@ export default function CustomerOrdersPage() {
                   </div>
                   <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
                     <span>{displayTypeIcons[order.orderType]} {displayTypeLabels[order.orderType] ?? order.orderType}</span>
-                    {order.tableNumber && <span>• {isFashion ? "Fitting Room" : "Meja"} #{order.tableNumber}</span>}
+                    {order.tableNumber && <span>• {formatTableNumber(order.tableNumber, isFashion)}</span>}
                     <span>• {PAY_LABEL[order.paymentMethod] ?? order.paymentMethod}</span>
                   </div>
                 </div>
 
                 {/* Items */}
-                <div className="px-4 py-3 space-y-1.5">
+                <div className="px-4 py-3 space-y-2">
                   {order.items?.map((item: any) => (
-                    <div key={item.id} className="flex justify-between text-sm">
-                      <span className="text-foreground">{item.productName} <span className="text-muted-foreground text-xs">×{item.quantity}</span></span>
-                      <span className="font-medium text-foreground">{formatRp(item.subtotal)}</span>
+                    <div key={item.id} className="flex flex-col text-sm border-b border-border/10 pb-1.5 last:border-b-0 last:pb-0">
+                      <div className="flex justify-between">
+                        <span className="text-foreground font-medium">{item.productName} <span className="text-muted-foreground text-xs font-normal">×{item.quantity}</span></span>
+                        <span className="font-semibold text-foreground">{formatRp(item.subtotal)}</span>
+                      </div>
+                      {item.variantSelection && (
+                        <span className="text-[10px] text-muted-foreground mt-0.5 font-medium bg-muted/40 px-1.5 py-0.5 rounded w-fit inline-block">
+                          {item.variantSelection}
+                        </span>
+                      )}
+                      {item.notes && (
+                        <span className="text-xs text-amber-600 dark:text-amber-500 italic mt-0.5">
+                          Catatan: {item.notes}
+                        </span>
+                      )}
                     </div>
                   ))}
                   {order.deliveryAddress && (

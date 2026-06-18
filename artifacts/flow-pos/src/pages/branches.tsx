@@ -402,6 +402,9 @@ export default function BranchesPage() {
       <div className="relative">
         <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <input
+          type="search"
+          name="branch-search"
+          autoComplete="off"
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Cari nama atau alamat cabang..."

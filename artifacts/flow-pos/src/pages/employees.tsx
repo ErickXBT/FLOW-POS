@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "wouter";
 import {
   useListEmployees,
   useCreateEmployee,
@@ -11,6 +12,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, Edit2, Trash2, UserCheck, X, KeyRound, ChefHat, Truck, ShieldCheck, MapPin, Shield } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 
 const ALL_ROLES = [
   { value: "manager", label: "Manager", icon: "👔", desc: "Akses penuh operasional" },
@@ -206,7 +208,8 @@ function InviteModal({ employee, onClose }: { employee: any; onClose: () => void
   const token = localStorage.getItem("flow_token") ?? "";
   const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-  async function handleInvite() {
+  async function handleInvite(e?: React.FormEvent) {
+    if (e) e.preventDefault();
     if (!password || password.length < 6) { setError("Password minimal 6 karakter"); return; }
     setLoading(true); setError("");
     const r = await fetch(`${BASE}/api/employees/${employee.id}/invite`, {
@@ -238,7 +241,16 @@ function InviteModal({ employee, onClose }: { employee: any; onClose: () => void
             <button onClick={onClose} className="w-full py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold">Selesai</button>
           </div>
         ) : (
-          <div className="p-6 space-y-4">
+          <form onSubmit={handleInvite} className="p-6 space-y-4">
+            <input
+              type="text"
+              name="username"
+              value={employee.email || ""}
+              readOnly
+              autoComplete="username"
+              className="sr-only"
+              tabIndex={-1}
+            />
             <div className="bg-muted/50 rounded-xl p-4 space-y-1">
               <div className="text-sm font-medium text-foreground">{employee.name}</div>
               <div className="text-xs text-muted-foreground">{employee.email}</div>
@@ -253,19 +265,26 @@ function InviteModal({ employee, onClose }: { employee: any; onClose: () => void
             )}
             <div>
               <label className="block text-sm font-medium mb-1 text-foreground">Set Password</label>
-              <input type="password" value={password} onChange={e => setPassword(e.target.value)}
-                placeholder="Minimal 6 karakter" disabled={!employee.email}
-                className="w-full px-3 py-2 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground disabled:opacity-50" />
+              <input
+                type="password"
+                name="password"
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                placeholder="Minimal 6 karakter"
+                disabled={!employee.email}
+                autoComplete="new-password"
+                className="w-full px-3 py-2 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground disabled:opacity-50"
+              />
             </div>
             {error && <div className="text-red-500 text-xs">{error}</div>}
             <div className="flex gap-3">
-              <button onClick={onClose} className="flex-1 py-2.5 border border-border rounded-xl text-sm font-medium hover:bg-muted text-foreground">Batal</button>
-              <button onClick={handleInvite} disabled={loading || !employee.email || !password}
+              <button type="button" onClick={onClose} className="flex-1 py-2.5 border border-border rounded-xl text-sm font-medium hover:bg-muted text-foreground">Batal</button>
+              <button type="submit" disabled={loading || !employee.email || !password}
                 className="flex-1 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-semibold hover:opacity-90 disabled:opacity-50">
                 {loading ? "..." : "Buat Akun"}
               </button>
             </div>
-          </div>
+          </form>
         )}
       </div>
     </div>
@@ -274,11 +293,13 @@ function InviteModal({ employee, onClose }: { employee: any; onClose: () => void
 
 export default function EmployeesPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const isFashion = user?.businessType === "fashion";
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [inviting, setInviting] = useState<any>(null);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
   const queryClient = useQueryClient();
 
   const { data: employees, isLoading } = useListEmployees({ search: search || undefined });
@@ -301,10 +322,8 @@ export default function EmployeesPage() {
     setEditing(null);
   }
 
-  async function handleDelete(id: number) {
-    if (!confirm("Hapus karyawan ini?")) return;
-    await remove.mutateAsync({ id });
-    queryClient.invalidateQueries({ queryKey: getListEmployeesQueryKey() });
+  function handleDelete(id: number) {
+    setDeletingId(id);
   }
 
   const canManage = user && ["owner", "manager"].includes(user.role);
@@ -316,12 +335,21 @@ export default function EmployeesPage() {
           <h1 className="text-xl font-bold text-foreground">Karyawan & Hak Akses</h1>
           <p className="text-muted-foreground text-sm">Kelola tim, atur cabang outlet dan delegasikan perizinan sistem</p>
         </div>
-        {canManage && (
-          <button onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/95 transition-all shadow-md shadow-primary/10">
-            <Plus size={16} /> Tambah Karyawan
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {user?.role === "owner" && (
+            <Link href="/roles">
+              <a className="flex items-center gap-2 px-4 py-2.5 border border-border bg-card text-foreground hover:bg-muted rounded-xl text-sm font-medium transition-all shadow-sm">
+                <Shield size={16} className="text-primary" /> Atur Role Custom
+              </a>
+            </Link>
+          )}
+          {canManage && (
+            <button onClick={() => setShowForm(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-primary text-primary-foreground rounded-xl text-sm font-medium hover:bg-primary/95 transition-all shadow-md shadow-primary/10">
+              <Plus size={16} /> Tambah Karyawan
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Role guide */}
@@ -338,6 +366,9 @@ export default function EmployeesPage() {
       <div className="relative mb-4">
         <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
         <input
+          type="search"
+          name="employee-search"
+          autoComplete="off"
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Cari karyawan berdasarkan nama..."
@@ -419,6 +450,56 @@ export default function EmployeesPage() {
       {showForm && <EmployeeForm onSubmit={handleCreate} onClose={() => setShowForm(false)} loading={create.isPending} />}
       {editing && <EmployeeForm initial={editing} onSubmit={handleUpdate} onClose={() => setEditing(null)} loading={update.isPending} />}
       {inviting && <InviteModal employee={inviting} onClose={() => setInviting(null)} />}
+
+      {deletingId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in">
+          <div className="bg-card border border-card-border rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4 animate-scale-up">
+            <div className="text-center space-y-2">
+              <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-955/20 text-red-600 flex items-center justify-center mx-auto text-xl">
+                ⚠️
+              </div>
+              <h3 className="text-lg font-bold text-foreground">Hapus Karyawan</h3>
+              <p className="text-sm text-muted-foreground">
+                Apakah Anda yakin ingin menghapus karyawan ini? Semua data login terkait juga akan dihapus secara permanen.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setDeletingId(null)}
+                disabled={remove.isPending}
+                className="flex-1 py-2.5 border border-border rounded-xl text-sm font-medium hover:bg-muted text-foreground transition-colors disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await remove.mutateAsync({ id: deletingId });
+                    toast({
+                      title: "Karyawan dihapus",
+                      description: "Data karyawan berhasil dihapus dari sistem.",
+                    });
+                    queryClient.invalidateQueries({ queryKey: getListEmployeesQueryKey() });
+                    setDeletingId(null);
+                  } catch (err: any) {
+                    toast({
+                      variant: "destructive",
+                      title: "Gagal menghapus",
+                      description: err.message || "Terjadi kesalahan saat menghapus karyawan.",
+                    });
+                  }
+                }}
+                disabled={remove.isPending}
+                className="flex-1 py-2.5 bg-red-600 text-white rounded-xl text-sm font-semibold hover:bg-red-700 transition-colors shadow-md shadow-red-500/10 disabled:opacity-50 flex items-center justify-center gap-1"
+              >
+                {remove.isPending ? "Menghapus..." : "Hapus"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -114,6 +114,12 @@ router.post("/orders", async (req, res): Promise<void> => {
     if (emp) branchId = emp.branchId;
   }
 
+  // If owner checkout or not resolved, find the first branch of the tenant
+  if (!branchId && claims.tenantId) {
+    const [firstBranch] = await db.select({ id: branchesTable.id }).from(branchesTable).where(eq(branchesTable.tenantId, claims.tenantId)).limit(1);
+    if (firstBranch) branchId = firstBranch.id;
+  }
+
   if (branchId) {
     const [br] = await db.select().from(branchesTable).where(eq(branchesTable.id, branchId)).limit(1);
     if (br && br.status === "locked") {

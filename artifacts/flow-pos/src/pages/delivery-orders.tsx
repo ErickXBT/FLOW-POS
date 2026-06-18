@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Truck, MapPin, Phone, Clock, CheckCircle2, RefreshCw, Navigation } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useActiveBranch } from "@/hooks/use-active-branch";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -16,6 +17,7 @@ function formatRp(v: number) { return `Rp ${v.toLocaleString("id-ID")}`; }
 
 export default function DeliveryOrdersPage() {
   const { user } = useAuth();
+  const { activeBranchId, activeBranchName } = useActiveBranch();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"queue" | "delivering" | "done">("queue");
@@ -24,7 +26,7 @@ export default function DeliveryOrdersPage() {
 
   async function fetchOrders() {
     let url = `${BASE}/api/tenant/customer-orders`;
-    if (user?.branchId) url += `?branchId=${user.branchId}`;
+    if (activeBranchId) url += `?branchId=${activeBranchId}`;
 
     const r = await fetch(url, {
       headers: { Authorization: `Bearer ${tokenRef.current}` },
@@ -36,12 +38,54 @@ export default function DeliveryOrdersPage() {
     setLoading(false);
   }
 
-  useEffect(() => { fetchOrders(); }, [user?.branchId]);
+  useEffect(() => { fetchOrders(); }, [activeBranchId]);
 
   useEffect(() => {
-    const iv = setInterval(fetchOrders, 30000);
-    return () => clearInterval(iv);
-  }, [user?.branchId]);
+    const token = tokenRef.current;
+    if (!token) return;
+
+    const evtSrc = new EventSource(`${BASE}/api/tenant/orders/events?token=${encodeURIComponent(token)}`);
+
+    evtSrc.onmessage = (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        if (data.type === "new_order") {
+          if (data.order.orderType === "delivery" && (!activeBranchId || data.order.branchId === activeBranchId)) {
+            setOrders(prev => {
+              // Avoid duplicates
+              if (prev.some(o => o.id === data.order.id)) return prev;
+              return [data.order, ...prev];
+            });
+            
+            // Play alert sound for new delivery order
+            try {
+              const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+              const osc = ctx.createOscillator();
+              const gain = ctx.createGain();
+              osc.connect(gain); gain.connect(ctx.destination);
+              osc.frequency.value = 880; gain.gain.value = 0.3;
+              osc.start(); osc.stop(ctx.currentTime + 0.15);
+              setTimeout(() => {
+                const osc2 = ctx.createOscillator();
+                const gain2 = ctx.createGain();
+                osc2.connect(gain2); gain2.connect(ctx.destination);
+                osc2.frequency.value = 1100; gain2.gain.value = 0.3;
+                osc2.start(); osc2.stop(ctx.currentTime + 0.15);
+              }, 200);
+            } catch {}
+          }
+        } else if (data.type === "status_update") {
+          setOrders(prev => prev.map(o => o.id === data.orderId ? { ...o, status: data.status } : o));
+        }
+      } catch (err) {
+        console.error("Error in delivery SSE handler:", err);
+      }
+    };
+
+    return () => {
+      evtSrc.close();
+    };
+  }, [activeBranchId]);
 
   async function updateStatus(orderId: number, status: string) {
     setUpdating(orderId);
@@ -54,7 +98,7 @@ export default function DeliveryOrdersPage() {
     setUpdating(null);
   }
 
-  const queueOrders = orders.filter(o => ["ready"].includes(o.status));
+  const queueOrders = orders.filter(o => ["pending", "confirmed", "preparing", "ready"].includes(o.status));
   const deliveringOrders = orders.filter(o => o.status === "on_delivery");
   const doneOrders = orders.filter(o => ["completed", "cancelled"].includes(o.status)).slice(0, 20);
 
@@ -67,7 +111,7 @@ export default function DeliveryOrdersPage() {
           <h1 className="text-xl font-bold text-foreground flex items-center gap-2">
             <Truck size={22} className="text-primary" /> Pesanan Delivery
           </h1>
-          <p className="text-muted-foreground text-sm">Kelola pengiriman ke pelanggan {user?.branchName ? `(${user.branchName})` : ""}</p>
+          <p className="text-muted-foreground text-sm">Kelola pengiriman ke pelanggan {activeBranchName ? `(${activeBranchName})` : "(Semua Cabang)"}</p>
         </div>
         <button onClick={() => { setLoading(true); fetchOrders(); }} className="p-2 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg">
           <RefreshCw size={16} />
@@ -130,6 +174,17 @@ export default function DeliveryOrdersPage() {
                       <Phone size={10} /> {order.customerPhone}
                     </a>
                   )}
+                  {["pending", "confirmed", "preparing"].includes(order.status) && (
+                    <span className={`inline-block text-[10px] px-2 py-0.5 rounded-full font-semibold mt-1 border ${
+                      order.status === "pending" ? "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800" :
+                      order.status === "confirmed" ? "bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-800" :
+                      "bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800"
+                    }`}>
+                      {order.status === "pending" ? "Menunggu Konfirmasi" :
+                       order.status === "confirmed" ? "Dikonfirmasi" :
+                       (user?.businessType === "fashion" ? "Sedang Dipacking" : "Sedang Dimasak")}
+                    </span>
+                  )}
                 </div>
                 <div className="text-right">
                   <div className="font-bold text-primary text-lg">{formatRp(Number(order.total))}</div>
@@ -151,7 +206,7 @@ export default function DeliveryOrdersPage() {
                   <a
                     href={order.googleMapsLocation || `https://maps.google.com/?q=${encodeURIComponent(order.deliveryAddress)}`}
                     target="_blank" rel="noopener noreferrer"
-                    className="ml-auto flex-shrink-0 flex items-center gap-1 text-xs bg-primary/10 text-primary px-2 py-1 rounded-lg hover:bg-primary/20 transition-colors"
+                    className="ml-auto flex-shrink-0 flex items-center gap-1 text-xs bg-primary/10 text-primary px-2.5 py-1.5 rounded-lg hover:bg-primary/20 transition-colors font-bold"
                   >
                     <Navigation size={10} /> Maps
                   </a>
@@ -159,18 +214,26 @@ export default function DeliveryOrdersPage() {
               )}
 
               {/* Items */}
-              <div className="px-4 py-2.5 border-b border-border/50 space-y-1">
+              <div className="px-4 py-2.5 border-b border-border/50 space-y-1.5">
                 {order.items?.map((item: any) => (
-                  <div key={item.id} className="flex flex-col text-sm border-b border-border/20 last:border-b-0 pb-1 last:pb-0">
+                  <div key={item.id} className="flex flex-col text-sm border-b border-border/20 last:border-b-0 pb-1.5 last:pb-0">
                     <div className="flex justify-between">
                       <span className="text-muted-foreground">{item.productName} <span className="font-medium text-foreground">×{item.quantity}</span></span>
                       <span className="font-medium text-foreground">{formatRp(item.subtotal)}</span>
                     </div>
                     {item.variantSelection && (
-                      <span className="text-[10px] text-gray-400 mt-0.5">{item.variantSelection}</span>
+                      <span className="text-[10px] text-muted-foreground mt-0.5 font-medium bg-muted/40 px-1.5 py-0.5 rounded w-fit inline-block">{item.variantSelection}</span>
+                    )}
+                    {item.notes && (
+                      <span className="text-xs text-amber-600 dark:text-amber-500 italic mt-0.5">Catatan: {item.notes}</span>
                     )}
                   </div>
                 ))}
+                {order.notes && (
+                  <div className="mt-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-lg p-2 font-medium">
+                    📝 Catatan Pesanan: {order.notes}
+                  </div>
+                )}
               </div>
 
               {/* Actions */}
@@ -186,6 +249,11 @@ export default function DeliveryOrdersPage() {
                     className="w-full py-2.5 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition-colors disabled:opacity-50">
                     {updating === order.id ? "..." : "✓ Pesanan Terkirim"}
                   </button>
+                )}
+                {["pending", "confirmed", "preparing"].includes(order.status) && (
+                  <div className="text-center text-xs text-muted-foreground bg-muted/50 rounded-xl py-2.5 font-medium border border-dashed border-border">
+                    ⏳ Menunggu pesanan siap dari dapur/toko
+                  </div>
                 )}
                 {(order.status === "completed" || order.status === "cancelled") && (
                   <div className={`text-center text-sm font-medium py-1 ${order.status === "completed" ? "text-green-600" : "text-red-500"}`}>

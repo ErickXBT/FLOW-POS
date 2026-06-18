@@ -92,6 +92,19 @@ router.patch("/employees/:id", async (req, res): Promise<void> => {
     .returning();
 
   if (!employee) { res.status(404).json({ error: "Karyawan tidak ditemukan" }); return; }
+
+  // Sync update to usersTable if linked user account exists
+  if (employee.userId) {
+    const userUpdate: any = { updatedAt: new Date() };
+    if (body.data.name !== undefined) userUpdate.name = body.data.name;
+    if (body.data.email !== undefined) userUpdate.email = body.data.email?.toLowerCase() ?? null;
+    if (body.data.role !== undefined) userUpdate.role = body.data.role;
+
+    await db.update(usersTable)
+      .set(userUpdate)
+      .where(eq(usersTable.id, employee.userId));
+  }
+
   res.json(fmt(employee));
 });
 
@@ -102,8 +115,20 @@ router.delete("/employees/:id", async (req, res): Promise<void> => {
   const params = DeleteEmployeeParams.safeParse({ id: req.params.id });
   if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
 
+  const [emp] = await db.select().from(employeesTable)
+    .where(and(eq(employeesTable.id, params.data.id), eq(employeesTable.tenantId, claims.tenantId!)))
+    .limit(1);
+
+  if (!emp) { res.status(404).json({ error: "Karyawan tidak ditemukan" }); return; }
+
   await db.delete(employeesTable)
-    .where(and(eq(employeesTable.id, params.data.id), eq(employeesTable.tenantId, claims.tenantId!)));
+    .where(eq(employeesTable.id, emp.id));
+
+  // Delete linked login user account if exists
+  if (emp.userId) {
+    await db.delete(usersTable)
+      .where(eq(usersTable.id, emp.userId));
+  }
 
   res.sendStatus(204);
 });

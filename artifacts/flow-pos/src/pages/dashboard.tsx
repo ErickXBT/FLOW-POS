@@ -8,7 +8,8 @@ import {
 } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, LineChart, Line, Legend, PieChart, Pie, Cell } from "recharts";
 import { Link } from "wouter";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth, hasPermission } from "@/hooks/use-auth";
+import { useActiveBranch } from "@/hooks/use-active-branch";
 
 function StatCard({ label, value, sub, icon, trend }: { label: string; value: string; sub?: string; icon: React.ReactNode; trend?: number }) {
   return (
@@ -183,12 +184,11 @@ function ClipboardListIcon() {
 
 // ── Full Owner Dashboard ──────────────────────────────────────────────────────
 function OwnerDashboard() {
-  const [selectedBranchId, setSelectedBranchId] = useState<number | undefined>(undefined);
-  const { data: branches } = useListBranches();
-  const { data: stats } = useGetDashboardStats({ branchId: selectedBranchId });
-  const { data: recentOrders } = useGetRecentOrders({ limit: 10, branchId: selectedBranchId });
-  const { data: topProducts } = useGetTopProducts({ limit: 5, branchId: selectedBranchId });
-  const { data: chartData } = useGetSalesChartData({ period: "week", branchId: selectedBranchId });
+  const { activeBranchId, setActiveBranchId, branches } = useActiveBranch();
+  const { data: stats } = useGetDashboardStats({ branchId: activeBranchId });
+  const { data: recentOrders } = useGetRecentOrders({ limit: 10, branchId: activeBranchId });
+  const { data: topProducts } = useGetTopProducts({ limit: 5, branchId: activeBranchId });
+  const { data: chartData } = useGetSalesChartData({ period: "week", branchId: activeBranchId });
   const { data: tenant } = useGetTenant();
   const plan = tenant?.subscriptionPlan || "trial";
   const isFashion = tenant?.businessType === "fashion";
@@ -317,7 +317,7 @@ function OwnerDashboard() {
   const [exportLoading, setExportLoading] = useState<Record<string, number>>({});
 
   const s = stats || { todaySales: 0, todayOrders: 0, totalProducts: 0, totalCustomers: 0, lowStockCount: 0, monthlyRevenue: 0, weeklyRevenue: 0, revenueGrowth: 0 };
-  const isDemo = tenant?.slug === "budi-resto" || tenant?.slug === "freshmood";
+  const isDemo = tenant?.slug === "budi-resto";
   const isFreshTenant = isDemo ? (stats ? (stats.totalProducts === 0 && stats.todayOrders === 0) : false) : (!simulationActive);
 
   // Sync attendance with real employees dynamically
@@ -423,7 +423,7 @@ function OwnerDashboard() {
     async function loadRealtimeData() {
       try {
         let url = `${BASE_PATH}/api/tenant/customer-orders?limit=20`;
-        if (selectedBranchId) url += `&branchId=${selectedBranchId}`;
+        if (activeBranchId) url += `&branchId=${activeBranchId}`;
         const res = await fetch(url, {
           headers: { Authorization: `Bearer ${token}` }
         });
@@ -480,7 +480,7 @@ function OwnerDashboard() {
     loadRealtimeData();
     const iv = setInterval(loadRealtimeData, 10000);
     return () => clearInterval(iv);
-  }, [selectedBranchId, isFashion]);
+  }, [activeBranchId, isFashion]);
 
   // Generate real-time notifications from low-stock, recent orders, and activity logs
   useEffect(() => {
@@ -634,7 +634,7 @@ function OwnerDashboard() {
 
   // Financial calculations
   const totalExpenses = expenses.reduce((acc, exp) => acc + exp.amount, 0);
-  const estimatedGrossProfit = isDemo ? (s.monthlyRevenue || 14850000) : (s.monthlyRevenue || 0);
+  const estimatedGrossProfit = s.monthlyRevenue || 0;
   const estimatedNetProfit = estimatedGrossProfit - totalExpenses;
 
   // Add Expense function
@@ -897,8 +897,8 @@ function OwnerDashboard() {
           <div className="flex items-center gap-2">
             <span className="text-xs font-semibold text-muted-foreground">Outlet:</span>
             <select
-              value={selectedBranchId || ""}
-              onChange={e => setSelectedBranchId(e.target.value ? Number(e.target.value) : undefined)}
+              value={activeBranchId || ""}
+              onChange={e => setActiveBranchId(e.target.value ? Number(e.target.value) : undefined)}
               className="px-3 py-1.5 border border-input rounded-xl bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all font-semibold min-w-[140px]"
             >
               <option value="">Semua Cabang</option>
@@ -1009,11 +1009,11 @@ function OwnerDashboard() {
 
         {/* Content View Container */}
         <main className="md:col-span-4 space-y-6">
-          {selectedBranchId && ((branches || []) as any[]).find(b => b.id === selectedBranchId)?.status === "locked" && (
+          {activeBranchId && ((branches || []) as any[]).find(b => b.id === activeBranchId)?.status === "locked" && (
             <div className="bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 p-4 rounded-xl flex items-center gap-3 shadow-sm animate-pulse">
               <Lock size={14} className="flex-shrink-0" />
               <div className="text-xs font-semibold">
-                Cabang <strong>{((branches || []) as any[]).find(b => b.id === selectedBranchId)?.name}</strong> saat ini terkunci karena melampaui batas limit paket langganan Anda ({plan.toUpperCase()}).
+                Cabang <strong>{((branches || []) as any[]).find(b => b.id === activeBranchId)?.name}</strong> saat ini terkunci karena melampaui batas limit paket langganan Anda ({plan.toUpperCase()}).
                 Silakan tingkatkan paket langganan Anda melalui Super Admin untuk mengaktifkannya kembali.
               </div>
             </div>
@@ -1023,7 +1023,7 @@ function OwnerDashboard() {
             <div className="space-y-6 animate-fade-in">
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard label="Penjualan Hari Ini" value={formatRp(s.todaySales)} icon={<DollarSign size={16} />} sub={`${s.todayOrders} transaksi`} />
-                <StatCard label="Revenue Bulanan" value={formatRp(estimatedGrossProfit)} icon={<TrendingUp size={16} />} trend={isFreshTenant ? undefined : (s.revenueGrowth || 8.4)} />
+                <StatCard label="Revenue Bulanan" value={formatRp(estimatedGrossProfit)} icon={<TrendingUp size={16} />} trend={isFreshTenant ? undefined : s.revenueGrowth} />
                 <StatCard label="Barang Stok Rendah" value={s.lowStockCount.toString()} icon={<Package size={16} />} sub={s.lowStockCount > 0 ? "⚠️ Butuh Restock" : "Stok aman"} />
                 <StatCard label="Kehadiran Staf" value={attendance.length > 0 ? `${attendance.filter(a => a.checkIn).length}/${attendance.length}` : "0"} icon={<Users size={16} />} sub={attendance.length > 0 ? "Shift Pagi Aktif" : "Belum ada staf"} />
               </div>
@@ -1035,7 +1035,7 @@ function OwnerDashboard() {
                       <h3 className="font-bold text-foreground text-sm">Tren Pendapatan Mingguan</h3>
                       <p className="text-xs text-muted-foreground">7 hari terakhir penjualan</p>
                     </div>
-                    <span className="text-xs font-bold text-primary bg-primary/10 px-3 py-1 rounded-full">{formatRp(isDemo ? (s.weeklyRevenue || 3450000) : (s.weeklyRevenue || 0))} / Mgg</span>
+                    <span className="text-xs font-bold text-primary bg-primary/10 px-3 py-1 rounded-full">{formatRp(s.weeklyRevenue || 0)} / Mgg</span>
                   </div>
                   <ResponsiveContainer width="100%" height={220}>
                     <AreaChart data={chartData || []}>
@@ -2228,6 +2228,13 @@ export default function DashboardPage() {
 
   if (role === "cashier") return <CashierDashboard stats={stats} businessType={businessType} />;
   if (role === "manager") return <ManagerDashboard stats={stats} businessType={businessType} />;
-  if (role === "staff") return <StaffDashboard businessType={businessType} />;
-  return <OwnerDashboard />;
+  if (role === "staff") return <CashierDashboard stats={stats} businessType={businessType} />;
+
+  const isOwnerOrAdmin = user?.role === "owner" || user?.role === "super_admin";
+  if (isOwnerOrAdmin) return <OwnerDashboard />;
+
+  // Custom roles fallback based on permissions
+  if (hasPermission(user, "view_reports")) return <ManagerDashboard stats={stats} businessType={businessType} />;
+  if (hasPermission(user, "view_pos")) return <CashierDashboard stats={stats} businessType={businessType} />;
+  return <CashierDashboard stats={stats} businessType={businessType} />;
 }

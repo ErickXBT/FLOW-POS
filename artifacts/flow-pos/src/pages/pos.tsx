@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useListProducts, useListCategories, useCreateOrder, getListOrdersQueryKey, useGetTenant } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Banknote, Smartphone, QrCode, X, Check, Package, Sparkles, Gift, Percent } from "lucide-react";
+import { useActiveBranch } from "@/hooks/use-active-branch";
 
 const PAYMENT_METHODS = [
   { value: "cash", label: "Tunai", icon: <Banknote size={18} /> },
@@ -27,6 +28,7 @@ function formatRp(val: number) {
 }
 
 export default function POSPage() {
+  const { activeBranchId } = useActiveBranch();
   const { data: tenant } = useGetTenant();
   const isFashion = tenant?.businessType === "fashion";
   const [search, setSearch] = useState("");
@@ -291,7 +293,8 @@ export default function POSPage() {
           tableNumber,
           customerName,
           customerPhone,
-          deliveryAddress
+          deliveryAddress,
+          branchId: activeBranchId
         } as any)
       }
     }, {
@@ -369,6 +372,9 @@ export default function POSPage() {
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
               data-testid="input-product-search"
+              type="search"
+              name="pos-search"
+              autoComplete="off"
               value={search}
               onChange={e => setSearch(e.target.value)}
               placeholder="Cari produk atau scan barcode..."
@@ -618,6 +624,18 @@ export default function POSPage() {
               ))}
             </div>
 
+            {/* Nama Pelanggan (Selalu tampil di POS) */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-semibold text-muted-foreground">Nama Pelanggan</label>
+              <input
+                type="text"
+                placeholder="Nama pelanggan..."
+                value={customerName}
+                onChange={e => setCustomerName(e.target.value)}
+                className="w-full px-3 py-2 border border-input rounded-lg text-xs bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+
             {/* Dine-in inputs */}
             {orderType === "dine_in" && (
               <div className="space-y-1">
@@ -635,27 +653,15 @@ export default function POSPage() {
             {/* Delivery inputs */}
             {orderType === "delivery" && (
               <div className="space-y-2">
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-semibold text-muted-foreground">Penerima</label>
-                    <input
-                      type="text"
-                      placeholder="Nama..."
-                      value={customerName}
-                      onChange={e => setCustomerName(e.target.value)}
-                      className="w-full px-3 py-2 border border-input rounded-lg text-xs bg-background focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] font-semibold text-muted-foreground">No. Telepon</label>
-                    <input
-                      type="text"
-                      placeholder="0812..."
-                      value={customerPhone}
-                      onChange={e => setCustomerPhone(e.target.value)}
-                      className="w-full px-3 py-2 border border-input rounded-lg text-xs bg-background focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
-                  </div>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-muted-foreground">No. Telepon</label>
+                  <input
+                    type="text"
+                    placeholder="0812..."
+                    value={customerPhone}
+                    onChange={e => setCustomerPhone(e.target.value)}
+                    className="w-full px-3 py-2 border border-input rounded-lg text-xs bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+                  />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-semibold text-muted-foreground">Alamat Lengkap Pengiriman</label>

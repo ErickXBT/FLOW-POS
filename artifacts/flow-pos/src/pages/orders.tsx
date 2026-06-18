@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Search, Eye, X, ClipboardList, Download, ArrowLeft, ArrowRight } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useActiveBranch } from "@/hooks/use-active-branch";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -410,6 +411,7 @@ function OrderDetail({ id, onClose }: { id: number; onClose: () => void }) {
 }
 
 export default function OrdersPage() {
+  const { activeBranchId } = useActiveBranch();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [viewId, setViewId] = useState<number | null>(null);
@@ -424,6 +426,7 @@ export default function OrdersPage() {
     let url = `${BASE}/api/tenant/customer-orders?page=${page}&limit=20`;
     if (statusFilter) url += `&status=${statusFilter}`;
     if (search.trim()) url += `&search=${encodeURIComponent(search.trim())}`;
+    if (activeBranchId) url += `&branchId=${activeBranchId}`;
     
     try {
       const res = await fetch(url, {
@@ -446,7 +449,7 @@ export default function OrdersPage() {
       fetchOrders();
     }, 250);
     return () => clearTimeout(handler);
-  }, [page, statusFilter, search]);
+  }, [page, statusFilter, search, activeBranchId]);
 
   return (
     <div className="p-6">

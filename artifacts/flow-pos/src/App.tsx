@@ -1,7 +1,8 @@
 import { useEffect } from "react";
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useAuth, type AuthUser, type UserRole } from "@/hooks/use-auth";
+import { useAuth, type AuthUser, type UserRole, hasPermission } from "@/hooks/use-auth";
+import { BranchProvider } from "@/hooks/use-active-branch";
 import Layout from "@/components/layout";
 import LoginPage from "@/pages/login";
 import RegisterPage from "@/pages/register";
@@ -34,9 +35,17 @@ import BranchesPage from "@/pages/branches";
 import RolesPage from "@/pages/roles";
 
 // Default landing page per role after login
-function defaultRoute(role: UserRole): string {
-  switch (role) {
-    case "super_admin": return "/admin";
+function defaultRoute(user: AuthUser): string {
+  if (user.role === "super_admin") return "/admin";
+  
+  // Custom roles (or standard roles) route selection based on permissions
+  if (hasPermission(user, "view_dashboard")) return "/dashboard";
+  if (hasPermission(user, "view_pos")) return "/pos";
+  if (hasPermission(user, "view_kitchen")) return "/kitchen";
+  if (hasPermission(user, "view_delivery")) return "/delivery";
+  if (hasPermission(user, "manage_orders")) return "/customer-orders";
+
+  switch (user.role) {
     case "kitchen_staff": return "/kitchen";
     case "delivery_staff": return "/delivery";
     case "cashier": return "/pos";
@@ -63,9 +72,9 @@ function AppRoutes() {
     if (!user && !isAuthPage) {
       setLocation("/login");
     } else if (user && isAuthPage) {
-      setLocation(defaultRoute(user.role));
+      setLocation(defaultRoute(user));
     } else if (user && (location === "/" || location === "")) {
-      setLocation(defaultRoute(user.role));
+      setLocation(defaultRoute(user));
     }
   }, [user, loading, location, isMenuPage]);
 
@@ -95,44 +104,46 @@ function AppRoutes() {
   }
 
   return (
-    <Layout user={user} onLogout={logout} isImpersonating={isImpersonating} exitImpersonate={exitImpersonate}>
-      <Switch>
-        {/* Owner / Manager */}
-        <Route path="/dashboard"><DashboardPage /></Route>
-        <Route path="/reports"><ReportsPage /></Route>
-        <Route path="/employees"><EmployeesPage /></Route>
-        <Route path="/branches"><BranchesPage /></Route>
-        <Route path="/roles"><RolesPage /></Route>
-        <Route path="/categories"><CategoriesPage /></Route>
-        <Route path="/inventory"><InventoryPage /></Route>
-        <Route path="/settings"><SettingsPage /></Route>
-        <Route path="/qr-menu"><QrManagerPage /></Route>
-        <Route path="/activity-logs"><ActivityLogsPage /></Route>
+    <BranchProvider user={user}>
+      <Layout user={user} onLogout={logout} isImpersonating={isImpersonating} exitImpersonate={exitImpersonate}>
+        <Switch>
+          {/* Owner / Manager */}
+          <Route path="/dashboard"><DashboardPage /></Route>
+          <Route path="/reports"><ReportsPage /></Route>
+          <Route path="/employees"><EmployeesPage /></Route>
+          <Route path="/branches"><BranchesPage /></Route>
+          <Route path="/roles"><RolesPage /></Route>
+          <Route path="/categories"><CategoriesPage /></Route>
+          <Route path="/inventory"><InventoryPage /></Route>
+          <Route path="/settings"><SettingsPage /></Route>
+          <Route path="/qr-menu"><QrManagerPage /></Route>
+          <Route path="/activity-logs"><ActivityLogsPage /></Route>
 
-        {/* All operational roles */}
-        <Route path="/pos"><POSPage /></Route>
-        <Route path="/orders"><OrdersPage /></Route>
-        <Route path="/customers"><CustomersPage /></Route>
-        <Route path="/products"><ProductsPage /></Route>
-        <Route path="/customer-orders"><CustomerOrdersPage /></Route>
+          {/* All operational roles */}
+          <Route path="/pos"><POSPage /></Route>
+          <Route path="/orders"><OrdersPage /></Route>
+          <Route path="/customers"><CustomersPage /></Route>
+          <Route path="/products"><ProductsPage /></Route>
+          <Route path="/customer-orders"><CustomerOrdersPage /></Route>
 
-        {/* Role-specific */}
-        <Route path="/kitchen"><KitchenDisplayPage /></Route>
-        <Route path="/delivery"><DeliveryOrdersPage /></Route>
+          {/* Role-specific */}
+          <Route path="/kitchen"><KitchenDisplayPage /></Route>
+          <Route path="/delivery"><DeliveryOrdersPage /></Route>
 
-        {/* Super admin */}
-        <Route path="/admin"><AdminPage /></Route>
+          {/* Super admin */}
+          <Route path="/admin"><AdminPage /></Route>
 
-        {/* Default fallback */}
-        <Route><DashboardFallback user={user} /></Route>
-      </Switch>
-    </Layout>
+          {/* Default fallback */}
+          <Route><DashboardFallback user={user} /></Route>
+        </Switch>
+      </Layout>
+    </BranchProvider>
   );
 }
 
 function DashboardFallback({ user }: { user: AuthUser }) {
   const [, setLocation] = useLocation();
-  useEffect(() => { setLocation(defaultRoute(user.role)); }, []);
+  useEffect(() => { setLocation(defaultRoute(user)); }, [user, setLocation]);
   return null;
 }
 
