@@ -158,7 +158,7 @@ function OrderDetail({ id, onClose }: { id: number; onClose: () => void }) {
     const divider2H = 20;
     
     let itemsH = 0;
-    processedItems.forEach(pi => {
+    processedItems.forEach((pi: any) => {
       itemsH += pi.nameLines.length * 22;
       itemsH += pi.varLines.length * 16;
       itemsH += 8; // spacing between items
@@ -216,7 +216,7 @@ function OrderDetail({ id, onClose }: { id: number; onClose: () => void }) {
     y += 20;
 
     // Draw Items
-    processedItems.forEach(pi => {
+    processedItems.forEach((pi: any) => {
       ctx.font = "14px 'Courier New', monospace";
       
       // Quantity (orange/brown highlight)
@@ -244,7 +244,7 @@ function OrderDetail({ id, onClose }: { id: number; onClose: () => void }) {
       // Variant selections
       ctx.font = "11px 'Courier New', monospace";
       ctx.fillStyle = "#555555";
-      pi.varLines.forEach(line => {
+      pi.varLines.forEach((line: string) => {
         ctx.fillText(line, 50, y);
         y += 16;
       });
