@@ -181,7 +181,7 @@ export default function POSPage() {
     setModalQty(1);
     setModalNotes("");
     
-    let variants = DEFAULT_VARIANTS;
+    let variants = isFashion ? [] : DEFAULT_VARIANTS;
     let toppings = isFashion ? [] : DEFAULT_TOPPINGS;
 
     if (product.variantSettings) {
@@ -189,16 +189,20 @@ export default function POSPage() {
         const parsed = JSON.parse(product.variantSettings);
         if (parsed.variants && Array.isArray(parsed.variants)) {
           variants = parsed.variants;
+        } else {
+          variants = isFashion ? [] : DEFAULT_VARIANTS;
         }
         if (parsed.toppings && Array.isArray(parsed.toppings)) {
           toppings = parsed.toppings;
+        } else {
+          toppings = isFashion ? [] : DEFAULT_TOPPINGS;
         }
       } catch (e) {
-        variants = DEFAULT_VARIANTS;
+        variants = isFashion ? [] : DEFAULT_VARIANTS;
         toppings = isFashion ? [] : DEFAULT_TOPPINGS;
       }
     } else {
-      variants = DEFAULT_VARIANTS;
+      variants = isFashion ? [] : DEFAULT_VARIANTS;
       toppings = isFashion ? [] : DEFAULT_TOPPINGS;
     }
 

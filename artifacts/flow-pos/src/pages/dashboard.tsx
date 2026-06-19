@@ -4,12 +4,13 @@ import {
   TrendingUp, TrendingDown, ShoppingCart, Package, Users, AlertTriangle, DollarSign, ChefHat, Truck, Clock,
   Bell, FileText, Download, BarChart2, Users2, ShieldAlert, Award, Calendar, Layers, MapPin, Percent,
   MessageSquare, Plus, Trash2, Check, RefreshCw, Smartphone, Clipboard, QrCode, Sparkles, LogIn, Laptop, Globe, Gift,
-  Building2, Activity, Lock, UploadCloud, Shirt, ShoppingBag
+  Building2, Activity, Lock, UploadCloud, Shirt, ShoppingBag, X
 } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, LineChart, Line, Legend, PieChart, Pie, Cell } from "recharts";
 import { Link } from "wouter";
 import { useAuth, hasPermission } from "@/hooks/use-auth";
 import { useActiveBranch } from "@/hooks/use-active-branch";
+import { Barcode128 } from "@/components/barcode128";
 
 function StatCard({ label, value, sub, icon, trend }: { label: string; value: string; sub?: string; icon: React.ReactNode; trend?: number }) {
   return (
@@ -2188,8 +2189,58 @@ export default function DashboardPage() {
   const { data: stats, isLoading: statsLoading } = useGetDashboardStats();
   const { data: branches } = useListBranches();
   const { data: tenant, isLoading: tenantLoading } = useGetTenant();
+  const [scannedProduct, setScannedProduct] = useState<any | null>(null);
+
+  const { data: productsData } = useListProducts({ limit: 150 });
+  const products = productsData?.data || [];
 
   const isLoading = statsLoading || tenantLoading;
+
+  const role = user?.role ?? "staff";
+  const businessType = tenant?.businessType || "fnb";
+
+  useEffect(() => {
+    if (businessType !== "fashion" || products.length === 0) return;
+
+    let barcodeBuffer = "";
+    let lastKeyTime = Date.now();
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isInput = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
+      const currentTime = Date.now();
+      
+      if (currentTime - lastKeyTime > 50) {
+        barcodeBuffer = "";
+      }
+
+      if (e.key !== "Enter") {
+        if (e.key.length === 1) {
+          barcodeBuffer += e.key;
+        }
+      } else {
+        if (barcodeBuffer.length >= 3) {
+          if (!isInput || (currentTime - lastKeyTime < 50)) {
+            e.preventDefault();
+            e.stopPropagation();
+            const scannedCode = barcodeBuffer.trim();
+            barcodeBuffer = "";
+
+            const matched = products.find(p => p.barcode === scannedCode || p.sku === scannedCode);
+            if (matched) {
+              setScannedProduct(matched);
+            } else {
+              alert(`Produk dengan barcode atau SKU "${scannedCode}" tidak ditemukan.`);
+            }
+          }
+        }
+        barcodeBuffer = "";
+      }
+      lastKeyTime = currentTime;
+    };
+
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
+  }, [products, businessType]);
 
   if (isLoading) {
     return (
@@ -2200,9 +2251,6 @@ export default function DashboardPage() {
       </div>
     );
   }
-
-  const role = user?.role ?? "staff";
-  const businessType = tenant?.businessType || "fnb";
 
   // Enforce lock checking for cashier/manager
   if (user?.branchId) {
@@ -2226,15 +2274,145 @@ export default function DashboardPage() {
     }
   }
 
-  if (role === "cashier") return <CashierDashboard stats={stats} businessType={businessType} />;
-  if (role === "manager") return <ManagerDashboard stats={stats} businessType={businessType} />;
-  if (role === "staff") return <CashierDashboard stats={stats} businessType={businessType} />;
+  let dashboardView = null;
 
-  const isOwnerOrAdmin = user?.role === "owner" || user?.role === "super_admin";
-  if (isOwnerOrAdmin) return <OwnerDashboard />;
+  if (role === "cashier") dashboardView = <CashierDashboard stats={stats} businessType={businessType} />;
+  else if (role === "manager") dashboardView = <ManagerDashboard stats={stats} businessType={businessType} />;
+  else if (role === "staff") dashboardView = <CashierDashboard stats={stats} businessType={businessType} />;
+  else {
+    const isOwnerOrAdmin = user?.role === "owner" || user?.role === "super_admin";
+    if (isOwnerOrAdmin) dashboardView = <OwnerDashboard />;
+    else if (hasPermission(user, "view_reports")) dashboardView = <ManagerDashboard stats={stats} businessType={businessType} />;
+    else if (hasPermission(user, "view_pos")) dashboardView = <CashierDashboard stats={stats} businessType={businessType} />;
+    else dashboardView = <CashierDashboard stats={stats} businessType={businessType} />;
+  }
 
-  // Custom roles fallback based on permissions
-  if (hasPermission(user, "view_reports")) return <ManagerDashboard stats={stats} businessType={businessType} />;
-  if (hasPermission(user, "view_pos")) return <CashierDashboard stats={stats} businessType={businessType} />;
-  return <CashierDashboard stats={stats} businessType={businessType} />;
+  return (
+    <>
+      {dashboardView}
+      {scannedProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-card border border-card-border rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-muted/20">
+              <div>
+                <h2 className="font-bold text-foreground text-base leading-snug">Detail Scan Barcode</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Data Produk & Informasi Stok</p>
+              </div>
+              <button
+                onClick={() => setScannedProduct(null)}
+                className="p-1.5 hover:bg-muted rounded-full text-muted-foreground hover:text-foreground transition-all"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-5 space-y-4 overflow-y-auto max-h-[70vh]">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Image and Barcode */}
+                <div className="flex flex-col items-center gap-3">
+                  <div className="w-full aspect-square rounded-xl overflow-hidden bg-muted border border-border/40 flex items-center justify-center">
+                    {scannedProduct.imageUrl ? (
+                      <img src={scannedProduct.imageUrl} alt={scannedProduct.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <Package size={64} className="text-muted-foreground/30" />
+                    )}
+                  </div>
+                  <Barcode128 value={scannedProduct.barcode} />
+                </div>
+
+                {/* Details */}
+                <div className="space-y-3.5 text-left">
+                  <div>
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase block">Nama Produk</span>
+                    <h3 className="font-bold text-foreground text-lg leading-snug">{scannedProduct.name}</h3>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase block">SKU</span>
+                      <div className="font-semibold text-sm text-foreground">{scannedProduct.sku || "-"}</div>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase block">Kategori</span>
+                      <div className="font-semibold text-xs text-amber-500 bg-amber-400/10 px-2 py-0.5 rounded w-fit mt-0.5">{scannedProduct.categoryName || "Tanpa Kategori"}</div>
+                    </div>
+                  </div>
+
+                  <hr className="border-border/50" />
+
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <div>
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase block">Harga Jual</span>
+                      <div className="font-bold text-base text-primary">Rp {Number(scannedProduct.price).toLocaleString("id-ID")}</div>
+                    </div>
+                    {scannedProduct.costPrice && (
+                      <div>
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase block">Harga Beli</span>
+                        <div className="font-semibold text-sm text-muted-foreground">Rp {Number(scannedProduct.costPrice).toLocaleString("id-ID")}</div>
+                      </div>
+                    )}
+                  </div>
+
+                  <hr className="border-border/50" />
+
+                  <div className="flex items-center justify-between p-3 bg-muted/20 border border-border/40 rounded-xl">
+                    <div>
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase block">Stok Saat Ini</span>
+                      <div className="font-bold text-2xl text-foreground mt-0.5">{scannedProduct.stock}</div>
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase block text-right">Batas Minimum</span>
+                      <div className="font-bold text-sm text-muted-foreground text-right mt-1">{scannedProduct.minStock}</div>
+                    </div>
+                  </div>
+
+                  {scannedProduct.stock <= scannedProduct.minStock && (
+                    <div className="bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-semibold px-3 py-2 rounded-lg flex items-center gap-1.5 animate-pulse">
+                      ⚠️ Stok menipis! Harap segera restock.
+                    </div>
+                  )}
+
+                  {/* Size variants display */}
+                  {(() => {
+                    if (scannedProduct.variantSettings) {
+                      try {
+                        const parsed = JSON.parse(scannedProduct.variantSettings);
+                        if (parsed.variants && parsed.variants.length > 0) {
+                          return (
+                            <div className="space-y-1.5">
+                              <span className="text-[10px] font-bold text-muted-foreground uppercase block">Ukuran / Varian Tersedia</span>
+                              <div className="flex flex-wrap gap-1">
+                                {parsed.variants.map((v: any, idx: number) => (
+                                  <span key={idx} className="px-2 py-0.5 bg-background border border-border text-xs font-bold rounded-lg text-foreground">
+                                    {v.name} {v.price > 0 && `(+Rp ${v.price.toLocaleString("id-ID")})`}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        }
+                      } catch (e) {}
+                    }
+                    return null;
+                  })()}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-border bg-muted/10 flex justify-end">
+              <button
+                onClick={() => setScannedProduct(null)}
+                className="px-5 py-2 bg-primary text-primary-foreground font-bold text-xs rounded-xl hover:opacity-90 active:scale-95 transition-all"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
 }

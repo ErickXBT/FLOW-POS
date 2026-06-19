@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   useListProducts,
   useListCategories,
@@ -14,6 +14,7 @@ import {
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, Edit2, Trash2, Package, X, Star, Tag, UploadCloud } from "lucide-react";
+import { Barcode128 } from "@/components/barcode128";
 
 function formatRp(v: number) {
   return `Rp ${v.toLocaleString("id-ID")}`;
@@ -65,6 +66,25 @@ function ProductForm({ initial, categories, onSubmit, onClose, loading, business
       return [];
     }
   });
+
+  const [hasSizes, setHasSizes] = useState(() => {
+    if (businessType !== "fashion") return true;
+    if (!initial?.variantSettings) return false;
+    try {
+      const parsed = JSON.parse(initial.variantSettings);
+      if (parsed.isBundle) return false;
+      return Array.isArray(parsed.variants) && parsed.variants.length > 0;
+    } catch (e) {
+      return false;
+    }
+  });
+
+  const addPresetSize = (sizeName: string) => {
+    setVariantsList(prev => {
+      if (prev.some(v => v.name.toLowerCase() === sizeName.toLowerCase())) return prev;
+      return [...prev, { name: sizeName, price: 0 }];
+    });
+  };
 
   // Bundle package states
   let initialIsBundle = false;
@@ -250,20 +270,90 @@ function ProductForm({ initial, categories, onSubmit, onClose, loading, business
                   <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">SKU</label>
                   <input
                     type="text"
+                    placeholder="Contoh: HCP-001"
                     value={form.sku}
                     onChange={e => setForm(p => ({ ...p, sku: e.target.value }))}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Barcode</label>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1.5 flex items-center justify-between">
+                    <span>Barcode</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const rand = Math.floor(10000000 + Math.random() * 90000000).toString();
+                        setForm(p => ({ ...p, barcode: `FS${rand}` }));
+                      }}
+                      className="text-[10px] font-bold text-amber-500 hover:text-amber-600 transition-colors uppercase"
+                    >
+                      ⚡ Generate
+                    </button>
+                  </label>
                   <input
                     type="text"
+                    placeholder="Contoh: FS82736182"
                     value={form.barcode}
                     onChange={e => setForm(p => ({ ...p, barcode: e.target.value }))}
                     className="w-full px-3.5 py-2.5 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400"
                   />
                 </div>
+                {form.barcode && (
+                  <div className="col-span-2 flex flex-col items-center p-4 bg-muted/20 border border-border/60 rounded-2xl gap-3 animate-fade-in">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground self-start">Visualisasi Barcode</span>
+                    <Barcode128 value={form.barcode} />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const printWindow = window.open("", "_blank");
+                        if (!printWindow) return;
+                        const svgHtml = document.getElementById(`barcode-svg-${form.barcode}`)?.outerHTML || "";
+                        printWindow.document.write(`
+                          <html>
+                            <head>
+                              <title>Cetak Barcode - ${form.barcode}</title>
+                              <style>
+                                body {
+                                  display: flex;
+                                  flex-direction: column;
+                                  align-items: center;
+                                  justify-content: center;
+                                  height: 100vh;
+                                  margin: 0;
+                                  font-family: monospace;
+                                }
+                                .print-box {
+                                  text-align: center;
+                                  padding: 20px;
+                                  border: 1px solid #ccc;
+                                  border-radius: 8px;
+                                  background: white;
+                                }
+                              </style>
+                            </head>
+                            <body>
+                              <div class="print-box">
+                                ${svgHtml}
+                                <div style="margin-top: 8px; font-size: 14px; font-weight: bold; letter-spacing: 2px;">${form.barcode}</div>
+                                <div style="font-size: 11px; margin-top: 2px;">${form.name || ""}</div>
+                              </div>
+                              <script>
+                                window.onload = function() {
+                                  window.print();
+                                  setTimeout(function() { window.close(); }, 500);
+                                };
+                              </script>
+                            </body>
+                          </html>
+                        `);
+                        printWindow.document.close();
+                      }}
+                      className="px-3.5 py-1.5 bg-amber-400 hover:bg-amber-500 text-black text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow"
+                    >
+                      🖨️ Cetak Barcode
+                    </button>
+                  </div>
+                )}
               </>
             )}
             <div className="col-span-2">
@@ -622,8 +712,121 @@ function ProductForm({ initial, categories, onSubmit, onClose, loading, business
               </div>
             )}
 
-            {/* Topping Section */}
+            {/* Varian Section */}
             {!isBundle && (
+              <div className="col-span-2 space-y-2">
+                {businessType === "fashion" ? (
+                  <div className="flex items-center justify-between border-b pb-1.5 border-border">
+                    <label className="relative inline-flex items-center cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        className="sr-only peer"
+                        checked={hasSizes}
+                        onChange={e => setHasSizes(e.target.checked)}
+                      />
+                      <div className="w-8 h-4 bg-muted-foreground/30 peer-focus:outline-none rounded-full peer after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-amber-400 peer-checked:after:translate-x-4"></div>
+                      <span className="ml-2 text-xs font-bold text-muted-foreground select-none uppercase">Gunakan Pilihan Ukuran</span>
+                    </label>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between border-b pb-1.5 border-border">
+                    <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Pilihan Ukuran / Varian</span>
+                    <button
+                      type="button"
+                      onClick={() => setVariantsList(prev => [...prev, { name: "", price: 0 }])}
+                      className="text-xs font-bold text-amber-500 hover:text-amber-600 transition-colors"
+                    >
+                      + Tambah Varian
+                    </button>
+                  </div>
+                )}
+
+                {/* Preset sizes for Fashion Store */}
+                {businessType === "fashion" && hasSizes && (
+                  <div className="space-y-1.5 bg-muted/10 p-3 rounded-xl border border-border/40">
+                    <div className="text-[10px] font-bold text-muted-foreground uppercase">Rekomendasi Ukuran (Klik untuk menambah)</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {["S", "M", "L", "XL", "XXL"].map(sz => (
+                        <button
+                          key={sz}
+                          type="button"
+                          onClick={() => addPresetSize(sz)}
+                          className="px-2.5 py-1 bg-background hover:bg-amber-400 hover:text-black border border-border rounded-lg text-xs font-bold transition-all text-foreground"
+                        >
+                          {sz}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => ["S", "M", "L", "XL", "XXL"].forEach(addPresetSize)}
+                        className="px-2.5 py-1 bg-amber-400/10 text-amber-500 hover:bg-amber-400 hover:text-black border border-amber-400/20 rounded-lg text-xs font-bold transition-all"
+                      >
+                        Semua Ukuran
+                      </button>
+                    </div>
+                  </div>
+                )}
+                
+                {hasSizes && (
+                  <>
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Daftar Ukuran / Varian Produk</span>
+                      {businessType === "fashion" && (
+                        <button
+                          type="button"
+                          onClick={() => setVariantsList(prev => [...prev, { name: "", price: 0 }])}
+                          className="text-xs font-bold text-amber-500 hover:text-amber-600 transition-colors"
+                        >
+                          + Tambah Ukuran Custom
+                        </button>
+                      )}
+                    </div>
+                    {variantsList.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic">Belum ada varian ditambahkan.</p>
+                    ) : (
+                      <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
+                        {variantsList.map((variant, index) => (
+                          <div key={index} className="flex items-center gap-2 animate-fade-in">
+                            <input
+                              type="text"
+                              placeholder={businessType === "fashion" ? "Nama Ukuran (misal: S, M, XL, dll)" : "Nama Varian (misal: Large)"}
+                              value={variant.name}
+                              onChange={e => {
+                                const updated = [...variantsList];
+                                updated[index].name = e.target.value;
+                                setVariantsList(updated);
+                              }}
+                              className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400"
+                            />
+                            <input
+                              type="number"
+                              placeholder="Tambahan Harga (Rp)"
+                              value={variant.price || ""}
+                              onChange={e => {
+                                const updated = [...variantsList];
+                                updated[index].price = Number(e.target.value) || 0;
+                                setVariantsList(updated);
+                              }}
+                              className="w-32 px-3 py-2 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setVariantsList(prev => prev.filter((_, idx) => idx !== index))}
+                              className="p-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors"
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+
+            {/* Topping Section */}
+            {!isBundle && businessType !== "fashion" && (
               <div className="col-span-2 space-y-2">
                 <div className="flex items-center justify-between border-b pb-1.5 border-border">
                   <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Topping / Tambahan</span>
@@ -706,13 +909,17 @@ function ProductForm({ initial, categories, onSubmit, onClose, loading, business
                 bannerImageUrl: bundleBannerImageUrl || undefined
               });
             } else {
-              const cleanVariants = variantsList
-                .map(v => ({ name: v.name.trim(), price: Number(v.price) }))
-                .filter(v => v.name !== "");
+              const cleanVariants = (businessType === "fashion" && !hasSizes)
+                ? []
+                : variantsList
+                    .map(v => ({ name: v.name.trim(), price: Number(v.price) }))
+                    .filter(v => v.name !== "");
 
-              const cleanToppings = toppingsList
-                .map(t => ({ name: t.name.trim(), price: Number(t.price) }))
-                .filter(t => t.name !== "");
+              const cleanToppings = businessType === "fashion"
+                ? []
+                : toppingsList
+                    .map(t => ({ name: t.name.trim(), price: Number(t.price) }))
+                    .filter(t => t.name !== "");
 
               if (cleanVariants.length > 0 || cleanToppings.length > 0) {
                 variantSettingsStr = JSON.stringify({
@@ -779,8 +986,54 @@ export default function ProductsPage() {
   const qc = useQueryClient();
 
   const { data: tenant } = useGetTenant();
+  const isFashion = tenant?.businessType === "fashion";
+
   const { data: productsData, isLoading } = useListProducts({ search: search || undefined, limit: 50 });
   const { data: categories, isLoading: isCatLoading } = useListCategories();
+  const products = productsData?.data || [];
+
+  useEffect(() => {
+    if (!isFashion) return;
+
+    let barcodeBuffer = "";
+    let lastKeyTime = Date.now();
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const isInput = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
+      const currentTime = Date.now();
+      
+      if (currentTime - lastKeyTime > 50) {
+        barcodeBuffer = "";
+      }
+
+      if (e.key !== "Enter") {
+        if (e.key.length === 1) {
+          barcodeBuffer += e.key;
+        }
+      } else {
+        if (barcodeBuffer.length >= 3) {
+          if (!isInput || (currentTime - lastKeyTime < 50)) {
+            e.preventDefault();
+            e.stopPropagation();
+            const scannedCode = barcodeBuffer.trim();
+            barcodeBuffer = "";
+
+            const matched = products.find(p => p.barcode === scannedCode || p.sku === scannedCode);
+            if (matched) {
+              setEditProduct(matched);
+            } else {
+              alert(`Produk dengan barcode atau SKU "${scannedCode}" tidak ditemukan.`);
+            }
+          }
+        }
+        barcodeBuffer = "";
+      }
+      lastKeyTime = currentTime;
+    };
+
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
+  }, [products, isFashion]);
   const createProduct = useCreateProduct();
   const updateProduct = useUpdateProduct();
   const deleteProduct = useDeleteProduct();
@@ -849,7 +1102,6 @@ export default function ProductsPage() {
     deleteCategory.mutate({ id }, { onSuccess: invalidateCategories });
   };
 
-  const products = productsData?.data || [];
   const filteredCategories = (categories || []).filter(c =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
     (c.description || "").toLowerCase().includes(search.toLowerCase())
@@ -860,21 +1112,25 @@ export default function ProductsPage() {
       {/* Title Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Menu Management</h1>
-          <p className="text-muted-foreground text-sm">Manage your categories and menu items</p>
+          <h1 className="text-2xl font-bold text-foreground">
+            {isFashion ? "Katalog Produk" : "Menu Management"}
+          </h1>
+          <p className="text-muted-foreground text-sm">
+            {isFashion ? "Kelola kategori dan katalog produk Anda" : "Manage your categories and menu items"}
+          </p>
         </div>
         <div className="flex items-center gap-3">
           <button
             onClick={() => setShowCatForm(true)}
             className="flex items-center gap-2 px-4 py-2.5 border border-border/80 bg-card hover:bg-muted text-foreground rounded-xl text-sm font-semibold transition-all shadow-sm"
           >
-            <Plus size={16} /> Category
+            <Plus size={16} /> Kategori
           </button>
           <button
             onClick={() => setShowForm(true)}
             className="flex items-center gap-2 px-4 py-2.5 bg-amber-400 hover:bg-amber-500 text-black rounded-xl text-sm font-bold transition-all shadow-sm"
           >
-            <Plus size={16} /> Add Item
+            <Plus size={16} /> {isFashion ? "Tambah Produk" : "Add Item"}
           </button>
         </div>
       </div>
@@ -889,7 +1145,7 @@ export default function ProductsPage() {
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
-          Menu Items
+          {isFashion ? "Daftar Produk" : "Menu Items"}
         </button>
         <button
           onClick={() => { setActiveTab("categories"); setSearch(""); }}
@@ -899,7 +1155,7 @@ export default function ProductsPage() {
               : "text-muted-foreground hover:text-foreground"
           }`}
         >
-          Categories
+          {isFashion ? "Kategori" : "Categories"}
         </button>
       </div>
 
@@ -910,7 +1166,7 @@ export default function ProductsPage() {
           data-testid="input-product-search"
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Search items..."
+          placeholder={isFashion ? "Cari produk atau scan barcode..." : "Search items..."}
           className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-input bg-card text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400"
         />
       </div>
