@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useGetTenant, useUpdateTenant, useGetTenantSubscription, getGetTenantQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Building2, Save, CreditCard, Image, UploadCloud, Trash2, Lock } from "lucide-react";
+import { Building2, Save, CreditCard, Image, UploadCloud, Trash2, Lock, User } from "lucide-react";
 import { useAuth, ROLE_LABELS } from "@/hooks/use-auth";
 
 const ALL_BUSINESS_TYPES = [
@@ -16,7 +16,87 @@ export default function SettingsPage() {
   const { data: tenant, isLoading } = useGetTenant();
   const { data: sub } = useGetTenantSubscription();
   const updateTenant = useUpdateTenant();
-  const { user } = useAuth();
+  const { user, refetch } = useAuth();
+
+  const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || "");
+  const [profileName, setProfileName] = useState(user?.name || "");
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (user) {
+      setAvatarUrl(user.avatarUrl || "");
+      setProfileName(user.name || "");
+    }
+  }, [user]);
+
+  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      alert("File harus berupa gambar");
+      return;
+    }
+    if (file.size > 2 * 1024 * 1024) {
+      alert("Ukuran gambar maksimal 2MB");
+      return;
+    }
+
+    setAvatarUploading(true);
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = reader.result as string;
+        const token = localStorage.getItem("flow_token");
+        const res = await fetch("/api/products/upload", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token || ""}`,
+          },
+          body: JSON.stringify({ name: file.name, base64 }),
+        });
+
+        if (!res.ok) throw new Error("Gagal mengunggah avatar");
+        const data = await res.json();
+        setAvatarUrl(data.imageUrl);
+      }
+      reader.readAsDataURL(file);
+    } catch (err: any) {
+      alert(err.message || "Gagal mengunggah foto profil");
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
+
+  const handleSaveProfile = async () => {
+    if (!profileName.trim()) {
+      alert("Nama lengkap tidak boleh kosong");
+      return;
+    }
+    setProfileSaving(true);
+    try {
+      const token = localStorage.getItem("flow_token");
+      const res = await fetch("/api/auth/update-profile", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token || ""}`,
+        },
+        body: JSON.stringify({ name: profileName, avatarUrl }),
+      });
+
+      if (!res.ok) throw new Error("Gagal menyimpan profil");
+      
+      await refetch();
+      alert("Profil berhasil diperbarui!");
+    } catch (err: any) {
+      alert(err.message || "Gagal menyimpan profil");
+    } finally {
+      setProfileSaving(false);
+    }
+  };
   
   const [passwordForm, setPasswordForm] = useState({
     currentPassword: "",
@@ -291,6 +371,56 @@ export default function SettingsPage() {
           {saved && <span className="text-green-600 dark:text-green-400 text-sm font-medium">✓ Tersimpan</span>}
         </div>
       </div>
+
+      {/* Profil Pengguna */}
+      {user && (
+        <div className="bg-card border border-card-border rounded-xl p-6 shadow-sm space-y-4">
+          <div className="flex items-center gap-2 font-semibold text-foreground mb-4">
+            <User size={18} className="text-primary" /> Profil Pengguna (Pemilik)
+          </div>
+          
+          <div className="flex flex-col md:flex-row items-center gap-6 pb-4 border-b border-border/50">
+            {/* Avatar upload */}
+            <div className="relative group w-20 h-20 rounded-full overflow-hidden border border-border bg-muted/20 flex items-center justify-center cursor-pointer flex-shrink-0" onClick={() => avatarInputRef.current?.click()}>
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-2xl font-bold text-muted-foreground">{user.name.charAt(0).toUpperCase()}</span>
+              )}
+              {avatarUploading ? (
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              ) : (
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <UploadCloud size={16} className="text-white" />
+                </div>
+              )}
+            </div>
+            <input type="file" ref={avatarInputRef} className="hidden" accept="image/*" onChange={handleAvatarChange} />
+            
+            <div className="flex-1 w-full space-y-3">
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1">Nama Lengkap</label>
+                <input
+                  type="text"
+                  value={profileName}
+                  onChange={e => setProfileName(e.target.value)}
+                  className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleSaveProfile}
+                disabled={profileSaving}
+                className="px-4 py-2 bg-primary text-primary-foreground font-semibold rounded-xl text-xs hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center gap-1.5 cursor-pointer shadow-sm animate-pulse-subtle"
+              >
+                <Save size={13} /> {profileSaving ? "Menyimpan..." : "Simpan Profil"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Informasi Login & Keamanan */}
       {user && (

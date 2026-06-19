@@ -175,6 +175,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
       email: user.email,
       role: user.role,
       tenantId: user.tenantId,
+      avatarUrl: user.avatarUrl,
       createdAt: user.createdAt,
       ...extra
     },
@@ -291,6 +292,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
       email: user.email,
       role: user.role,
       tenantId: user.tenantId,
+      avatarUrl: user.avatarUrl,
       createdAt: user.createdAt,
       ...extra
     },
@@ -320,6 +322,7 @@ router.get("/auth/me", async (req, res): Promise<void> => {
     email: user.email,
     role: user.role,
     tenantId: user.tenantId,
+    avatarUrl: user.avatarUrl,
     createdAt: user.createdAt,
     ...extra
   });
@@ -368,6 +371,38 @@ router.post("/auth/change-password", async (req, res): Promise<void> => {
     ipAddress: req.ip,
   });
   res.json({ success: true, message: "Password berhasil diubah" });
+});
+
+router.post("/auth/update-profile", async (req, res): Promise<void> => {
+  const claims = extractToken(req);
+  if (!claims) { res.status(401).json({ error: "Unauthorized" }); return; }
+  const { name, avatarUrl } = req.body;
+  
+  const [user] = await db.select().from(usersTable).where(eq(usersTable.id, claims.userId));
+  if (!user) {
+    res.status(404).json({ error: "Pengguna tidak ditemukan" });
+    return;
+  }
+
+  const updateData: any = { updatedAt: new Date() };
+  if (name !== undefined) updateData.name = name;
+  if (avatarUrl !== undefined) updateData.avatarUrl = avatarUrl;
+
+  await db.update(usersTable)
+    .set(updateData)
+    .where(eq(usersTable.id, claims.userId));
+  
+  await logActivity({
+    tenantId: user.tenantId,
+    userId: user.id,
+    userName: user.name,
+    userRole: user.role,
+    action: "update_profile",
+    module: "auth",
+    ipAddress: req.ip,
+  });
+
+  res.json({ success: true, message: "Profil berhasil diperbarui" });
 });
 
 router.post("/auth/forgot-password", async (req, res): Promise<void> => {

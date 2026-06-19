@@ -201,9 +201,17 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
       </nav>
       <div className="px-4 py-4 border-t border-sidebar-border space-y-2 flex-shrink-0">
         <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-sidebar-primary flex items-center justify-center text-sm font-bold text-sidebar-primary-foreground flex-shrink-0">
-            {user.name.charAt(0).toUpperCase()}
-          </div>
+          {user.avatarUrl ? (
+            <img
+              src={user.avatarUrl}
+              alt={user.name}
+              className="w-8 h-8 rounded-full object-cover flex-shrink-0 border border-sidebar-border"
+            />
+          ) : (
+            <div className="w-8 h-8 rounded-full bg-sidebar-primary flex items-center justify-center text-sm font-bold text-sidebar-primary-foreground flex-shrink-0">
+              {user.name.charAt(0).toUpperCase()}
+            </div>
+          )}
           <div className="flex-1 min-w-0">
             <div className="text-sidebar-foreground text-sm font-medium truncate">{user.name}</div>
             <span className={`inline-block text-xs px-2 py-0.5 rounded-full font-medium mt-0.5 ${ROLE_COLORS[user.role] ?? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400"}`}>

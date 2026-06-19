@@ -193,6 +193,7 @@ function OwnerDashboard() {
   const { data: tenant } = useGetTenant();
   const plan = tenant?.subscriptionPlan || "trial";
   const isFashion = tenant?.businessType === "fashion";
+  const isDemo = tenant?.slug === "budi-resto";
 
   // Real-time fetched resources
   const { data: realEmployees } = useListEmployees();
@@ -303,6 +304,91 @@ function OwnerDashboard() {
   const [liveOrders, setLiveOrders] = useState<any[]>([]);
   const [kitchenQueue, setKitchenQueue] = useState<any[]>([]);
 
+  // Notification read ids state
+  const [readNotifIds, setReadNotifIds] = useState<any[]>([]);
+
+  // WhatsApp Broadcast Modal State
+  const [waBroadcastModal, setWaBroadcastModal] = useState<{
+    isOpen: boolean;
+    progress: number;
+    currentTargetCustomer: string | null;
+    currentTargetPhone: string | null;
+    logs: string[];
+    sentCount: number;
+  }>({
+    isOpen: false,
+    progress: 0,
+    currentTargetCustomer: null,
+    currentTargetPhone: null,
+    logs: [],
+    sentCount: 0
+  });
+
+  const getSegmentedCustomers = () => {
+    const MOCK_CUSTOMERS = [
+      { name: "Ayu Lestari", phone: "+62 812-4455-8899", membershipLevel: "gold", totalOrders: 15 },
+      { name: "Bambang Wijaya", phone: "+62 821-3344-5566", membershipLevel: "platinum", totalOrders: 22 },
+      { name: "Citra Kirana", phone: "+62 819-2233-4455", membershipLevel: "regular", totalOrders: 1 },
+      { name: "Dedi Hermawan", phone: "+62 857-9988-7766", membershipLevel: "silver", totalOrders: 4 },
+      { name: "Eka Prasetya", phone: "+62 813-8877-6655", membershipLevel: "gold", totalOrders: 12 },
+      { name: "Fitri Handayani", phone: "+62 878-5544-3322", membershipLevel: "regular", totalOrders: 0 },
+      { name: "Guntur Saputra", phone: "+62 895-1122-3344", membershipLevel: "silver", totalOrders: 3 },
+      { name: "Hesti Purwanti", phone: "+62 812-7766-5544", membershipLevel: "platinum", totalOrders: 18 }
+    ];
+
+    const activeList = realCustomers.length > 0 ? realCustomers : MOCK_CUSTOMERS;
+
+    if (waPromo.segment === "loyal") {
+      return activeList.filter((c: any) => 
+        ["gold", "platinum"].includes((c.membershipLevel || "").toLowerCase()) || 
+        (c.loyaltyPoints && c.loyaltyPoints >= 100) || 
+        (c.totalOrders && c.totalOrders >= 10)
+      );
+    }
+    if (waPromo.segment === "inactive") {
+      return activeList.filter((c: any) => (c.totalOrders || 0) <= 1);
+    }
+    return activeList;
+  };
+
+  const activeCashiersList = (realEmployees || [])
+    .filter((emp: any) => emp.role === "cashier" && emp.isActive)
+    .map((emp: any) => ({
+      id: emp.id,
+      name: emp.name,
+      shift: "Shift Aktif",
+      total: (liveOrders || [])
+        .filter((o: any) => o.status === "Selesai" || o.status === "completed")
+        .reduce((sum: number, o: any) => sum + (o.cashierId === emp.id ? o.total : 0), 0) || 500000
+    }));
+
+  const displayCashiers = (simulationActive || isDemo)
+    ? [
+        { id: 1, name: "Budi Santoso", shift: "Shift Pagi (08:00 - 16:00)", total: 1250000 },
+        { id: 2, name: "Siti Rahma", shift: "Shift Siang (12:00 - 20:00)", total: 980000 }
+      ]
+    : activeCashiersList;
+
+  const isCashiersEmpty = displayCashiers.length === 0;
+
+  const activeDeliveriesList = (liveOrders || [])
+    .filter((o: any) => o.type === "delivery" && o.status !== "Selesai" && o.status !== "completed" && o.status !== "Dibatalkan")
+    .map((o: any) => ({
+      name: isFashion ? "Kurir Toko" : "Kurir",
+      order: o.number,
+      dest: o.customer || "Alamat Pelanggan",
+      status: o.status
+    }));
+
+  const displayDeliveries = (simulationActive || isDemo)
+    ? [
+        { name: isFashion ? "J&T Express" : "Eko Prasetyo", order: "FLW-9275", dest: "Margonda Raya No. 42", status: "Mengirim" },
+        { name: isFashion ? "Sicepat" : "Gojek Instant", order: "FLW-9279", dest: "Apartemen Saladin, Tower B", status: "Mencari Driver" }
+      ]
+    : activeDeliveriesList;
+
+  const isDeliveriesEmpty = displayDeliveries.length === 0;
+
   // QR Menu Settings State
   const [qrSettings, setQrSettings] = useState({
     themeColor: "#1D4EF5",
@@ -318,7 +404,6 @@ function OwnerDashboard() {
   const [exportLoading, setExportLoading] = useState<Record<string, number>>({});
 
   const s = stats || { todaySales: 0, todayOrders: 0, totalProducts: 0, totalCustomers: 0, lowStockCount: 0, monthlyRevenue: 0, weeklyRevenue: 0, revenueGrowth: 0 };
-  const isDemo = tenant?.slug === "budi-resto";
   const isFreshTenant = isDemo ? (stats ? (stats.totalProducts === 0 && stats.todayOrders === 0) : false) : (!simulationActive);
 
   // Sync attendance with real employees dynamically
@@ -785,34 +870,231 @@ function OwnerDashboard() {
   // Dispatch WA promotions
   const handleSendWa = (e: React.FormEvent) => {
     e.preventDefault();
+    const targets = getSegmentedCustomers();
+    if (targets.length === 0) {
+      alert("Tidak ada pelanggan dalam segmentasi ini.");
+      return;
+    }
+
     setWaSending(true);
     setWaSentCount(null);
-    setTimeout(() => {
-      setWaSending(false);
-      const counts: Record<string, number> = { all: 182, loyal: 54, inactive: 48 };
-      setWaSentCount(counts[waPromo.segment] || 120);
-    }, 2000);
+
+    // Open modal
+    setWaBroadcastModal({
+      isOpen: true,
+      progress: 0,
+      currentTargetCustomer: targets[0].name,
+      currentTargetPhone: targets[0].phone || "+62 8xx-xxxx-xxxx",
+      logs: [`[${new Date().toLocaleTimeString()}] Memulai penyiaran ke segmentasi: ${waPromo.segment === "loyal" ? "Pelanggan Loyal" : waPromo.segment === "inactive" ? "Pelanggan Pasif" : "Semua Pelanggan"}...`],
+      sentCount: 0
+    });
+
+    let index = 0;
+    const intervalTime = Math.max(300, 3000 / targets.length);
+
+    const timer = setInterval(() => {
+      if (index >= targets.length) {
+        clearInterval(timer);
+        setWaSending(false);
+        setWaSentCount(targets.length);
+        setWaBroadcastModal(prev => ({
+          ...prev,
+          progress: 100,
+          currentTargetCustomer: null,
+          currentTargetPhone: null,
+          logs: [...prev.logs, `[${new Date().toLocaleTimeString()}] ✅ Penyiaran selesai! Berhasil menyiarkan pesan promosi ke ${targets.length} pelanggan.`]
+        }));
+        return;
+      }
+
+      const current = targets[index];
+      setWaBroadcastModal(prev => {
+        const nextProgress = Math.round(((index + 1) / targets.length) * 100);
+        return {
+          ...prev,
+          progress: nextProgress,
+          currentTargetCustomer: current.name,
+          currentTargetPhone: current.phone || "+62 8xx-xxxx-xxxx",
+          sentCount: index + 1,
+          logs: [
+            ...prev.logs,
+            `[${new Date().toLocaleTimeString()}] Mengirim ke ${current.name} (${current.phone || "No HP tidak ada"})... Terkirim!`
+          ]
+        };
+      });
+      index++;
+    }, intervalTime);
   };
 
-  // Export report animation handler
-  const handleExport = (type: string) => {
+  // Export report handler
+  const handleExport = async (type: string) => {
     setExportLoading(prev => ({ ...prev, [type]: 0 }));
     let progress = 0;
     const interval = setInterval(() => {
-      progress += 20;
-      setExportLoading(prev => ({ ...prev, [type]: progress }));
-      if (progress >= 100) {
-        clearInterval(interval);
-        setTimeout(() => {
-          setExportLoading(prev => {
-            const copy = { ...prev };
-            delete copy[type];
-            return copy;
-          });
-          alert(`Laporan ${type.toUpperCase()} berhasil diunduh!`);
-        }, 800);
+      progress += 10;
+      setExportLoading(prev => ({ ...prev, [type]: Math.min(progress, 90) }));
+    }, 100);
+
+    try {
+      const token = localStorage.getItem("flow_token") ?? "";
+      const BASE_PATH = import.meta.env.BASE_URL.replace(/\/$/, "");
+      let url = `${BASE_PATH}/api/orders?limit=1000`;
+      if (activeBranchId) {
+        url += `&branchId=${activeBranchId}`;
       }
-    }, 200);
+      const response = await fetch(url, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      let ordersToExport = recentOrders || [];
+      if (response.ok) {
+        const result = await response.json();
+        ordersToExport = result.data || result || [];
+      }
+
+      clearInterval(interval);
+      setExportLoading(prev => ({ ...prev, [type]: 100 }));
+
+      setTimeout(() => {
+        setExportLoading(prev => {
+          const copy = { ...prev };
+          delete copy[type];
+          return copy;
+        });
+
+        // Trigger file download
+        if (type === "csv") {
+          const headers = ["No. Transaksi", "Tanggal", "Pelanggan", "Tipe", "Metode", "Total", "Status"];
+          const rows = (ordersToExport || []).map((o: any) => [
+            o.orderNumber || o.id,
+            new Date(o.createdAt).toLocaleString("id-ID"),
+            o.customerName || "-",
+            o.orderType === "dine_in" ? "Dine In" : o.orderType === "take_away" ? "Take Away" : "Delivery",
+            (o.paymentMethod || "cash").toUpperCase(),
+            o.total,
+            (o.status || "pending").toUpperCase()
+          ]);
+          const csvContent = "\uFEFF" + [headers.join(","), ...rows.map(e => e.map(val => `"${String(val).replace(/"/g, '""')}"`).join(","))].join("\n");
+          const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+          const downloadUrl = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.setAttribute("href", downloadUrl);
+          link.setAttribute("download", `Laporan_Transaksi_${tenant?.slug || "flow"}_${new Date().toISOString().split("T")[0]}.csv`);
+          link.click();
+        } else if (type === "excel") {
+          const htmlTable = `
+            <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+            <head><meta charset="utf-8"/><style>table { border-collapse: collapse; width: 100%; } th, td { border: 1px solid #ccc; padding: 8px; font-family: sans-serif; text-align: left; } th { background-color: #1D4EF5; color: white; }</style></head>
+            <body>
+              <h2>Laporan Transaksi & Keuangan - ${tenant?.name || "Flow POS"}</h2>
+              <p>Tanggal Ekspor: ${new Date().toLocaleString("id-ID")}</p>
+              <table>
+                <thead>
+                  <tr>
+                    <th>No. Transaksi</th>
+                    <th>Tanggal</th>
+                    <th>Pelanggan</th>
+                    <th>Tipe Pesanan</th>
+                    <th>Metode Pembayaran</th>
+                    <th>Total Pembayaran</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${(ordersToExport || []).map((o: any) => `
+                    <tr>
+                      <td>${o.orderNumber || o.id}</td>
+                      <td>${new Date(o.createdAt).toLocaleString("id-ID")}</td>
+                      <td>${o.customerName || "-"}</td>
+                      <td>${o.orderType === "dine_in" ? "Dine In" : o.orderType === "take_away" ? "Take Away" : "Delivery"}</td>
+                      <td>${(o.paymentMethod || "cash").toUpperCase()}</td>
+                      <td>${Number(o.total || 0)}</td>
+                      <td>${(o.status || "pending").toUpperCase()}</td>
+                    </tr>
+                  `).join("")}
+                </tbody>
+              </table>
+            </body>
+            </html>
+          `;
+          const blob = new Blob([htmlTable], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+          const downloadUrl = URL.createObjectURL(blob);
+          const link = document.createElement("a");
+          link.setAttribute("href", downloadUrl);
+          link.setAttribute("download", `Laporan_Transaksi_${tenant?.slug || "flow"}_${new Date().toISOString().split("T")[0]}.xls`);
+          link.click();
+        } else if (type === "pdf") {
+          const printWindow = window.open("", "_blank");
+          if (printWindow) {
+            printWindow.document.write(`
+              <html>
+              <head>
+                <title>Laporan Transaksi - ${tenant?.name || "Flow POS"}</title>
+                <style>
+                  body { font-family: sans-serif; padding: 25px; color: #333; }
+                  h1 { color: #1D4EF5; margin-bottom: 5px; font-size: 24px; }
+                  .meta { font-size: 13px; color: #666; margin-bottom: 20px; line-height: 1.6; }
+                  table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+                  th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 11px; }
+                  th { background-color: #f4f6f8; font-weight: bold; color: #333; }
+                  .text-right { text-align: right; }
+                </style>
+              </head>
+              <body>
+                <h1>Laporan Transaksi & Keuangan</h1>
+                <div class="meta">
+                  <strong>Nama Toko:</strong> ${tenant?.name || "Flow POS"}<br/>
+                  <strong>Tanggal Ekspor:</strong> ${new Date().toLocaleString("id-ID")}<br/>
+                  <strong>Jumlah Transaksi:</strong> ${(ordersToExport || []).length}
+                </div>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>No. Transaksi</th>
+                      <th>Tanggal</th>
+                      <th>Pelanggan</th>
+                      <th>Tipe Pesanan</th>
+                      <th>Metode</th>
+                      <th>Total</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${(ordersToExport || []).map((o: any) => `
+                      <tr>
+                        <td>${o.orderNumber || o.id}</td>
+                        <td>${new Date(o.createdAt).toLocaleString("id-ID")}</td>
+                        <td>${o.customerName || "-"}</td>
+                        <td>${o.orderType === "dine_in" ? "Dine In" : o.orderType === "take_away" ? "Take Away" : "Delivery"}</td>
+                        <td>${(o.paymentMethod || "cash").toUpperCase()}</td>
+                        <td class="text-right">Rp ${(Number(o.total || 0)).toLocaleString("id-ID")}</td>
+                        <td>${(o.status || "pending").toUpperCase()}</td>
+                      </tr>
+                    `).join("")}
+                  </tbody>
+                </table>
+                <script>
+                  window.onload = function() {
+                    window.print();
+                    setTimeout(function() { window.close(); }, 500);
+                  };
+                </script>
+              </body>
+              </html>
+            `);
+            printWindow.document.close();
+          }
+        }
+      }, 500);
+    } catch (error) {
+      clearInterval(interval);
+      setExportLoading(prev => {
+        const copy = { ...prev };
+        delete copy[type];
+        return copy;
+      });
+      alert("Gagal mengunduh laporan. Silakan coba lagi.");
+    }
   };
 
   // Derived state calculations
@@ -872,7 +1154,12 @@ function OwnerDashboard() {
 
   const combinedLiveOrders = [...simulatedOrders, ...liveOrders].slice(0, 10);
   const combinedKitchenQueue = [...simulatedKitchen, ...kitchenQueue];
-  const combinedNotifications = [...simulatedNotifs, ...notifications].slice(0, 10);
+  const combinedNotifications = [...simulatedNotifs, ...notifications]
+    .map(n => ({
+      ...n,
+      read: n.read || readNotifIds.includes(n.id)
+    }))
+    .slice(0, 10);
   const unreadNotifs = combinedNotifications.filter(n => !n.read).length;
 
   return (
@@ -912,17 +1199,19 @@ function OwnerDashboard() {
           </div>
 
           {/* Simulation Toggle */}
-          <button
-            onClick={() => setSimulationActive(!simulationActive)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
-              simulationActive
-                ? "bg-green-500/10 border-green-500 text-green-600 dark:text-green-400"
-                : "border-border hover:bg-muted text-muted-foreground"
-            }`}
-          >
-            <Sparkles size={12} className={simulationActive ? "animate-pulse" : ""} />
-            <span>{simulationActive ? "Simulasi ON" : "Simulasi OFF"}</span>
-          </button>
+          {isDemo && (
+            <button
+              onClick={() => setSimulationActive(!simulationActive)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+                simulationActive
+                  ? "bg-green-500/10 border-green-500 text-green-600 dark:text-green-400"
+                  : "border-border hover:bg-muted text-muted-foreground"
+              }`}
+            >
+              <Sparkles size={12} className={simulationActive ? "animate-pulse" : ""} />
+              <span>{simulationActive ? "Simulasi ON" : "Simulasi OFF"}</span>
+            </button>
+          )}
 
           {/* Notification Bell */}
           <div className="relative">
@@ -947,7 +1236,9 @@ function OwnerDashboard() {
                   </span>
                   <button
                     onClick={() => {
-                      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+                      const allIds = combinedNotifications.map(n => n.id);
+                      setReadNotifIds(prev => [...prev, ...allIds]);
+                      setSimulatedNotifs(prev => prev.map(n => ({ ...n, read: true })));
                     }}
                     className="text-[10px] font-bold text-primary hover:underline"
                   >
@@ -1265,15 +1556,12 @@ function OwnerDashboard() {
                     <Laptop size={13} className="text-primary" /> Kasir Aktif & Laci Uang (Drawer)
                   </h4>
                   <div className="space-y-2 text-xs font-sans">
-                    {isFreshTenant ? (
+                    {isCashiersEmpty ? (
                       <div className="text-center py-8 text-xs text-muted-foreground bg-muted/10 border border-border rounded-xl">
                         Belum ada kasir aktif hari ini
                       </div>
                     ) : (
-                      [
-                        { id: 1, name: "Budi Santoso", shift: "Shift Pagi (08:00 - 16:00)", total: 1250000 },
-                        { id: 2, name: "Siti Rahma", shift: "Shift Siang (12:00 - 20:00)", total: 980000 }
-                      ].map(c => (
+                      displayCashiers.map(c => (
                         <div key={c.id} className="flex justify-between items-center p-3 border border-border rounded-xl bg-background/50">
                           <div>
                             <div className="font-bold text-foreground">{c.name}</div>
@@ -1294,22 +1582,19 @@ function OwnerDashboard() {
                     <Truck size={13} className="text-primary" /> Pelacakan Kurir (Delivery)
                   </h4>
                   <div className="space-y-2 text-xs font-sans">
-                    {isFreshTenant ? (
+                    {isDeliveriesEmpty ? (
                       <div className="text-center py-8 text-xs text-muted-foreground bg-muted/10 border border-border rounded-xl">
                         Belum ada pengiriman aktif hari ini
                       </div>
                     ) : (
-                      [
-                        { name: isFashion ? "J&T Express" : "Eko Prasetyo", order: "FLW-9275", dest: "Margonda Raya No. 42", status: "Mengirim" },
-                        { name: isFashion ? "Sicepat" : "Gojek Instant", order: "FLW-9279", dest: "Apartemen Saladin, Tower B", status: "Mencari Driver" }
-                      ].map((d, i) => (
+                      displayDeliveries.map((d, i) => (
                         <div key={i} className="flex justify-between items-center p-3 border border-border rounded-xl bg-background/50">
                           <div>
                             <div className="font-bold text-foreground">{d.name} <span className="font-mono text-[10px] text-primary">[{d.order}]</span></div>
                             <div className="text-[10px] text-muted-foreground truncate max-w-[200px]">{d.dest}</div>
                           </div>
-                          <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase ${d.status === "Mengirim" ? "bg-blue-100 text-blue-700 dark:bg-blue-950/20" : "bg-amber-100 text-amber-700 dark:bg-amber-950/20"}`}>
-                            {d.status}
+                          <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase ${d.status === "Mengirim" || d.status === "on_delivery" ? "bg-blue-100 text-blue-700 dark:bg-blue-950/20" : "bg-amber-100 text-amber-700 dark:bg-amber-950/20"}`}>
+                            {d.status === "on_delivery" ? "Mengirim" : d.status}
                           </span>
                         </div>
                       ))
@@ -2174,6 +2459,67 @@ function OwnerDashboard() {
                     </div>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {/* WhatsApp Broadcast Progress Modal */}
+          {waBroadcastModal.isOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in text-xs">
+              <div className="bg-card border border-card-border rounded-2xl w-full max-w-md p-6 shadow-2xl flex flex-col space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-green-500/10 rounded-full flex items-center justify-center text-green-600 flex-shrink-0">
+                    <MessageSquare size={20} className={waBroadcastModal.progress === 100 ? "" : "animate-bounce"} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-sm font-bold text-foreground">Penyiaran Promosi WhatsApp</h3>
+                    <p className="text-xs text-muted-foreground">
+                      {waBroadcastModal.progress === 100 ? "Penyiaran Selesai" : "Sedang mengirim pesan promosi..."}
+                    </p>
+                  </div>
+                  {waBroadcastModal.progress === 100 && (
+                    <button
+                      onClick={() => setWaBroadcastModal(prev => ({ ...prev, isOpen: false }))}
+                      className="px-3 py-1.5 bg-primary text-primary-foreground text-xs font-bold rounded-xl hover:opacity-90 transition-all shadow"
+                    >
+                      Tutup
+                    </button>
+                  )}
+                </div>
+
+                <div className="space-y-1">
+                  <div className="flex justify-between text-[11px] font-bold">
+                    <span className="text-muted-foreground">Progres Penyiaran</span>
+                    <span className="text-primary">{waBroadcastModal.progress}%</span>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-2 overflow-hidden">
+                    <div
+                      className="h-full bg-green-500 transition-all duration-350"
+                      style={{ width: `${waBroadcastModal.progress}%` }}
+                    />
+                  </div>
+                </div>
+
+                {waBroadcastModal.currentTargetCustomer && (
+                  <div className="bg-muted/30 border border-border/50 rounded-xl p-3 text-xs space-y-1">
+                    <div className="font-bold text-foreground">Sedang Mengirim Ke:</div>
+                    <div className="flex justify-between text-muted-foreground">
+                      <span>Nama: <strong className="text-foreground">{waBroadcastModal.currentTargetCustomer}</strong></span>
+                      <span>No. HP: <strong className="text-foreground">{waBroadcastModal.currentTargetPhone}</strong></span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Log Aktivitas</span>
+                  <div className="h-40 overflow-y-auto border border-border bg-muted/20 rounded-xl p-3 font-mono text-[9px] leading-relaxed space-y-1 select-none no-scrollbar">
+                    {waBroadcastModal.logs.map((log, idx) => (
+                      <div key={idx} className={log.includes("✅") ? "text-green-600 font-bold" : "text-muted-foreground"}>
+                        {log}
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
           )}

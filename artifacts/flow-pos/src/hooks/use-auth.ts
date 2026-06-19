@@ -19,6 +19,7 @@ export interface AuthUser {
   email: string;
   role: UserRole;
   tenantId: number | null;
+  avatarUrl?: string | null;
   createdAt: string;
   permissions?: string[];
   branchId?: number | null;
