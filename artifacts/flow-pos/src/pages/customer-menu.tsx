@@ -4,7 +4,7 @@ import {
   ShoppingCart, Plus, Minus, Trash2, X, ChevronRight, MapPin,
   Phone, User, FileText, CheckCircle2, Clock, ChefHat,
   Package, Truck, Star, Search, ArrowLeft, QrCode, Sparkles,
-  Map, DollarSign, CreditCard, Bell, Info, Download, ClipboardList
+  Map, DollarSign, CreditCard, Bell, Info, Download, ClipboardList, LogOut
 } from "lucide-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
@@ -18,6 +18,8 @@ interface TenantInfo {
   enableCash: boolean; enableQris: boolean; enableBankTransfer: boolean; enableEwallet: boolean;
   deliveryFeeNear?: number; deliveryFeeFar?: number;
   showVariants?: boolean; showToppings?: boolean;
+  enableCustomerLogin?: boolean;
+  pointSystemConfig?: any;
 }
 
 interface BranchInfo {
@@ -761,6 +763,346 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
   // Session state
   const [menuSessionId, setMenuSessionId] = useState<string | null>(null);
 
+  // Customer Auth States
+  const [customer, setCustomer] = useState<any>(null);
+  const [authChecking, setAuthChecking] = useState(true);
+  const [authTab, setAuthTab] = useState<"login" | "register" | "forgot">("login");
+  const [authForm, setAuthForm] = useState({ name: "", phone: "", password: "", confirmPassword: "" });
+  const [authError, setAuthError] = useState("");
+  const [authSuccess, setAuthSuccess] = useState("");
+  
+  // Forgot Password / OTP recovery state
+  const [otpSent, setOtpSent] = useState(false);
+  const [otpCode, setOtpCode] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  
+  // Profile Modal State
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [profileForm, setProfileForm] = useState({ name: "", phone: "", password: "" });
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState("");
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [profileError, setProfileError] = useState("");
+  const [profileSuccess, setProfileSuccess] = useState("");
+  const [customerClaiming, setCustomerClaiming] = useState(false);
+
+  const fetchCustomerProfile = useCallback(async (token: string) => {
+    try {
+      const res = await fetch(`${BASE}/api/customers/auth/me`, {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setCustomer(data);
+        setForm(f => ({ ...f, customerName: data.name, customerPhone: data.phone }));
+        setProfileForm({ name: data.name, phone: data.phone, password: "" });
+        setProfileAvatarUrl(data.avatarUrl || "");
+      } else {
+        localStorage.removeItem(`customer_token_${slug}`);
+        setCustomer(null);
+      }
+    } catch {
+      localStorage.removeItem(`customer_token_${slug}`);
+      setCustomer(null);
+    } finally {
+      setAuthChecking(false);
+    }
+  }, [slug]);
+
+  // Handle auto-login
+  useEffect(() => {
+    if (!tenant) return;
+    if (!tenant.enableCustomerLogin) {
+      setAuthChecking(false);
+      return;
+    }
+    const token = localStorage.getItem(`customer_token_${slug}`);
+    if (token) {
+      fetchCustomerProfile(token);
+    } else {
+      setAuthChecking(false);
+    }
+  }, [tenant, slug, fetchCustomerProfile]);
+
+  const handleCustomerLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError("");
+    setAuthSuccess("");
+    if (!authForm.phone || !authForm.password) {
+      setAuthError("Nomor HP dan password wajib diisi");
+      return;
+    }
+
+    try {
+      const res = await fetch(`${BASE}/api/customers/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slug,
+          phone: authForm.phone,
+          password: authForm.password
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        localStorage.setItem(`customer_token_${slug}`, data.token);
+        setCustomer(data.customer);
+        setForm(f => ({ ...f, customerName: data.customer.name, customerPhone: data.customer.phone }));
+        setProfileForm({ name: data.customer.name, phone: data.customer.phone, password: "" });
+        setProfileAvatarUrl(data.customer.avatarUrl || "");
+        setAuthForm({ name: "", phone: "", password: "", confirmPassword: "" });
+      } else {
+        setAuthError(data.error || "Gagal masuk");
+      }
+    } catch {
+      setAuthError("Terjadi kesalahan koneksi");
+    }
+  };
+
+  const handleCustomerRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError("");
+    setAuthSuccess("");
+    if (!authForm.name || !authForm.phone || !authForm.password) {
+      setAuthError("Nama, Nomor HP, dan password wajib diisi");
+      return;
+    }
+    if (authForm.password !== authForm.confirmPassword) {
+      setAuthError("Konfirmasi password tidak cocok");
+      return;
+    }
+
+    try {
+      const res = await fetch(`${BASE}/api/customers/auth/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slug,
+          name: authForm.name,
+          phone: authForm.phone,
+          password: authForm.password
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        localStorage.setItem(`customer_token_${slug}`, data.token);
+        setCustomer(data.customer);
+        setForm(f => ({ ...f, customerName: data.customer.name, customerPhone: data.customer.phone }));
+        setProfileForm({ name: data.customer.name, phone: data.customer.phone, password: "" });
+        setProfileAvatarUrl(data.customer.avatarUrl || "");
+        setAuthForm({ name: "", phone: "", password: "", confirmPassword: "" });
+      } else {
+        setAuthError(data.error || "Gagal mendaftar");
+      }
+    } catch {
+      setAuthError("Terjadi kesalahan koneksi");
+    }
+  };
+
+  const handleRequestOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError("");
+    setAuthSuccess("");
+    if (!authForm.phone) {
+      setAuthError("Nomor HP wajib diisi");
+      return;
+    }
+
+    try {
+      const res = await fetch(`${BASE}/api/customers/auth/forgot-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug, phone: authForm.phone })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setOtpSent(true);
+        setAuthSuccess(`Kode OTP berhasil dikirim (OTP Demo: ${data.code})`);
+      } else {
+        setAuthError(data.error || "Gagal meminta reset password");
+      }
+    } catch {
+      setAuthError("Terjadi kesalahan koneksi");
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError("");
+    setAuthSuccess("");
+    if (!otpCode || !newPassword) {
+      setAuthError("Kode OTP dan password baru wajib diisi");
+      return;
+    }
+
+    try {
+      const res = await fetch(`${BASE}/api/customers/auth/reset-password`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slug,
+          phone: authForm.phone,
+          code: otpCode,
+          password: newPassword
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setAuthSuccess("Password berhasil diubah, silakan masuk.");
+        setAuthTab("login");
+        setOtpSent(false);
+        setOtpCode("");
+        setNewPassword("");
+      } else {
+        setAuthError(data.error || "Gagal mengubah password");
+      }
+    } catch {
+      setAuthError("Terjadi kesalahan koneksi");
+    }
+  };
+
+  const handleCustomerLogout = () => {
+    localStorage.removeItem(`customer_token_${slug}`);
+    setCustomer(null);
+    setProfileOpen(false);
+  };
+
+  const handleUpdateProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setProfileError("");
+    setProfileSuccess("");
+    if (!profileForm.name || !profileForm.phone) {
+      setProfileError("Nama dan Nomor HP tidak boleh kosong");
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem(`customer_token_${slug}`);
+      const res = await fetch(`${BASE}/api/customers/auth/update-profile`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          name: profileForm.name,
+          phone: profileForm.phone,
+          password: profileForm.password || undefined,
+          avatarUrl: profileAvatarUrl
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setCustomer(data);
+        setForm(f => ({ ...f, customerName: data.name, customerPhone: data.phone }));
+        setProfileSuccess("Profil berhasil diperbarui!");
+        setProfileForm(p => ({ ...p, password: "" }));
+      } else {
+        setProfileError(data.error || "Gagal memperbarui profil");
+      }
+    } catch {
+      setProfileError("Terjadi kesalahan koneksi");
+    }
+  };
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      setProfileError("File harus berupa gambar");
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      setProfileError("Ukuran gambar maksimal 2MB");
+      return;
+    }
+
+    setAvatarUploading(true);
+    setProfileError("");
+    setProfileSuccess("");
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = reader.result as string;
+        try {
+          const token = localStorage.getItem(`customer_token_${slug}`);
+          const res = await fetch(`${BASE}/api/customers/upload`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              name: file.name,
+              base64
+            })
+          });
+
+          if (!res.ok) {
+            const errData = await res.json();
+            throw new Error(errData.error || "Gagal mengunggah foto");
+          }
+
+          const data = await res.json();
+          setProfileAvatarUrl(data.imageUrl);
+          
+          const updateRes = await fetch(`${BASE}/api/customers/auth/update-profile`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({ avatarUrl: data.imageUrl })
+          });
+          if (updateRes.ok) {
+            const updatedCustomer = await updateRes.json();
+            setCustomer(updatedCustomer);
+            setProfileSuccess("Foto profil berhasil diubah!");
+          }
+        } catch (err: any) {
+          setProfileError(err.message || "Gagal mengunggah foto");
+        } finally {
+          setAvatarUploading(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch {
+      setProfileError("Gagal memproses file");
+      setAvatarUploading(false);
+    }
+  };
+
+  const handleCustomerClaimReward = async () => {
+    setCustomerClaiming(true);
+    setProfileError("");
+    setProfileSuccess("");
+    try {
+      const token = localStorage.getItem(`customer_token_${slug}`);
+      const res = await fetch(`${BASE}/api/customers/${customer.id}/claim-reward`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setCustomer(data);
+        setProfileSuccess("Selamat! Reward Anda berhasil diklaim.");
+        alert("🎉 Selamat! Reward Anda berhasil diklaim. Poin Anda telah direset ke siklus baru.");
+      } else {
+        setProfileError(data.error || "Gagal mengklaim reward");
+      }
+    } catch {
+      setProfileError("Terjadi kesalahan koneksi");
+    } finally {
+      setCustomerClaiming(false);
+    }
+  };
+
   // Parse query parameters
   useEffect(() => {
     const query = new URLSearchParams(window.location.search);
@@ -829,6 +1171,15 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
   const loadSavedOrders = useCallback(async () => {
     if (!slug) return;
     try {
+      if (customer && customer.phone) {
+        const res = await fetch(`${BASE}/api/menu/${slug}/customer-orders-history?phone=${customer.phone}`);
+        if (res.ok) {
+          const list = await res.json();
+          setCustomerOrders(list);
+        }
+        return;
+      }
+      
       const stored = localStorage.getItem(`customer_orders_${slug}`);
       if (!stored) return;
       const orderIds = JSON.parse(stored);
@@ -853,7 +1204,7 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
     } catch (err) {
       console.error("Failed to load customer orders history:", err);
     }
-  }, [slug]);
+  }, [slug, customer]);
 
   useEffect(() => {
     loadSavedOrders();
@@ -1117,6 +1468,7 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          customerId: customer?.id || null,
           menuSessionId,
           branchId: branch?.id,
           orderType,
@@ -1182,11 +1534,11 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
     delivery: "Antar ke Alamat",
   } : ORDER_TYPE_LABELS;
 
-  if (loading) return (
+  if (loading || (tenant?.enableCustomerLogin && authChecking)) return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="text-center">
         <div className="w-10 h-10 border-3 border-t-transparent rounded-full animate-spin mx-auto mb-3" style={{ borderColor: primary, borderTopColor: "transparent" }} />
-        <div className="text-sm font-bold text-gray-500">{isFashion ? "Memuat Katalog Branded..." : "Memuat Menu Branded..."}</div>
+        <div className="text-sm font-bold text-gray-500">Memuat Sesi...</div>
       </div>
     </div>
   );
@@ -1200,6 +1552,228 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
       </div>
     </div>
   );
+
+  if (tenant?.enableCustomerLogin && !customer) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-12">
+        <div className="w-full max-w-md bg-white rounded-3xl shadow-xl border border-gray-100 p-8 space-y-6">
+          <div className="text-center">
+            {menu.logoUrl || tenant.logoUrl ? (
+              <img src={menu.logoUrl || tenant.logoUrl || ""} alt="Logo" className="w-20 h-20 mx-auto object-cover rounded-2xl shadow-md border mb-4" />
+            ) : (
+              <div className="w-20 h-20 mx-auto rounded-2xl text-white font-black text-3xl flex items-center justify-center mb-4" style={{ backgroundColor: primary }}>
+                {tenant.name[0]}
+              </div>
+            )}
+            <h2 className="text-2xl font-black text-gray-900 leading-tight">Selamat Datang di {tenant.name}</h2>
+            <p className="text-xs text-gray-400 mt-1">Silakan masuk atau daftar untuk memesan menu & mendapatkan loyalitas poin.</p>
+          </div>
+
+          {authError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-2xl px-4 py-3 font-semibold text-center">
+              {authError}
+            </div>
+          )}
+          {authSuccess && (
+            <div className="bg-green-50 border border-green-200 text-green-700 text-xs rounded-2xl px-4 py-3 font-semibold text-center">
+              {authSuccess}
+            </div>
+          )}
+
+          {authTab === "login" && (
+            <form onSubmit={handleCustomerLogin} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-gray-600 block mb-1">Nomor HP</label>
+                <input
+                  type="tel"
+                  placeholder="Contoh: 081234567890"
+                  value={authForm.phone}
+                  onChange={e => setAuthForm(f => ({ ...f, phone: e.target.value }))}
+                  className="w-full px-4 py-3 bg-gray-50 rounded-2xl text-xs border focus:border-gray-200 focus:outline-none focus:bg-white transition-all text-foreground"
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-600 block mb-1">Password</label>
+                <input
+                  type="password"
+                  placeholder="Password Anda"
+                  value={authForm.password}
+                  onChange={e => setAuthForm(f => ({ ...f, password: e.target.value }))}
+                  className="w-full px-4 py-3 bg-gray-50 rounded-2xl text-xs border focus:border-gray-200 focus:outline-none focus:bg-white transition-all text-foreground"
+                  required
+                />
+              </div>
+              <div className="text-right">
+                <button
+                  type="button"
+                  onClick={() => { setAuthTab("forgot"); setAuthError(""); setAuthSuccess(""); }}
+                  className="text-xs font-bold hover:underline"
+                  style={{ color: primary }}
+                >
+                  Lupa Password?
+                </button>
+              </div>
+              <button
+                type="submit"
+                className="w-full py-4 rounded-3xl text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg animate-fade-in"
+                style={{ backgroundColor: primary }}
+              >
+                Masuk
+              </button>
+              <div className="text-center text-xs text-gray-500 pt-2">
+                Belum punya akun?{" "}
+                <button
+                  type="button"
+                  onClick={() => { setAuthTab("register"); setAuthError(""); setAuthSuccess(""); }}
+                  className="font-bold hover:underline"
+                  style={{ color: primary }}
+                >
+                  Daftar Sekarang
+                </button>
+              </div>
+            </form>
+          )}
+
+          {authTab === "register" && (
+            <form onSubmit={handleCustomerRegister} className="space-y-4">
+              <div>
+                <label className="text-xs font-bold text-gray-600 block mb-1">Nama Lengkap</label>
+                <input
+                  type="text"
+                  placeholder="Nama Lengkap Anda"
+                  value={authForm.name}
+                  onChange={e => setAuthForm(f => ({ ...f, name: e.target.value }))}
+                  className="w-full px-4 py-3 bg-gray-50 rounded-2xl text-xs border focus:border-gray-200 focus:outline-none focus:bg-white transition-all text-foreground"
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-600 block mb-1">Nomor HP</label>
+                <input
+                  type="tel"
+                  placeholder="Contoh: 081234567890"
+                  value={authForm.phone}
+                  onChange={e => setAuthForm(f => ({ ...f, phone: e.target.value }))}
+                  className="w-full px-4 py-3 bg-gray-50 rounded-2xl text-xs border focus:border-gray-200 focus:outline-none focus:bg-white transition-all text-foreground"
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-600 block mb-1">Password</label>
+                <input
+                  type="password"
+                  placeholder="Minimal 6 karakter"
+                  value={authForm.password}
+                  onChange={e => setAuthForm(f => ({ ...f, password: e.target.value }))}
+                  className="w-full px-4 py-3 bg-gray-50 rounded-2xl text-xs border focus:border-gray-200 focus:outline-none focus:bg-white transition-all text-foreground"
+                  required
+                />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-600 block mb-1">Konfirmasi Password</label>
+                <input
+                  type="password"
+                  placeholder="Ulangi password"
+                  value={authForm.confirmPassword}
+                  onChange={e => setAuthForm(f => ({ ...f, confirmPassword: e.target.value }))}
+                  className="w-full px-4 py-3 bg-gray-50 rounded-2xl text-xs border focus:border-gray-200 focus:outline-none focus:bg-white transition-all text-foreground"
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                className="w-full py-4 rounded-3xl text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg"
+                style={{ backgroundColor: primary }}
+              >
+                Daftar
+              </button>
+              <div className="text-center text-xs text-gray-500 pt-2">
+                Sudah punya akun?{" "}
+                <button
+                  type="button"
+                  onClick={() => { setAuthTab("login"); setAuthError(""); setAuthSuccess(""); }}
+                  className="font-bold hover:underline"
+                  style={{ color: primary }}
+                >
+                  Masuk
+                </button>
+              </div>
+            </form>
+          )}
+
+          {authTab === "forgot" && (
+            <div className="space-y-4">
+              {!otpSent ? (
+                <form onSubmit={handleRequestOtp} className="space-y-4">
+                  <div>
+                    <label className="text-xs font-bold text-gray-600 block mb-1">Nomor HP</label>
+                    <input
+                      type="tel"
+                      placeholder="Masukkan Nomor HP terdaftar"
+                      value={authForm.phone}
+                      onChange={e => setAuthForm(f => ({ ...f, phone: e.target.value }))}
+                      className="w-full px-4 py-3 bg-gray-50 rounded-2xl text-xs border focus:border-gray-200 focus:outline-none focus:bg-white transition-all text-foreground"
+                      required
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="w-full py-4 rounded-3xl text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg"
+                    style={{ backgroundColor: primary }}
+                  >
+                    Kirim Kode Reset
+                  </button>
+                </form>
+              ) : (
+                <form onSubmit={handleResetPassword} className="space-y-4">
+                  <div>
+                    <label className="text-xs font-bold text-gray-600 block mb-1">Kode OTP (Cek Console / Response)</label>
+                    <input
+                      type="text"
+                      placeholder="Masukkan 6 digit kode OTP"
+                      value={otpCode}
+                      onChange={e => setOtpCode(e.target.value)}
+                      className="w-full px-4 py-3 bg-gray-50 rounded-2xl text-xs border focus:border-gray-200 focus:outline-none focus:bg-white transition-all text-foreground"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-bold text-gray-600 block mb-1">Password Baru</label>
+                    <input
+                      type="password"
+                      placeholder="Minimal 6 karakter"
+                      value={newPassword}
+                      onChange={e => setNewPassword(e.target.value)}
+                      className="w-full px-4 py-3 bg-gray-50 rounded-2xl text-xs border focus:border-gray-200 focus:outline-none focus:bg-white transition-all text-foreground"
+                      required
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="w-full py-4 rounded-3xl text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg"
+                    style={{ backgroundColor: primary }}
+                  >
+                    Ubah Password & Simpan
+                  </button>
+                </form>
+              )}
+              <div className="text-center pt-2">
+                <button
+                  type="button"
+                  onClick={() => { setAuthTab("login"); setOtpSent(false); setAuthError(""); setAuthSuccess(""); }}
+                  className="text-xs font-bold hover:underline"
+                  style={{ color: primary }}
+                >
+                  Kembali ke Halaman Masuk
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (step === "success" && trackingId) {
     return (
@@ -1217,6 +1791,50 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 font-sans antialiased">
+      {/* Customer Sticky Navbar if enabled and logged in */}
+      {tenant.enableCustomerLogin && customer && (
+        <div className="sticky top-0 z-40 bg-white border-b shadow-sm px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setProfileOpen(true)}
+              className="w-10 h-10 rounded-full border bg-gray-100 flex items-center justify-center overflow-hidden cursor-pointer"
+            >
+              {profileAvatarUrl ? (
+                <img src={profileAvatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                <User size={20} className="text-gray-400" />
+              )}
+            </button>
+            <div>
+              <div className="text-xs text-gray-400 font-bold">Halo,</div>
+              <div className="text-sm font-black text-gray-900 leading-tight">{customer.name}</div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {/* Loyalty points info */}
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl px-3 py-1 text-right">
+              <div className="text-[9px] text-amber-500 font-bold uppercase tracking-wider">Poin Loyalitas</div>
+              <div className="text-xs font-black text-amber-700">{customer.loyaltyPoints || 0} Poin ({customer.membershipLevel || "regular"})</div>
+            </div>
+            
+            <button
+              onClick={() => setHistoryOpen(true)}
+              className="p-2.5 bg-gray-50 hover:bg-gray-100 border border-gray-100 rounded-2xl text-gray-600 transition-colors cursor-pointer"
+              title="Riwayat Pesanan"
+            >
+              <ClipboardList size={18} />
+            </button>
+
+            <button
+              onClick={() => setProfileOpen(true)}
+              className="p-2.5 bg-gray-50 hover:bg-gray-100 border border-gray-100 rounded-2xl text-gray-600 transition-colors cursor-pointer"
+              title="Profil Saya"
+            >
+              <User size={18} />
+            </button>
+          </div>
+        </div>
+      )}
       {/* 1. Branded Store Header */}
       <div className="bg-white border-b shadow-sm">
         {/* Banner and Logo Wrapper */}
@@ -1259,13 +1877,15 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
               <span className="text-[10px] font-bold bg-green-50 text-green-600 px-3 py-1 rounded-full border border-green-200 uppercase tracking-wide flex items-center gap-1">
                 <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" /> Buka
               </span>
-              <button
-                onClick={() => setHistoryOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-full text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors shadow-sm"
-              >
-                <ClipboardList size={13} style={{ color: primary }} />
-                <span>Riwayat</span>
-              </button>
+              {tenant.enableCustomerLogin && customer && (
+                <button
+                  onClick={() => setHistoryOpen(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-full text-xs font-bold text-gray-600 hover:bg-gray-50 transition-colors shadow-sm"
+                >
+                  <ClipboardList size={13} style={{ color: primary }} />
+                  <span>Riwayat</span>
+                </button>
+              )}
             </div>
           </div>
 
@@ -1349,7 +1969,7 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
       )}
 
       {/* Search and Category Tabs */}
-      <div className="sticky top-0 z-10 bg-white border-y mt-4">
+      <div className="sticky z-10 bg-white border-y mt-4" style={{ top: tenant.enableCustomerLogin && customer ? "65px" : "0" }}>
         <div className="max-w-7xl mx-auto w-full">
           {/* Search */}
           <div className="px-4 py-2">
@@ -2095,6 +2715,180 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
                   );
                 })
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 9. Profile & Loyalty Modal */}
+      {profileOpen && customer && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+          <div className="relative bg-white rounded-3xl w-full max-w-md flex flex-col shadow-2xl overflow-hidden animate-slide-up border max-h-[90vh]">
+            <div className="bg-white border-b px-5 py-4 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <User size={18} style={{ color: primary }} />
+                <span className="font-black text-gray-900 text-sm">Akun Saya</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setProfileOpen(false)}
+                className="text-gray-400 hover:bg-gray-100 p-1.5 rounded-full"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-5 space-y-6">
+              {/* Profile Success & Error */}
+              {profileError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-2xl px-4 py-3 font-semibold text-center font-sans">
+                  {profileError}
+                </div>
+              )}
+              {profileSuccess && (
+                <div className="bg-green-50 border border-green-200 text-green-700 text-xs rounded-2xl px-4 py-3 font-semibold text-center font-sans">
+                  {profileSuccess}
+                </div>
+              )}
+
+              {/* Avatar Section */}
+              <div className="flex flex-col items-center gap-3">
+                <div className="relative">
+                  <div className="w-24 h-24 rounded-full border-4 border-white shadow-md bg-gray-100 flex items-center justify-center overflow-hidden">
+                    {profileAvatarUrl ? (
+                      <img src={profileAvatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                    ) : (
+                      <User size={40} className="text-gray-300" />
+                    )}
+                  </div>
+                  {avatarUploading && (
+                    <div className="absolute inset-0 bg-black/50 rounded-full flex items-center justify-center">
+                      <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  )}
+                  <label className="absolute bottom-0 right-0 bg-white border shadow p-2 rounded-full cursor-pointer hover:bg-gray-50 transition-colors">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleAvatarUpload}
+                      className="hidden"
+                      disabled={avatarUploading}
+                    />
+                    <Sparkles size={14} style={{ color: primary }} />
+                  </label>
+                </div>
+                <div className="text-center">
+                  <h3 className="font-bold text-sm text-gray-800 font-sans">{customer.name}</h3>
+                  <p className="text-xs text-gray-400 mt-0.5 font-sans">{customer.phone}</p>
+                </div>
+              </div>
+
+              {/* Loyalty Points */}
+              <div className="bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-3xl p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles size={16} className="text-amber-500 animate-pulse" />
+                    <span className="font-black text-gray-800 text-xs uppercase tracking-wider font-sans">Loyalitas Poin</span>
+                  </div>
+                  <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider font-sans ${
+                    customer.membershipLevel === "platinum" ? "bg-purple-100 text-purple-700 border border-purple-200" :
+                    customer.membershipLevel === "gold" ? "bg-yellow-100 text-yellow-700 border border-yellow-200" :
+                    customer.membershipLevel === "silver" ? "bg-slate-200 text-slate-700 border border-slate-300" :
+                    "bg-amber-100 text-amber-700 border border-amber-200"
+                  }`}>
+                    {customer.membershipLevel || "regular"} Member
+                  </span>
+                </div>
+
+                <div className="flex items-baseline justify-between font-sans">
+                  <div className="text-2xl font-black text-amber-700">{customer.loyaltyPoints || 0}</div>
+                  <div className="text-xs text-gray-500 font-semibold">/ 1000 Poin</div>
+                </div>
+
+                <div className="w-full bg-gray-200/60 rounded-full h-3 overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-500"
+                    style={{
+                      width: `${Math.min(100, ((customer.loyaltyPoints || 0) / 1000) * 100)}%`,
+                      backgroundColor: primary
+                    }}
+                  />
+                </div>
+
+                <div className="text-[10px] text-gray-500 leading-relaxed space-y-1 font-sans">
+                  <p>• Dapatkan +10 poin setiap pembelian 1 menu (apapun produk dan harganya).</p>
+                  <p>• Setiap kelipatan 100 poin mendapatkan reward tingkatan diskon (100 poin = 10%, 200 poin = 20%, dst.).</p>
+                  <p>• Batas maksimal siklus reward adalah 1000 poin (Platinum Member).</p>
+                </div>
+
+                {(customer.loyaltyPoints || 0) >= 1000 && (
+                  <button
+                    onClick={handleCustomerClaimReward}
+                    disabled={customerClaiming}
+                    className="w-full py-3.5 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl text-xs font-black flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/20 transition-all active:scale-98 cursor-pointer font-sans"
+                  >
+                    {customerClaiming ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <Sparkles size={14} />
+                        <span>KLAIM GRAND REWARD (Reset 1000 Poin)</span>
+                      </>
+                    )}
+                  </button>
+                )}
+              </div>
+
+              {/* Form Update Profile */}
+              <form onSubmit={handleUpdateProfile} className="space-y-4 pt-2 font-sans">
+                <div>
+                  <label className="text-xs font-bold text-gray-600 block mb-1">Nama Lengkap</label>
+                  <input
+                    type="text"
+                    value={profileForm.name}
+                    onChange={e => setProfileForm(p => ({ ...p, name: e.target.value }))}
+                    className="w-full px-4 py-3 bg-gray-50 rounded-2xl text-xs border focus:border-gray-200 focus:outline-none transition-all text-foreground"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-600 block mb-1">Nomor HP</label>
+                  <input
+                    type="tel"
+                    value={profileForm.phone}
+                    onChange={e => setProfileForm(p => ({ ...p, phone: e.target.value }))}
+                    className="w-full px-4 py-3 bg-gray-50 rounded-2xl text-xs border focus:border-gray-200 focus:outline-none transition-all text-foreground"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-bold text-gray-600 block mb-1">Password Baru (Kosongkan jika tidak diubah)</label>
+                  <input
+                    type="password"
+                    placeholder="Minimal 6 karakter"
+                    value={profileForm.password}
+                    onChange={e => setProfileForm(p => ({ ...p, password: e.target.value }))}
+                    className="w-full px-4 py-3 bg-gray-50 rounded-2xl text-xs border focus:border-gray-200 focus:outline-none transition-all text-foreground"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="w-full py-3.5 rounded-2xl text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md"
+                  style={{ backgroundColor: primary }}
+                >
+                  Simpan Perubahan
+                </button>
+              </form>
+            </div>
+
+            <div className="border-t p-4 bg-gray-50 flex gap-3 font-sans">
+              <button
+                type="button"
+                onClick={handleCustomerLogout}
+                className="w-full py-3 bg-white border border-red-200 rounded-2xl text-xs font-bold text-red-650 hover:bg-red-50 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <span>Keluar dari Akun</span>
+              </button>
             </div>
           </div>
         </div>

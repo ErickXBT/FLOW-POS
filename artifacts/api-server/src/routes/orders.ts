@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, gte, lte, count, sql, desc, inArray } from "drizzle-orm";
-import { db, ordersTable, orderItemsTable, productsTable, customersTable, employeesTable, usersTable, branchesTable, customerOrdersTable, customerOrderItemsTable } from "@workspace/db";
+import { db, ordersTable, orderItemsTable, productsTable, customersTable, employeesTable, usersTable, branchesTable, customerOrdersTable, customerOrderItemsTable, tenantsTable } from "@workspace/db";
 import { broadcastNewOrder } from "./menu";
 import {
   ListOrdersQueryParams,
@@ -235,13 +235,32 @@ router.post("/orders", async (req, res): Promise<void> => {
   }
 
   if (body.data.customerId) {
-    await db.execute(sql`
-      UPDATE customers SET
-        total_spent = CAST(total_spent AS DECIMAL) + ${total},
-        total_orders = total_orders + 1,
-        loyalty_points = loyalty_points + ${Math.floor(total / 1000)}
-      WHERE id = ${body.data.customerId} AND tenant_id = ${claims.tenantId}
-    `);
+    const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, claims.tenantId!));
+    const pointsPerItem = (tenant?.pointSystemConfig as any)?.pointsPerItem ?? 10;
+    const totalItems = itemInputs.reduce((sum, item) => sum + item.quantity, 0);
+    const pointsEarned = totalItems * pointsPerItem;
+
+    const [customer] = await db.select().from(customersTable).where(eq(customersTable.id, body.data.customerId));
+    if (customer) {
+      const newPoints = customer.loyaltyPoints + pointsEarned;
+      const getMembershipLevel = (pts: number) => {
+        if (pts >= 1000) return "platinum";
+        if (pts >= 500) return "gold";
+        if (pts >= 100) return "silver";
+        return "regular";
+      };
+      const newLevel = getMembershipLevel(newPoints);
+
+      await db.update(customersTable)
+        .set({
+          totalSpent: String(Number(customer.totalSpent) + total),
+          totalOrders: customer.totalOrders + 1,
+          loyaltyPoints: newPoints,
+          membershipLevel: newLevel,
+          updatedAt: new Date(),
+        })
+        .where(eq(customersTable.id, body.data.customerId));
+    }
   }
 
   // Fetch user details for log

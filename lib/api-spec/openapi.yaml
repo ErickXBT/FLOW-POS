@@ -1401,6 +1401,17 @@ components:
           type: boolean
         showToppings:
           type: boolean
+        enableCustomerLogin:
+          type: boolean
+        pointSystemConfig:
+          type: object
+          properties:
+            pointsPerItem:
+              type: integer
+            minClaimPoints:
+              type: integer
+            rewardDescription:
+              type: string
         createdAt:
           type: string
 
@@ -1435,6 +1446,17 @@ components:
           type: boolean
         showToppings:
           type: boolean
+        enableCustomerLogin:
+          type: boolean
+        pointSystemConfig:
+          type: object
+          properties:
+            pointsPerItem:
+              type: integer
+            minClaimPoints:
+              type: integer
+            rewardDescription:
+              type: string
 
     # ── Subscription ──────────────────────────────────────────────────────
     Subscription:

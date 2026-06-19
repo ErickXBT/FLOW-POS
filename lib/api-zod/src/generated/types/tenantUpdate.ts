@@ -5,6 +5,7 @@
  * Flow POS SaaS API
  * OpenAPI spec version: 0.1.0
  */
+import type { TenantUpdatePointSystemConfig } from './tenantUpdatePointSystemConfig';
 
 export interface TenantUpdate {
   name?: string;
@@ -21,4 +22,6 @@ export interface TenantUpdate {
   deliveryFeeFar?: number;
   showVariants?: boolean;
   showToppings?: boolean;
+  enableCustomerLogin?: boolean;
+  pointSystemConfig?: TenantUpdatePointSystemConfig;
 }

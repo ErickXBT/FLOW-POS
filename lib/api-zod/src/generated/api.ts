@@ -120,6 +120,12 @@ export const ListAdminTenantsResponse = zod.object({
   "deliveryFeeFar": zod.number().optional(),
   "showVariants": zod.boolean().optional(),
   "showToppings": zod.boolean().optional(),
+  "enableCustomerLogin": zod.boolean().optional(),
+  "pointSystemConfig": zod.object({
+  "pointsPerItem": zod.number().optional(),
+  "minClaimPoints": zod.number().optional(),
+  "rewardDescription": zod.string().optional()
+}).optional(),
   "createdAt": zod.string()
 })),
   "total": zod.number(),
@@ -155,6 +161,12 @@ export const GetAdminTenantResponse = zod.object({
   "deliveryFeeFar": zod.number().optional(),
   "showVariants": zod.boolean().optional(),
   "showToppings": zod.boolean().optional(),
+  "enableCustomerLogin": zod.boolean().optional(),
+  "pointSystemConfig": zod.object({
+  "pointsPerItem": zod.number().optional(),
+  "minClaimPoints": zod.number().optional(),
+  "rewardDescription": zod.string().optional()
+}).optional(),
   "createdAt": zod.string()
 })
 
@@ -198,6 +210,12 @@ export const UpdateTenantStatusResponse = zod.object({
   "deliveryFeeFar": zod.number().optional(),
   "showVariants": zod.boolean().optional(),
   "showToppings": zod.boolean().optional(),
+  "enableCustomerLogin": zod.boolean().optional(),
+  "pointSystemConfig": zod.object({
+  "pointsPerItem": zod.number().optional(),
+  "minClaimPoints": zod.number().optional(),
+  "rewardDescription": zod.string().optional()
+}).optional(),
   "createdAt": zod.string()
 })
 
@@ -225,6 +243,12 @@ export const GetTenantResponse = zod.object({
   "deliveryFeeFar": zod.number().optional(),
   "showVariants": zod.boolean().optional(),
   "showToppings": zod.boolean().optional(),
+  "enableCustomerLogin": zod.boolean().optional(),
+  "pointSystemConfig": zod.object({
+  "pointsPerItem": zod.number().optional(),
+  "minClaimPoints": zod.number().optional(),
+  "rewardDescription": zod.string().optional()
+}).optional(),
   "createdAt": zod.string()
 })
 
@@ -246,7 +270,13 @@ export const UpdateTenantBody = zod.object({
   "deliveryFeeNear": zod.number().optional(),
   "deliveryFeeFar": zod.number().optional(),
   "showVariants": zod.boolean().optional(),
-  "showToppings": zod.boolean().optional()
+  "showToppings": zod.boolean().optional(),
+  "enableCustomerLogin": zod.boolean().optional(),
+  "pointSystemConfig": zod.object({
+  "pointsPerItem": zod.number().optional(),
+  "minClaimPoints": zod.number().optional(),
+  "rewardDescription": zod.string().optional()
+}).optional()
 })
 
 export const UpdateTenantResponse = zod.object({
@@ -269,6 +299,12 @@ export const UpdateTenantResponse = zod.object({
   "deliveryFeeFar": zod.number().optional(),
   "showVariants": zod.boolean().optional(),
   "showToppings": zod.boolean().optional(),
+  "enableCustomerLogin": zod.boolean().optional(),
+  "pointSystemConfig": zod.object({
+  "pointsPerItem": zod.number().optional(),
+  "minClaimPoints": zod.number().optional(),
+  "rewardDescription": zod.string().optional()
+}).optional(),
   "createdAt": zod.string()
 })
 

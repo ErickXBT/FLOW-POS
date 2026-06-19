@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { TenantBusinessType } from './tenantBusinessType';
+import type { TenantPointSystemConfig } from './tenantPointSystemConfig';
 import type { TenantStatus } from './tenantStatus';
 
 export interface Tenant {
@@ -38,5 +39,7 @@ export interface Tenant {
   deliveryFeeFar?: number;
   showVariants?: boolean;
   showToppings?: boolean;
+  enableCustomerLogin?: boolean;
+  pointSystemConfig?: TenantPointSystemConfig;
   createdAt: string;
 }

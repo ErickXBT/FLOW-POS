@@ -58,7 +58,32 @@ export default function CustomersPage() {
   const createCustomer = useCreateCustomer();
   const updateCustomer = useUpdateCustomer();
 
+  const [claimingId, setClaimingId] = useState<number | null>(null);
+
   const invalidate = () => qc.invalidateQueries({ queryKey: getListCustomersQueryKey() });
+
+  const handleClaimReward = async (id: number) => {
+    setClaimingId(id);
+    try {
+      const token = localStorage.getItem("flow_token");
+      const res = await fetch(`/api/customers/${id}/claim-reward`, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${token || ""}`
+        }
+      });
+      if (res.ok) {
+        invalidate();
+      } else {
+        const err = await res.json();
+        alert(err.error || "Gagal mengklaim reward");
+      }
+    } catch (err) {
+      alert("Terjadi kesalahan koneksi");
+    } finally {
+      setClaimingId(null);
+    }
+  };
 
   return (
     <div className="p-6">
@@ -124,9 +149,22 @@ export default function CustomersPage() {
                     <td className="px-4 py-3 font-semibold text-primary">{formatRp(Number(c.totalSpent))}</td>
                     <td className="px-4 py-3 text-muted-foreground">{c.totalOrders}</td>
                     <td className="px-4 py-3">
-                      <button onClick={() => setEditCustomer(c)} className="p-1.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground">
-                        <Edit2 size={14} />
-                      </button>
+                      <div className="flex items-center">
+                        <button
+                          onClick={() => handleClaimReward(c.id)}
+                          disabled={(c.loyaltyPoints ?? 0) < 1000 || claimingId === c.id}
+                          className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold mr-2 transition-all select-none ${
+                            (c.loyaltyPoints ?? 0) >= 1000
+                              ? "bg-emerald-600 text-white hover:bg-emerald-700 active:scale-95 cursor-pointer"
+                              : "bg-muted text-muted-foreground opacity-50 cursor-not-allowed"
+                          }`}
+                        >
+                          {claimingId === c.id ? "..." : "Klaim Reward"}
+                        </button>
+                        <button onClick={() => setEditCustomer(c)} className="p-1.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground">
+                          <Edit2 size={14} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

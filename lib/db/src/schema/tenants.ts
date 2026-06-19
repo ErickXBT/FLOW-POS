@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, integer, numeric, boolean } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, integer, numeric, boolean, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -30,6 +30,12 @@ export const tenantsTable = pgTable("tenants", {
   enableEwallet: boolean("enable_ewallet").notNull().default(false),
   showVariants: boolean("show_variants").notNull().default(true),
   showToppings: boolean("show_toppings").notNull().default(true),
+  enableCustomerLogin: boolean("enable_customer_login").notNull().default(false),
+  pointSystemConfig: jsonb("point_system_config").$type<{ pointsPerItem: number; minClaimPoints: number; rewardDescription: string }>().notNull().default({
+    pointsPerItem: 10,
+    minClaimPoints: 1000,
+    rewardDescription: "Diskon 10% setiap kelipatan 100 poin, Grand Reward pada 1000 Poin"
+  }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

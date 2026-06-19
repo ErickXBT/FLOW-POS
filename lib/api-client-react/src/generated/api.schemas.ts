@@ -122,6 +122,12 @@ export const TenantStatus = {
   expired: 'expired',
 } as const;
 
+export type TenantPointSystemConfig = {
+  pointsPerItem?: number;
+  minClaimPoints?: number;
+  rewardDescription?: string;
+};
+
 export interface Tenant {
   id: number;
   name: string;
@@ -152,6 +158,8 @@ export interface Tenant {
   deliveryFeeFar?: number;
   showVariants?: boolean;
   showToppings?: boolean;
+  enableCustomerLogin?: boolean;
+  pointSystemConfig?: TenantPointSystemConfig;
   createdAt: string;
 }
 
@@ -174,6 +182,12 @@ export interface TenantStatusUpdate {
   status: TenantStatusUpdateStatus;
 }
 
+export type TenantUpdatePointSystemConfig = {
+  pointsPerItem?: number;
+  minClaimPoints?: number;
+  rewardDescription?: string;
+};
+
 export interface TenantUpdate {
   name?: string;
   address?: string;
@@ -189,6 +203,8 @@ export interface TenantUpdate {
   deliveryFeeFar?: number;
   showVariants?: boolean;
   showToppings?: boolean;
+  enableCustomerLogin?: boolean;
+  pointSystemConfig?: TenantUpdatePointSystemConfig;
 }
 
 export type SubscriptionPlanProperty = typeof SubscriptionPlanProperty[keyof typeof SubscriptionPlanProperty];

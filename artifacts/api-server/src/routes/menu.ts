@@ -6,6 +6,7 @@ import {
   customerOrdersTable, customerOrderItemsTable, tableQrCodesTable,
   publicMenusTable, branchesTable, customerSessionsTable, customerCartsTable,
   publicMenuCategoriesTable, publicMenuProductsTable, branchSettingsTable,
+  customersTable,
 } from "@workspace/db";
 import { extractToken } from "./auth";
 
@@ -156,6 +157,8 @@ router.get("/menu/:slug", async (req, res): Promise<void> => {
       enableEwallet: (tenant as any).enableEwallet ?? false,
       showVariants: (tenant as any).showVariants ?? true,
       showToppings: (tenant as any).showToppings ?? true,
+      enableCustomerLogin: (tenant as any).enableCustomerLogin ?? false,
+      pointSystemConfig: (tenant as any).pointSystemConfig ?? null,
     },
     branch: branch ? {
       id: branch.id,
@@ -407,6 +410,37 @@ router.post("/menu/:slug/orders", async (req, res): Promise<void> => {
   const insertedItems = await db.insert(customerOrderItemsTable)
     .values(orderItems.map((i: any) => ({ ...i, customerOrderId: order.id, tenantId: tenant.id, branchId: activeBranchId }))).returning();
 
+  // Credit points and update stats for logged in customer
+  const { customerId } = req.body;
+  if (customerId) {
+    const [customer] = await db.select().from(customersTable)
+      .where(and(eq(customersTable.id, Number(customerId)), eq(customersTable.tenantId, tenant.id)));
+    if (customer) {
+      const pointsPerItem = (tenant.pointSystemConfig as any)?.pointsPerItem ?? 10;
+      const totalItems = items.reduce((sum: number, item: any) => sum + Number(item.quantity || 0), 0);
+      const pointsEarned = totalItems * pointsPerItem;
+      const newPoints = customer.loyaltyPoints + pointsEarned;
+      
+      const getMembershipLevel = (pts: number) => {
+        if (pts >= 1000) return "platinum";
+        if (pts >= 500) return "gold";
+        if (pts >= 100) return "silver";
+        return "regular";
+      };
+      const newLevel = getMembershipLevel(newPoints);
+
+      await db.update(customersTable)
+        .set({
+          totalSpent: String(Number(customer.totalSpent) + total),
+          totalOrders: customer.totalOrders + 1,
+          loyaltyPoints: newPoints,
+          membershipLevel: newLevel,
+          updatedAt: new Date(),
+        })
+        .where(eq(customersTable.id, customer.id));
+    }
+  }
+
   const formatted = formatCustomerOrder(order, insertedItems);
   broadcastNewOrder(tenant.id, formatted);
   res.status(201).json(formatted);
@@ -587,6 +621,23 @@ router.patch("/tenant/settings", async (req, res): Promise<void> => {
   }
 
   res.json(tenant);
+});
+
+router.get("/menu/:slug/customer-orders-history", async (req, res): Promise<void> => {
+  const { slug } = req.params;
+  const { phone } = req.query;
+  if (!phone) {
+    res.status(400).json({ error: "Nomor telepon diperlukan" });
+    return;
+  }
+  const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.slug, slug));
+  if (!tenant) { res.status(404).json({ error: "Tidak ditemukan" }); return; }
+
+  const orders = await db.select().from(customerOrdersTable)
+    .where(and(eq(customerOrdersTable.customerPhone, String(phone)), eq(customerOrdersTable.tenantId, tenant.id)))
+    .orderBy(desc(customerOrdersTable.createdAt));
+
+  res.json(orders);
 });
 
 export default router;

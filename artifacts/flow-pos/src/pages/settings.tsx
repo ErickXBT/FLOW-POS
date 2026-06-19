@@ -89,6 +89,12 @@ export default function SettingsPage() {
     logoUrl: "",
     coverUrl: "",
     bio: "",
+    enableCustomerLogin: false,
+    pointSystemConfig: {
+      pointsPerItem: 10,
+      minClaimPoints: 1000,
+      rewardDescription: "Diskon 10% setiap kelipatan 100 poin, Grand Reward pada 1000 Poin",
+    },
   });
   
   const [saved, setSaved] = useState(false);
@@ -117,6 +123,12 @@ export default function SettingsPage() {
         logoUrl: tenant.logoUrl || "",
         coverUrl: (tenant as any).coverUrl || "",
         bio: (tenant as any).bio || "",
+        enableCustomerLogin: (tenant as any).enableCustomerLogin ?? false,
+        pointSystemConfig: (tenant as any).pointSystemConfig || {
+          pointsPerItem: 10,
+          minClaimPoints: 1000,
+          rewardDescription: "Diskon 10% setiap kelipatan 100 poin, Grand Reward pada 1000 Poin",
+        },
       });
     }
   }, [tenant]);
@@ -503,6 +515,81 @@ export default function SettingsPage() {
             {coverError && <p className="text-[11px] text-red-500 text-center font-medium">{coverError}</p>}
           </div>
         </div>
+
+        <div className="flex items-center gap-3 pt-2">
+          <button onClick={handleSave} disabled={updateTenant.isPending}
+            className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity">
+            <Save size={16} />
+            {updateTenant.isPending ? "Menyimpan..." : "Simpan Perubahan"}
+          </button>
+          {saved && <span className="text-green-600 dark:text-green-400 text-sm font-medium">✓ Tersimpan</span>}
+        </div>
+      </div>
+
+      {/* Fitur Loyalitas & Login Pelanggan */}
+      <div className="bg-card border border-card-border rounded-xl p-6 shadow-sm space-y-4">
+        <div className="flex items-center gap-2 font-semibold text-foreground mb-4">
+          <Building2 size={18} className="text-primary" /> Fitur Loyalitas & Login Pelanggan
+        </div>
+        <div className="flex items-center justify-between p-3 bg-muted/20 border border-border/50 rounded-lg">
+          <div>
+            <div className="text-sm font-semibold">Aktifkan Fitur Login Pelanggan</div>
+            <div className="text-xs text-muted-foreground">Pelanggan harus login menggunakan nomor HP & password pada menu online untuk mendapatkan poin.</div>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={form.enableCustomerLogin}
+              onChange={e => setForm(p => ({ ...p, enableCustomerLogin: e.target.checked }))}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+          </label>
+        </div>
+
+        {form.enableCustomerLogin && (
+          <div className="space-y-3 pt-2">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-semibold mb-1 text-foreground">Poin per Item Menu *</label>
+                <input
+                  type="number"
+                  value={form.pointSystemConfig.pointsPerItem}
+                  onChange={e => setForm(p => ({
+                    ...p,
+                    pointSystemConfig: { ...p.pointSystemConfig, pointsPerItem: Math.max(1, Number(e.target.value)) }
+                  }))}
+                  className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-semibold mb-1 text-foreground">Minimal Poin Klaim Reward *</label>
+                <input
+                  type="number"
+                  value={form.pointSystemConfig.minClaimPoints}
+                  onChange={e => setForm(p => ({
+                    ...p,
+                    pointSystemConfig: { ...p.pointSystemConfig, minClaimPoints: Math.max(1, Number(e.target.value)) }
+                  }))}
+                  className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold mb-1 text-foreground">Deskripsi Sistem Reward & Tiering</label>
+              <textarea
+                value={form.pointSystemConfig.rewardDescription}
+                onChange={e => setForm(p => ({
+                  ...p,
+                  pointSystemConfig: { ...p.pointSystemConfig, rewardDescription: e.target.value }
+                }))}
+                rows={2}
+                placeholder="Misal: Diskon 10% setiap kelipatan 100 poin, Grand Reward pada 1000 Poin"
+                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+              />
+            </div>
+          </div>
+        )}
 
         <div className="flex items-center gap-3 pt-2">
           <button onClick={handleSave} disabled={updateTenant.isPending}

@@ -50,7 +50,7 @@ router.patch("/tenant", async (req, res): Promise<void> => {
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
   const [tenant] = await db.update(tenantsTable)
-    .set({ ...body.data, updatedAt: new Date() })
+    .set({ ...body.data, updatedAt: new Date() } as any)
     .where(eq(tenantsTable.id, claims.tenantId))
     .returning();
 

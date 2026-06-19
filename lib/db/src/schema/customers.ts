@@ -13,6 +13,8 @@ export const customersTable = pgTable("customers", {
   totalOrders: integer("total_orders").notNull().default(0),
   membershipLevel: text("membership_level").notNull().default("regular"), // regular, silver, gold, platinum
   notes: text("notes"),
+  passwordHash: text("password_hash"),
+  avatarUrl: text("avatar_url"),
   tenantId: integer("tenant_id").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
