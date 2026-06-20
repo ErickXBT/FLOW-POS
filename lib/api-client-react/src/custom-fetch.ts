@@ -358,6 +358,12 @@ export async function customFetch<T = unknown>(
     }
   }
 
+  // Attach active branch ID if saved in localStorage
+  const activeBranchId = localStorage.getItem("flow_active_branch_id");
+  if (activeBranchId && !headers.has("x-branch-id")) {
+    headers.set("x-branch-id", activeBranchId);
+  }
+
   const requestInfo = { method, url: resolveUrl(input) };
 
   const response = await fetch(input, { ...init, method, headers });

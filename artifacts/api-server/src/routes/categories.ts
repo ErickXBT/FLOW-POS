@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or, isNull } from "drizzle-orm";
 import { db, categoriesTable } from "@workspace/db";
 import {
   CreateCategoryBody,
@@ -7,7 +7,7 @@ import {
   UpdateCategoryBody,
   DeleteCategoryParams,
 } from "@workspace/api-zod";
-import { extractToken } from "./auth";
+import { extractToken, getRequestedBranchId } from "./auth";
 
 const router: IRouter = Router();
 
@@ -21,8 +21,14 @@ router.get("/categories", async (req, res): Promise<void> => {
   const claims = requireTenant(req, res);
   if (!claims) return;
 
+  const branchId = await getRequestedBranchId(req, claims);
+  const conditions: any[] = [eq(categoriesTable.tenantId, claims.tenantId!)];
+  if (branchId) {
+    conditions.push(or(eq(categoriesTable.branchId, branchId), isNull(categoriesTable.branchId)));
+  }
+
   const cats = await db.select().from(categoriesTable)
-    .where(eq(categoriesTable.tenantId, claims.tenantId!));
+    .where(and(...conditions));
 
   res.json(cats.map(c => ({ ...c, createdAt: c.createdAt.toISOString() })));
 });
@@ -34,9 +40,12 @@ router.post("/categories", async (req, res): Promise<void> => {
   const body = CreateCategoryBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
+  const branchId = await getRequestedBranchId(req, claims);
+
   const [cat] = await db.insert(categoriesTable).values({
     ...body.data,
     tenantId: claims.tenantId!,
+    branchId: branchId ?? null,
   }).returning();
 
   res.status(201).json({ ...cat, createdAt: cat.createdAt.toISOString() });

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, gte, lte, count, sql, desc, inArray } from "drizzle-orm";
-import { db, ordersTable, orderItemsTable, productsTable, customersTable, employeesTable, usersTable, branchesTable, customerOrdersTable, customerOrderItemsTable, tenantsTable } from "@workspace/db";
+import { db, ordersTable, orderItemsTable, productsTable, customersTable, employeesTable, usersTable, branchesTable, customerOrdersTable, customerOrderItemsTable, tenantsTable, publicMenuProductsTable, publicMenusTable, publicMenuCategoriesTable, categoriesTable } from "@workspace/db";
 import { broadcastNewOrder } from "./menu";
 import {
   ListOrdersQueryParams,
@@ -10,10 +10,104 @@ import {
   UpdateOrderStatusParams,
   UpdateOrderStatusBody,
 } from "@workspace/api-zod";
-import { extractToken } from "./auth";
+import { extractToken, getRequestedBranchId } from "./auth";
 import { logActivity } from "./activity";
 
 const router: IRouter = Router();
+
+export async function deductBranchStock(tenantId: number, branchId: number, productId: number, quantity: number) {
+  const [product] = await db.select().from(productsTable).where(eq(productsTable.id, productId)).limit(1);
+  if (!product) return;
+
+  let [menu] = await db.select().from(publicMenusTable)
+    .where(and(eq(publicMenusTable.branchId, branchId), eq(publicMenusTable.tenantId, tenantId)))
+    .limit(1);
+  if (!menu) {
+    const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, tenantId)).limit(1);
+    const slug = tenant ? `${tenant.slug}-${branchId}` : `branch-${branchId}`;
+    [menu] = await db.insert(publicMenusTable).values({
+      tenantId,
+      branchId,
+      slug,
+      name: tenant?.name || "Cabang",
+      isActive: true,
+      enableDineIn: true,
+      enableTakeAway: true,
+      enableDelivery: true,
+    }).returning();
+  }
+
+  let publicMenuCategoryId: number;
+  if (product.categoryId) {
+    const [globalCat] = await db.select().from(categoriesTable).where(eq(categoriesTable.id, product.categoryId)).limit(1);
+    const catName = globalCat?.name || "Kategori";
+    
+    let [menuCat] = await db.select().from(publicMenuCategoriesTable)
+      .where(and(
+        eq(publicMenuCategoriesTable.publicMenuId, menu.id),
+        eq(publicMenuCategoriesTable.name, catName)
+      ))
+      .limit(1);
+    if (!menuCat) {
+      [menuCat] = await db.insert(publicMenuCategoriesTable).values({
+        tenantId,
+        branchId,
+        publicMenuId: menu.id,
+        name: catName,
+        sortOrder: 0,
+      }).returning();
+    }
+    publicMenuCategoryId = menuCat.id;
+  } else {
+    let [menuCat] = await db.select().from(publicMenuCategoriesTable)
+      .where(and(
+        eq(publicMenuCategoriesTable.publicMenuId, menu.id),
+        eq(publicMenuCategoriesTable.name, "Umum")
+      ))
+      .limit(1);
+    if (!menuCat) {
+      [menuCat] = await db.insert(publicMenuCategoriesTable).values({
+        tenantId,
+        branchId,
+        publicMenuId: menu.id,
+        name: "Umum",
+        sortOrder: 0,
+      }).returning();
+    }
+    publicMenuCategoryId = menuCat.id;
+  }
+
+  const [branchProd] = await db.select().from(publicMenuProductsTable)
+    .where(and(
+      eq(publicMenuProductsTable.productId, productId),
+      eq(publicMenuProductsTable.branchId, branchId)
+    ))
+    .limit(1);
+
+  if (branchProd) {
+    await db.execute(sql`
+      UPDATE public_menu_products 
+      SET stock = stock - ${quantity} 
+      WHERE id = ${branchProd.id}
+    `);
+  } else {
+    const initialStock = Math.max(0, product.stock - quantity);
+    await db.insert(publicMenuProductsTable).values({
+      tenantId,
+      branchId,
+      publicMenuCategoryId,
+      productId,
+      name: product.name,
+      description: product.description,
+      price: String(product.price),
+      promoPrice: null,
+      imageUrl: product.imageUrl,
+      isAvailable: product.isActive,
+      stock: initialStock,
+      variantSettings: product.variantSettings,
+    });
+  }
+}
 
 function requireTenant(req: any, res: any) {
   const claims = extractToken(req);
@@ -52,12 +146,9 @@ router.get("/orders", async (req, res): Promise<void> => {
   if (qp.success && qp.data.dateFrom) conditions.push(gte(ordersTable.createdAt, new Date(qp.data.dateFrom)));
   if (qp.success && qp.data.dateTo) conditions.push(lte(ordersTable.createdAt, new Date(qp.data.dateTo)));
 
-  // Enforce branch limit
-  if (claims.role !== "owner" && claims.role !== "super_admin") {
-    const [emp] = await db.select({ branchId: employeesTable.branchId }).from(employeesTable).where(eq(employeesTable.userId, claims.userId)).limit(1);
-    if (emp && emp.branchId) {
-      conditions.push(eq(ordersTable.branchId, emp.branchId));
-    }
+  const branchId = await getRequestedBranchId(req, claims);
+  if (branchId) {
+    conditions.push(eq(ordersTable.branchId, branchId));
   }
 
   const where = and(...conditions);
@@ -231,7 +322,11 @@ router.post("/orders", async (req, res): Promise<void> => {
   }
 
   for (const item of itemInputs) {
-    await db.execute(sql`UPDATE products SET stock = stock - ${item.quantity} WHERE id = ${item.productId} AND tenant_id = ${claims.tenantId}`);
+    if (branchId) {
+      await deductBranchStock(claims.tenantId!, branchId, item.productId, item.quantity);
+    } else {
+      await db.execute(sql`UPDATE products SET stock = stock - ${item.quantity} WHERE id = ${item.productId} AND tenant_id = ${claims.tenantId}`);
+    }
   }
 
   if (body.data.customerId) {
@@ -289,14 +384,9 @@ router.get("/orders/recent", async (req, res): Promise<void> => {
 
   const conditions = [eq(ordersTable.tenantId, claims.tenantId!)];
 
-  // Enforce branch limit or query branch filtering
-  if (claims.role !== "owner" && claims.role !== "super_admin") {
-    const [emp] = await db.select({ branchId: employeesTable.branchId }).from(employeesTable).where(eq(employeesTable.userId, claims.userId)).limit(1);
-    if (emp && emp.branchId) {
-      conditions.push(eq(ordersTable.branchId, emp.branchId));
-    }
-  } else if (req.query.branchId) {
-    conditions.push(eq(ordersTable.branchId, Number(req.query.branchId)));
+  const branchId = await getRequestedBranchId(req, claims);
+  if (branchId) {
+    conditions.push(eq(ordersTable.branchId, branchId));
   }
 
   const orders = await db.select().from(ordersTable)

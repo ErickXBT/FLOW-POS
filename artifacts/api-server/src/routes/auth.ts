@@ -112,6 +112,31 @@ export async function getUserExtraDetails(userId: number, role: string, tenantId
   };
 }
 
+export async function getRequestedBranchId(
+  req: any,
+  claims: { userId: number; role: string; tenantId: number | null }
+): Promise<number | null> {
+  if (claims.role !== "owner" && claims.role !== "super_admin") {
+    const [emp] = await db
+      .select({ branchId: employeesTable.branchId })
+      .from(employeesTable)
+      .where(eq(employeesTable.userId, claims.userId))
+      .limit(1);
+    return emp?.branchId ?? null;
+  }
+
+  const headerVal = req.headers["x-branch-id"];
+  if (headerVal === "all" || headerVal === "undefined" || !headerVal) {
+    const queryVal = req.query.branchId || req.query.branch_id;
+    if (queryVal && queryVal !== "all" && queryVal !== "undefined") {
+      return Number(queryVal);
+    }
+    return null;
+  }
+  
+  return Number(headerVal);
+}
+
 router.post("/auth/login", async (req, res): Promise<void> => {
   const parsed = LoginBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }

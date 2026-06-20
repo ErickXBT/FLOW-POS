@@ -8,7 +8,7 @@ import {
   UpdateCustomerParams,
   UpdateCustomerBody,
 } from "@workspace/api-zod";
-import { extractToken } from "./auth";
+import { extractToken, getRequestedBranchId } from "./auth";
 import * as jwt from "jsonwebtoken";
 import crypto from "crypto";
 import fs from "fs";
@@ -75,8 +75,10 @@ router.get("/customers", async (req, res): Promise<void> => {
   const limit = (qp.success ? qp.data.limit : 20) ?? 20;
   const offset = (page - 1) * limit;
 
+  const branchId = await getRequestedBranchId(req, claims);
   const conditions = [eq(customersTable.tenantId, claims.tenantId!)];
   if (search) conditions.push(ilike(customersTable.name, `%${search}%`));
+  if (branchId) conditions.push(eq(customersTable.branchId, branchId));
   const where = and(...conditions);
 
   const [totalResult] = await db.select({ count: count() }).from(customersTable).where(where);
@@ -97,9 +99,12 @@ router.post("/customers", async (req, res): Promise<void> => {
   const body = CreateCustomerBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
+  const branchId = await getRequestedBranchId(req, claims);
+
   const [customer] = await db.insert(customersTable).values({
     ...body.data,
     tenantId: claims.tenantId!,
+    branchId: branchId ?? null,
   }).returning();
 
   res.status(201).json(formatCustomer(customer));

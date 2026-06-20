@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, ilike, count, sql, desc } from "drizzle-orm";
-import { db, productsTable, categoriesTable, orderItemsTable, ordersTable, employeesTable } from "@workspace/db";
+import { db, productsTable, categoriesTable, orderItemsTable, ordersTable, employeesTable, publicMenuProductsTable, publicMenusTable, publicMenuCategoriesTable, tenantsTable } from "@workspace/db";
 import fs from "fs";
 import path from "path";
 
@@ -13,10 +13,114 @@ import {
   DeleteProductParams,
   GetTopProductsQueryParams,
 } from "@workspace/api-zod";
-import { extractToken } from "./auth";
+import { extractToken, getRequestedBranchId } from "./auth";
 import { logActivity } from "./activity";
 
 const router: IRouter = Router();
+
+async function ensureBranchProductMapping(tenantId: number, branchId: number, productId: number, globalCategoryId: number | null) {
+  let [menu] = await db.select().from(publicMenusTable)
+    .where(and(eq(publicMenusTable.branchId, branchId), eq(publicMenusTable.tenantId, tenantId)))
+    .limit(1);
+  if (!menu) {
+    const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, tenantId)).limit(1);
+    const slug = tenant ? `${tenant.slug}-${branchId}` : `branch-${branchId}`;
+    [menu] = await db.insert(publicMenusTable).values({
+      tenantId,
+      branchId,
+      slug,
+      name: tenant?.name || "Cabang",
+      isActive: true,
+      enableDineIn: true,
+      enableTakeAway: true,
+      enableDelivery: true,
+    }).returning();
+  }
+
+  let publicMenuCategoryId: number;
+  if (globalCategoryId) {
+    const [globalCat] = await db.select().from(categoriesTable).where(eq(categoriesTable.id, globalCategoryId)).limit(1);
+    const catName = globalCat?.name || "Kategori";
+    
+    let [menuCat] = await db.select().from(publicMenuCategoriesTable)
+      .where(and(
+        eq(publicMenuCategoriesTable.publicMenuId, menu.id),
+        eq(publicMenuCategoriesTable.name, catName)
+      ))
+      .limit(1);
+    if (!menuCat) {
+      [menuCat] = await db.insert(publicMenuCategoriesTable).values({
+        tenantId,
+        branchId,
+        publicMenuId: menu.id,
+        name: catName,
+        sortOrder: 0,
+      }).returning();
+    }
+    publicMenuCategoryId = menuCat.id;
+  } else {
+    let [menuCat] = await db.select().from(publicMenuCategoriesTable)
+      .where(and(
+        eq(publicMenuCategoriesTable.publicMenuId, menu.id),
+        eq(publicMenuCategoriesTable.name, "Umum")
+      ))
+      .limit(1);
+    if (!menuCat) {
+      [menuCat] = await db.insert(publicMenuCategoriesTable).values({
+        tenantId,
+        branchId,
+        publicMenuId: menu.id,
+        name: "Umum",
+        sortOrder: 0,
+      }).returning();
+    }
+    publicMenuCategoryId = menuCat.id;
+  }
+  return { menu, publicMenuCategoryId };
+}
+
+async function upsertBranchProduct(tenantId: number, branchId: number, productId: number, updates: { price?: number; promoPrice?: number; isAvailable?: boolean; stock?: number }) {
+  const [product] = await db.select().from(productsTable).where(eq(productsTable.id, productId)).limit(1);
+  if (!product) return;
+
+  const { publicMenuCategoryId } = await ensureBranchProductMapping(tenantId, branchId, productId, product.categoryId);
+
+  let [branchProd] = await db.select().from(publicMenuProductsTable)
+    .where(and(
+      eq(publicMenuProductsTable.productId, productId),
+      eq(publicMenuProductsTable.branchId, branchId)
+    ))
+    .limit(1);
+
+  if (branchProd) {
+    const updatePayload: any = { updatedAt: new Date() };
+    if (updates.price !== undefined) updatePayload.price = String(updates.price);
+    if (updates.promoPrice !== undefined) updatePayload.promoPrice = updates.promoPrice !== null ? String(updates.promoPrice) : null;
+    if (updates.isAvailable !== undefined) updatePayload.isAvailable = updates.isAvailable;
+    if (updates.stock !== undefined) updatePayload.stock = updates.stock;
+
+    await db.update(publicMenuProductsTable)
+      .set(updatePayload)
+      .where(eq(publicMenuProductsTable.id, branchProd.id));
+  } else {
+    const insertPayload: any = {
+      tenantId,
+      branchId,
+      publicMenuCategoryId,
+      productId,
+      name: product.name,
+      description: product.description,
+      price: updates.price !== undefined ? String(updates.price) : String(product.price),
+      promoPrice: updates.promoPrice !== undefined ? (updates.promoPrice !== null ? String(updates.promoPrice) : null) : null,
+      imageUrl: product.imageUrl,
+      isAvailable: updates.isAvailable !== undefined ? updates.isAvailable : product.isActive,
+      stock: updates.stock !== undefined ? updates.stock : product.stock,
+      variantSettings: product.variantSettings,
+    };
+
+    await db.insert(publicMenuProductsTable).values(insertPayload);
+  }
+}
 
 function requireTenant(req: any, res: any) {
   const claims = extractToken(req);
@@ -24,10 +128,14 @@ function requireTenant(req: any, res: any) {
   return claims;
 }
 
-function formatProduct(p: any, categoryName?: string | null) {
+function formatProduct(p: any, categoryName?: string | null, bp?: any) {
+  const hasBranch = bp && bp.price !== null;
   return {
     ...p,
-    price: Number(p.price),
+    price: hasBranch ? Number(bp.price) : Number(p.price),
+    promoPrice: hasBranch && bp.promoPrice !== null ? Number(bp.promoPrice) : null,
+    isActive: hasBranch && bp.isAvailable !== null ? bp.isAvailable : p.isActive,
+    stock: hasBranch && bp.stock !== null ? bp.stock : p.stock,
     costPrice: p.costPrice != null ? Number(p.costPrice) : null,
     categoryName: categoryName ?? null,
     createdAt: p.createdAt instanceof Date ? p.createdAt.toISOString() : p.createdAt,
@@ -45,6 +153,8 @@ router.get("/products", async (req, res): Promise<void> => {
   const limit = (qp.success ? qp.data.limit : 20) ?? 20;
   const offset = (page - 1) * limit;
 
+  const branchId = await getRequestedBranchId(req, claims);
+
   const conditions = [eq(productsTable.tenantId, claims.tenantId!)];
   if (search) conditions.push(ilike(productsTable.name, `%${search}%`));
   if (categoryId) conditions.push(eq(productsTable.categoryId, categoryId));
@@ -56,15 +166,28 @@ router.get("/products", async (req, res): Promise<void> => {
     .select({
       product: productsTable,
       categoryName: categoriesTable.name,
+      branchProduct: {
+        price: publicMenuProductsTable.price,
+        promoPrice: publicMenuProductsTable.promoPrice,
+        isAvailable: publicMenuProductsTable.isAvailable,
+        stock: publicMenuProductsTable.stock,
+      }
     })
     .from(productsTable)
     .leftJoin(categoriesTable, eq(productsTable.categoryId, categoriesTable.id))
+    .leftJoin(
+      publicMenuProductsTable,
+      and(
+        eq(productsTable.id, publicMenuProductsTable.productId),
+        eq(publicMenuProductsTable.branchId, branchId ? branchId : -1)
+      )
+    )
     .where(where)
     .limit(limit)
     .offset(offset);
 
   res.json({
-    data: rows.map(r => formatProduct(r.product, r.categoryName)),
+    data: rows.map(r => formatProduct(r.product, r.categoryName, r.branchProduct)),
     total: totalResult.count,
     page,
     limit,
@@ -84,6 +207,15 @@ router.post("/products", async (req, res): Promise<void> => {
     costPrice: body.data.costPrice != null ? String(body.data.costPrice) : undefined,
     tenantId: claims.tenantId!,
   }).returning();
+
+  const branchId = await getRequestedBranchId(req, claims);
+  if (branchId) {
+    await upsertBranchProduct(claims.tenantId!, branchId, product.id, {
+      price: body.data.price,
+      stock: body.data.stock ?? 0,
+      isAvailable: true,
+    });
+  }
 
   await logActivity({
     tenantId: claims.tenantId,
@@ -106,13 +238,7 @@ router.get("/products/top", async (req, res): Promise<void> => {
   const qp = GetTopProductsQueryParams.safeParse(req.query);
   const limit = (qp.success ? qp.data.limit : 5) ?? 5;
 
-  let branchId: number | null = null;
-  if (claims.role !== "owner" && claims.role !== "super_admin") {
-    const [emp] = await db.select({ branchId: employeesTable.branchId }).from(employeesTable).where(eq(employeesTable.userId, claims.userId)).limit(1);
-    branchId = emp?.branchId ?? null;
-  } else if (req.query.branchId) {
-    branchId = Number(req.query.branchId);
-  }
+  const branchId = await getRequestedBranchId(req, claims);
 
   const conditions = [
     eq(productsTable.tenantId, claims.tenantId!),
@@ -154,14 +280,32 @@ router.get("/products/:id", async (req, res): Promise<void> => {
   const params = GetProductParams.safeParse({ id: req.params.id });
   if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
 
+  const branchId = await getRequestedBranchId(req, claims);
+
   const [row] = await db
-    .select({ product: productsTable, categoryName: categoriesTable.name })
+    .select({
+      product: productsTable,
+      categoryName: categoriesTable.name,
+      branchProduct: {
+        price: publicMenuProductsTable.price,
+        promoPrice: publicMenuProductsTable.promoPrice,
+        isAvailable: publicMenuProductsTable.isAvailable,
+        stock: publicMenuProductsTable.stock,
+      }
+    })
     .from(productsTable)
     .leftJoin(categoriesTable, eq(productsTable.categoryId, categoriesTable.id))
+    .leftJoin(
+      publicMenuProductsTable,
+      and(
+        eq(productsTable.id, publicMenuProductsTable.productId),
+        eq(publicMenuProductsTable.branchId, branchId ? branchId : -1)
+      )
+    )
     .where(and(eq(productsTable.id, params.data.id), eq(productsTable.tenantId, claims.tenantId!)));
 
   if (!row) { res.status(404).json({ error: "Product not found" }); return; }
-  res.json(formatProduct(row.product, row.categoryName));
+  res.json(formatProduct(row.product, row.categoryName, row.branchProduct));
 });
 
 router.patch("/products/:id", async (req, res): Promise<void> => {
@@ -173,6 +317,43 @@ router.patch("/products/:id", async (req, res): Promise<void> => {
 
   const body = UpdateProductBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+  const branchId = await getRequestedBranchId(req, claims);
+  if (branchId) {
+    const updates: any = {};
+    if (body.data.price !== undefined) updates.price = body.data.price;
+    if (body.data.isActive !== undefined) updates.isAvailable = body.data.isActive;
+    if (body.data.stock !== undefined) updates.stock = body.data.stock;
+    
+    await upsertBranchProduct(claims.tenantId!, branchId, params.data.id, updates);
+    
+    const [row] = await db
+      .select({
+        product: productsTable,
+        categoryName: categoriesTable.name,
+        branchProduct: {
+          price: publicMenuProductsTable.price,
+          promoPrice: publicMenuProductsTable.promoPrice,
+          isAvailable: publicMenuProductsTable.isAvailable,
+          stock: publicMenuProductsTable.stock,
+        }
+      })
+      .from(productsTable)
+      .leftJoin(categoriesTable, eq(productsTable.categoryId, categoriesTable.id))
+      .leftJoin(
+        publicMenuProductsTable,
+        and(
+          eq(productsTable.id, publicMenuProductsTable.productId),
+          eq(publicMenuProductsTable.branchId, branchId)
+        )
+      )
+      .where(and(eq(productsTable.id, params.data.id), eq(productsTable.tenantId, claims.tenantId!)))
+      .limit(1);
+
+    if (!row) { res.status(404).json({ error: "Product not found" }); return; }
+    res.json(formatProduct(row.product, row.categoryName, row.branchProduct));
+    return;
+  }
 
   const updateData: any = { ...body.data, updatedAt: new Date() };
   if (body.data.price != null) updateData.price = String(body.data.price);

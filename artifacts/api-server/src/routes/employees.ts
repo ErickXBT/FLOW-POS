@@ -9,7 +9,7 @@ import {
   UpdateEmployeeBody,
   DeleteEmployeeParams,
 } from "@workspace/api-zod";
-import { extractToken } from "./auth";
+import { extractToken, getRequestedBranchId } from "./auth";
 import { logActivity } from "./activity";
 
 const router: IRouter = Router();
@@ -44,8 +44,11 @@ router.get("/employees", async (req, res): Promise<void> => {
 
   const qp = ListEmployeesQueryParams.safeParse(req.query);
   const search = qp.success ? qp.data.search : undefined;
+  
+  const branchId = await getRequestedBranchId(req, claims);
   const conditions = [eq(employeesTable.tenantId, claims.tenantId!)];
   if (search) conditions.push(ilike(employeesTable.name, `%${search}%`));
+  if (branchId) conditions.push(eq(employeesTable.branchId, branchId));
 
   const employees = await db.select().from(employeesTable).where(and(...conditions));
   res.json(employees.map(fmt));

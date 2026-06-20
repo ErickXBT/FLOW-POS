@@ -11,6 +11,7 @@ import type { AuthUser } from "@/hooks/use-auth";
 import { ROLE_LABELS, hasPermission } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveBranch } from "@/hooks/use-active-branch";
+import { useGetTenant, getGetTenantQueryKey } from "@workspace/api-client-react";
 
 interface NavItem {
   href: string;
@@ -39,6 +40,64 @@ interface LayoutProps {
 
 export default function Layout({ user, onLogout, isImpersonating, exitImpersonate, children }: LayoutProps) {
   const { activeBranchId, setActiveBranchId, branches } = useActiveBranch();
+  const { data: tenant } = useGetTenant({
+    query: {
+      queryKey: getGetTenantQueryKey(),
+      enabled: !!user?.tenantId
+    }
+  });
+
+  useEffect(() => {
+    if (tenant?.primaryColor) {
+      const color = tenant.primaryColor;
+      try {
+        const hex = color.replace(/^#/, "");
+        let num = parseInt(hex, 16);
+        if (hex.length === 3) {
+          num = parseInt(
+            hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2],
+            16
+          );
+        }
+        let r = (num >> 16) & 255;
+        let g = (num >> 8) & 255;
+        let b = num & 255;
+        
+        r /= 255;
+        g /= 255;
+        b /= 255;
+        
+        const max = Math.max(r, g, b);
+        const min = Math.min(r, g, b);
+        let h = 0;
+        let s = 0;
+        let l = (max + min) / 2;
+        
+        if (max !== min) {
+          const d = max - min;
+          s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+          switch (max) {
+            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+            case g: h = (b - r) / d + 2; break;
+            case b: h = (r - g) / d + 4; break;
+          }
+          h /= 6;
+        }
+        
+        const h_deg = Math.round(h * 360);
+        const s_pct = Math.round(s * 100);
+        const l_pct = Math.round(l * 100);
+        
+        document.documentElement.style.setProperty("--primary", `${h_deg} ${s_pct}% ${l_pct}%`);
+        document.documentElement.style.setProperty("--sidebar-primary", `${h_deg} ${s_pct}% ${l_pct}%`);
+        document.documentElement.style.setProperty("--sidebar-ring", `${h_deg} ${s_pct}% ${l_pct}%`);
+        document.documentElement.style.setProperty("--ring", `${h_deg} ${s_pct}% ${l_pct}%`);
+      } catch (err) {
+        console.error("Failed to parse tenant primaryColor:", err);
+      }
+    }
+  }, [tenant?.primaryColor]);
+
   const isOwnerOrManager = user.role === "owner" || user.role === "manager";
   const [location] = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(false);

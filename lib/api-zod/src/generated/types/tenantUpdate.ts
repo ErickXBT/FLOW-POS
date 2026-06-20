@@ -23,5 +23,7 @@ export interface TenantUpdate {
   showVariants?: boolean;
   showToppings?: boolean;
   enableCustomerLogin?: boolean;
+  enableTax?: boolean;
+  taxPercentage?: number;
   pointSystemConfig?: TenantUpdatePointSystemConfig;
 }

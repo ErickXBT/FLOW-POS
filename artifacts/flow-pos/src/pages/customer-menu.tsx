@@ -20,6 +20,8 @@ interface TenantInfo {
   showVariants?: boolean; showToppings?: boolean;
   enableCustomerLogin?: boolean;
   pointSystemConfig?: any;
+  enableTax?: boolean;
+  taxPercentage?: number;
 }
 
 interface BranchInfo {
@@ -1434,6 +1436,11 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
   const cartTotal = cart.reduce((s, c) => s + c.totalPrice, 0);
   const cartCount = cart.reduce((s, c) => s + c.quantity, 0);
 
+  const enableTax = tenant?.enableTax ?? false;
+  const taxPct = enableTax ? Number(tenant?.taxPercentage ?? 10) : 0;
+  const taxAmount = cartTotal * (taxPct / 100);
+  const cartTotalWithTax = cartTotal + taxAmount;
+
   const filteredProducts = products.filter(p => {
     const matchCat = !activeCat || p.publicMenuCategoryId === activeCat;
     const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase());
@@ -2286,10 +2293,12 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
             <div className="p-5 border-t bg-gray-50 space-y-3.5">
               <div className="space-y-1.5 text-xs text-gray-600">
                 <div className="flex justify-between"><span>Subtotal</span><span className="font-bold text-gray-900">{formatRp(cartTotal)}</span></div>
-                <div className="flex justify-between"><span>Pajak (10%)</span><span className="font-bold text-gray-900">{formatRp(cartTotal * 0.1)}</span></div>
+                {enableTax && (
+                  <div className="flex justify-between"><span>Pajak ({taxPct}%)</span><span className="font-bold text-gray-900">{formatRp(taxAmount)}</span></div>
+                )}
               </div>
               <div className="flex justify-between font-black text-sm pt-2 border-t text-gray-900">
-                <span>Total Estimasi</span><span style={{ color: primary }}>{formatRp(cartTotal * 1.1)}</span>
+                <span>Total Estimasi</span><span style={{ color: primary }}>{formatRp(cartTotalWithTax)}</span>
               </div>
               <button
                 onClick={() => { setCartOpen(false); setStep("order-type"); }}
@@ -2519,7 +2528,7 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
                 <div className="flex flex-col">
                   <span className="text-[10px] text-gray-400 font-bold uppercase">Total Bayar</span>
                   <span className="text-base font-black" style={{ color: primary }}>
-                    {formatRp( (cartTotal * 1.1) + (orderType === "delivery" ? (deliveryDistance === "near" ? (tenant?.deliveryFeeNear !== undefined ? Number(tenant.deliveryFeeNear) : 0) : (tenant?.deliveryFeeFar !== undefined ? Number(tenant.deliveryFeeFar) : 5000)) : 0) )}
+                    {formatRp( cartTotalWithTax + (orderType === "delivery" ? (deliveryDistance === "near" ? (tenant?.deliveryFeeNear !== undefined ? Number(tenant.deliveryFeeNear) : 0) : (tenant?.deliveryFeeFar !== undefined ? Number(tenant.deliveryFeeFar) : 5000)) : 0) )}
                   </span>
                 </div>
                 

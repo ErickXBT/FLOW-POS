@@ -1,8 +1,8 @@
 import { Router, type IRouter } from "express";
 import { eq, and, gte, lte, count, sql, desc } from "drizzle-orm";
-import { db, ordersTable, orderItemsTable, productsTable, customersTable, employeesTable, branchesTable } from "@workspace/db";
+import { db, ordersTable, orderItemsTable, productsTable, customersTable, employeesTable, branchesTable, publicMenuProductsTable } from "@workspace/db";
 import { GetSalesReportQueryParams, GetSalesChartDataQueryParams } from "@workspace/api-zod";
-import { extractToken } from "./auth";
+import { extractToken, getRequestedBranchId } from "./auth";
 
 const router: IRouter = Router();
 
@@ -25,13 +25,7 @@ function startOf(unit: "day" | "week" | "month" | "year"): Date {
   now.setMonth(0, 1); now.setHours(0, 0, 0, 0); return now;
 }
 
-async function getActiveBranchFilter(claims: any, queryBranchId?: any): Promise<number | null> {
-  if (claims.role !== "owner" && claims.role !== "super_admin") {
-    const [emp] = await db.select({ branchId: employeesTable.branchId }).from(employeesTable).where(eq(employeesTable.userId, claims.userId)).limit(1);
-    return emp?.branchId ?? null;
-  }
-  return queryBranchId ? Number(queryBranchId) : null;
-}
+// getRequestedBranchId helper imported from auth.ts
 
 router.get("/reports/dashboard", async (req, res): Promise<void> => {
   const claims = requireTenant(req, res);
@@ -42,7 +36,7 @@ router.get("/reports/dashboard", async (req, res): Promise<void> => {
   const weekStart = startOf("week");
   const monthStart = startOf("month");
 
-  const branchId = await getActiveBranchFilter(claims, req.query.branchId);
+  const branchId = await getRequestedBranchId(req, claims);
   const baseOrderConditions = [eq(ordersTable.tenantId, tid), eq(ordersTable.status, "completed")];
   if (branchId) {
     baseOrderConditions.push(eq(ordersTable.branchId, branchId));
@@ -70,12 +64,51 @@ router.get("/reports/dashboard", async (req, res): Promise<void> => {
     .where(and(...baseOrderConditions,
       gte(ordersTable.createdAt, lastMonthStart), lte(ordersTable.createdAt, monthStart)));
 
-  const [totalProducts] = await db.select({ count: count() }).from(productsTable).where(eq(productsTable.tenantId, tid));
-  const [totalCustomers] = await db.select({ count: count() }).from(customersTable).where(eq(customersTable.tenantId, tid));
+  let totalProductsCount = 0;
+  let totalCustomersCount = 0;
+  let lowStockCount = 0;
 
-  const inventory = await db.select({ stock: productsTable.stock, minStock: productsTable.minStock })
-    .from(productsTable).where(eq(productsTable.tenantId, tid));
-  const lowStockCount = inventory.filter(p => p.stock <= p.minStock).length;
+  if (branchId) {
+    const [branchProds] = await db.select({ count: count() })
+      .from(publicMenuProductsTable)
+      .where(and(eq(publicMenuProductsTable.branchId, branchId), eq(publicMenuProductsTable.isAvailable, true)));
+    totalProductsCount = branchProds?.count ?? 0;
+
+    const [branchCusts] = await db.select({ count: count() })
+      .from(customersTable)
+      .where(and(eq(customersTable.tenantId, tid), eq(customersTable.branchId, branchId)));
+    totalCustomersCount = branchCusts?.count ?? 0;
+
+    const branchInventory = await db.select({
+      productStock: productsTable.stock,
+      branchStock: publicMenuProductsTable.stock,
+      minStock: productsTable.minStock
+    })
+    .from(productsTable)
+    .leftJoin(
+      publicMenuProductsTable,
+      and(
+        eq(productsTable.id, publicMenuProductsTable.productId),
+        eq(publicMenuProductsTable.branchId, branchId)
+      )
+    )
+    .where(eq(productsTable.tenantId, tid));
+
+    lowStockCount = branchInventory.filter(p => {
+      const stock = p.branchStock !== null ? p.branchStock : p.productStock;
+      return stock <= p.minStock;
+    }).length;
+  } else {
+    const [totalProducts] = await db.select({ count: count() }).from(productsTable).where(and(eq(productsTable.tenantId, tid), eq(productsTable.isActive, true)));
+    totalProductsCount = totalProducts.count;
+
+    const [totalCustomers] = await db.select({ count: count() }).from(customersTable).where(eq(customersTable.tenantId, tid));
+    totalCustomersCount = totalCustomers.count;
+
+    const inventory = await db.select({ stock: productsTable.stock, minStock: productsTable.minStock })
+      .from(productsTable).where(eq(productsTable.tenantId, tid));
+    lowStockCount = inventory.filter(p => p.stock <= p.minStock).length;
+  }
 
   const currentMonth = Number(monthRevenue.total) || 0;
   const prevMonth = Number(lastMonthRevenue.total) || 0;
@@ -84,8 +117,8 @@ router.get("/reports/dashboard", async (req, res): Promise<void> => {
   res.json({
     todaySales: Number(todaySales.total) || 0,
     todayOrders: todayOrders.count,
-    totalProducts: totalProducts.count,
-    totalCustomers: totalCustomers.count,
+    totalProducts: totalProductsCount,
+    totalCustomers: totalCustomersCount,
     lowStockCount,
     monthlyRevenue: currentMonth,
     weeklyRevenue: Number(weekRevenue.total) || 0,
@@ -114,7 +147,7 @@ router.get("/reports/sales", async (req, res): Promise<void> => {
   }
   if (qp.success && qp.data.dateTo) dateTo = new Date(qp.data.dateTo);
 
-  const branchId = await getActiveBranchFilter(claims, req.query.branchId);
+  const branchId = await getRequestedBranchId(req, claims);
   const conditions = [
     eq(ordersTable.tenantId, tid),
     eq(ordersTable.status, "completed"),
@@ -214,7 +247,7 @@ router.get("/reports/sales/chart", async (req, res): Promise<void> => {
     }
   }
 
-  const branchId = await getActiveBranchFilter(claims, req.query.branchId);
+  const branchId = await getRequestedBranchId(req, claims);
   const baseConditions = [
     eq(ordersTable.tenantId, tid),
     eq(ordersTable.status, "completed"),

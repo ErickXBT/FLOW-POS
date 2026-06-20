@@ -175,6 +175,8 @@ export default function SettingsPage() {
       minClaimPoints: 1000,
       rewardDescription: "Diskon 10% setiap kelipatan 100 poin, Grand Reward pada 1000 Poin",
     },
+    enableTax: false,
+    taxPercentage: 10,
   });
   
   const [saved, setSaved] = useState(false);
@@ -209,6 +211,8 @@ export default function SettingsPage() {
           minClaimPoints: 1000,
           rewardDescription: "Diskon 10% setiap kelipatan 100 poin, Grand Reward pada 1000 Poin",
         },
+        enableTax: (tenant as any).enableTax ?? false,
+        taxPercentage: (tenant as any).taxPercentage !== undefined ? Number((tenant as any).taxPercentage) : 10,
       });
     }
   }, [tenant]);
@@ -645,6 +649,57 @@ export default function SettingsPage() {
             {coverError && <p className="text-[11px] text-red-500 text-center font-medium">{coverError}</p>}
           </div>
         </div>
+
+        <div className="flex items-center gap-3 pt-2">
+          <button onClick={handleSave} disabled={updateTenant.isPending}
+            className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity">
+            <Save size={16} />
+            {updateTenant.isPending ? "Menyimpan..." : "Simpan Perubahan"}
+          </button>
+          {saved && <span className="text-green-600 dark:text-green-400 text-sm font-medium">✓ Tersimpan</span>}
+        </div>
+      </div>
+
+      {/* Pengaturan Pajak */}
+      <div className="bg-card border border-card-border rounded-xl p-6 shadow-sm space-y-4">
+        <div className="flex items-center gap-2 font-semibold text-foreground mb-4">
+          <Building2 size={18} className="text-primary" /> Pengaturan Pajak
+        </div>
+        <div className="flex items-center justify-between p-3 bg-muted/20 border border-border/50 rounded-lg">
+          <div>
+            <div className="text-sm font-semibold">Aktifkan Pajak untuk Customer</div>
+            <div className="text-xs text-muted-foreground">Aktifkan jika ingin mengenakan pajak pada setiap transaksi pelanggan (F&B dan Fashion).</div>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={form.enableTax}
+              onChange={e => setForm(p => ({ ...p, enableTax: e.target.checked }))}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+          </label>
+        </div>
+
+        {form.enableTax && (
+          <div className="space-y-3 pt-2">
+            <div>
+              <label className="block text-xs font-semibold mb-1 text-foreground">Persentase Pajak (%) *</label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value={form.taxPercentage}
+                onChange={e => setForm(p => ({
+                  ...p,
+                  taxPercentage: Math.max(0, parseFloat(e.target.value) || 0)
+                }))}
+                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+          </div>
+        )}
 
         <div className="flex items-center gap-3 pt-2">
           <button onClick={handleSave} disabled={updateTenant.isPending}

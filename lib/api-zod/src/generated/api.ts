@@ -121,6 +121,8 @@ export const ListAdminTenantsResponse = zod.object({
   "showVariants": zod.boolean().optional(),
   "showToppings": zod.boolean().optional(),
   "enableCustomerLogin": zod.boolean().optional(),
+  "enableTax": zod.boolean().optional(),
+  "taxPercentage": zod.number().optional(),
   "pointSystemConfig": zod.object({
   "pointsPerItem": zod.number().optional(),
   "minClaimPoints": zod.number().optional(),
@@ -162,6 +164,8 @@ export const GetAdminTenantResponse = zod.object({
   "showVariants": zod.boolean().optional(),
   "showToppings": zod.boolean().optional(),
   "enableCustomerLogin": zod.boolean().optional(),
+  "enableTax": zod.boolean().optional(),
+  "taxPercentage": zod.number().optional(),
   "pointSystemConfig": zod.object({
   "pointsPerItem": zod.number().optional(),
   "minClaimPoints": zod.number().optional(),
@@ -211,6 +215,8 @@ export const UpdateTenantStatusResponse = zod.object({
   "showVariants": zod.boolean().optional(),
   "showToppings": zod.boolean().optional(),
   "enableCustomerLogin": zod.boolean().optional(),
+  "enableTax": zod.boolean().optional(),
+  "taxPercentage": zod.number().optional(),
   "pointSystemConfig": zod.object({
   "pointsPerItem": zod.number().optional(),
   "minClaimPoints": zod.number().optional(),
@@ -244,6 +250,8 @@ export const GetTenantResponse = zod.object({
   "showVariants": zod.boolean().optional(),
   "showToppings": zod.boolean().optional(),
   "enableCustomerLogin": zod.boolean().optional(),
+  "enableTax": zod.boolean().optional(),
+  "taxPercentage": zod.number().optional(),
   "pointSystemConfig": zod.object({
   "pointsPerItem": zod.number().optional(),
   "minClaimPoints": zod.number().optional(),
@@ -272,6 +280,8 @@ export const UpdateTenantBody = zod.object({
   "showVariants": zod.boolean().optional(),
   "showToppings": zod.boolean().optional(),
   "enableCustomerLogin": zod.boolean().optional(),
+  "enableTax": zod.boolean().optional(),
+  "taxPercentage": zod.number().optional(),
   "pointSystemConfig": zod.object({
   "pointsPerItem": zod.number().optional(),
   "minClaimPoints": zod.number().optional(),
@@ -300,6 +310,8 @@ export const UpdateTenantResponse = zod.object({
   "showVariants": zod.boolean().optional(),
   "showToppings": zod.boolean().optional(),
   "enableCustomerLogin": zod.boolean().optional(),
+  "enableTax": zod.boolean().optional(),
+  "taxPercentage": zod.number().optional(),
   "pointSystemConfig": zod.object({
   "pointsPerItem": zod.number().optional(),
   "minClaimPoints": zod.number().optional(),

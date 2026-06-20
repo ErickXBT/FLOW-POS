@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { QrCode, Plus, Trash2, Download, Copy, Check, ExternalLink, Globe, MapPin } from "lucide-react";
 import QRCode from "qrcode";
+import { useActiveBranch } from "@/hooks/use-active-branch";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -15,6 +16,7 @@ async function generateQR(url: string): Promise<string> {
 }
 
 export default function QrManagerPage() {
+  const { activeBranchId } = useActiveBranch();
   const [slug, setSlug] = useState("");
   const [slugInput, setSlugInput] = useState("");
   const [slugSaving, setSlugSaving] = useState(false);
@@ -47,7 +49,8 @@ export default function QrManagerPage() {
   const token = useRef(localStorage.getItem("flow_token") ?? "");
 
   async function fetchData() {
-    const r = await fetch(`${BASE}/api/tenant/qr-codes`, {
+    const branchQuery = activeBranchId ? `?branch_id=${activeBranchId}` : "";
+    const r = await fetch(`${BASE}/api/tenant/qr-codes${branchQuery}`, {
       headers: { Authorization: `Bearer ${token.current}` },
     });
     if (r.ok) {
@@ -55,6 +58,14 @@ export default function QrManagerPage() {
       setSlug(d.slug ?? "");
       setSlugInput(d.slug ?? "");
       setQrCodes(d.qrCodes ?? []);
+      if (d.menu) {
+        setSettings(s => ({
+          ...s,
+          enableDineIn: d.menu.enableDineIn,
+          enableTakeAway: d.menu.enableTakeAway,
+          enableDelivery: d.menu.enableDelivery,
+        }));
+      }
     }
 
     // Fetch branches
@@ -64,7 +75,9 @@ export default function QrManagerPage() {
     if (rb.ok) {
       const b = await rb.json();
       setBranches(b || []);
-      if (b.length > 0) setSelectedBranchId(b[0].id);
+      if (b.length > 0) {
+        setSelectedBranchId(activeBranchId || b[0].id);
+      }
     }
 
     // Fetch categories
@@ -83,10 +96,8 @@ export default function QrManagerPage() {
     if (rt.ok) {
       const t = await rt.json();
       setBusinessType(t.businessType || "fnb");
-      setSettings({
-        enableDineIn: t.enableDineIn ?? true,
-        enableTakeAway: t.enableTakeAway ?? true,
-        enableDelivery: t.enableDelivery ?? false,
+      setSettings(s => ({
+        ...s,
         enableCash: t.enableCash ?? true,
         enableQris: t.enableQris ?? true,
         enableBankTransfer: t.enableBankTransfer ?? false,
@@ -95,12 +106,20 @@ export default function QrManagerPage() {
         deliveryFeeFar: t.deliveryFeeFar !== undefined ? Number(t.deliveryFeeFar) : 5000,
         showVariants: t.showVariants ?? true,
         showToppings: t.showToppings ?? true,
-      });
+      }));
     }
     setLoading(false);
   }
 
-  useEffect(() => { fetchData(); }, []);
+  useEffect(() => {
+    fetchData();
+  }, [activeBranchId]);
+
+  useEffect(() => {
+    if (activeBranchId) {
+      setSelectedBranchId(activeBranchId);
+    }
+  }, [activeBranchId]);
 
   // Generate individual table QR codes
   useEffect(() => {
@@ -128,11 +147,11 @@ export default function QrManagerPage() {
     const r = await fetch(`${BASE}/api/tenant/settings`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token.current}` },
-      body: JSON.stringify({ slug: slugInput.trim() }),
+      body: JSON.stringify({ slug: slugInput.trim(), branchId: activeBranchId }),
     });
     if (r.ok) {
       const t = await r.json();
-      setSlug(t.slug ?? slugInput);
+      setSlug(slugInput.trim());
     } else {
       const e = await r.json();
       setSlugError(e.error ?? "Gagal menyimpan slug");
@@ -145,7 +164,7 @@ export default function QrManagerPage() {
     const r = await fetch(`${BASE}/api/tenant/settings`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token.current}` },
-      body: JSON.stringify(settings),
+      body: JSON.stringify({ ...settings, branchId: activeBranchId }),
     });
     if (r.ok) { setSettingsSaved(true); setTimeout(() => setSettingsSaved(false), 2000); }
     setSettingsSaving(false);

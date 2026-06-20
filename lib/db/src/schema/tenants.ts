@@ -31,6 +31,8 @@ export const tenantsTable = pgTable("tenants", {
   showVariants: boolean("show_variants").notNull().default(true),
   showToppings: boolean("show_toppings").notNull().default(true),
   enableCustomerLogin: boolean("enable_customer_login").notNull().default(false),
+  enableTax: boolean("enable_tax").notNull().default(false),
+  taxPercentage: numeric("tax_percentage", { precision: 5, scale: 2 }).notNull().default("10.00"),
   pointSystemConfig: jsonb("point_system_config").$type<{ pointsPerItem: number; minClaimPoints: number; rewardDescription: string }>().notNull().default({
     pointsPerItem: 10,
     minClaimPoints: 1000,

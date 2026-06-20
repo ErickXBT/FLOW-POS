@@ -16,6 +16,7 @@ export const customersTable = pgTable("customers", {
   passwordHash: text("password_hash"),
   avatarUrl: text("avatar_url"),
   tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

@@ -313,7 +313,7 @@ function OwnerDashboard() {
     progress: number;
     currentTargetCustomer: string | null;
     currentTargetPhone: string | null;
-    logs: string[];
+    logs: Array<{ text: string; phone?: string; fullMessage?: string }>;
     sentCount: number;
   }>({
     isOpen: false,
@@ -323,6 +323,19 @@ function OwnerDashboard() {
     logs: [],
     sentCount: 0
   });
+
+  const formatWhatsAppPhone = (phone: string) => {
+    if (!phone) return "";
+    let clean = phone.replace(/\D/g, ""); // remove all non-digits
+    if (clean.startsWith("0")) {
+      clean = "62" + clean.slice(1);
+    } else if (clean.startsWith("62")) {
+      // already starts with 62
+    } else if (clean.startsWith("8")) {
+      clean = "62" + clean;
+    }
+    return clean;
+  };
 
   const getSegmentedCustomers = () => {
     const MOCK_CUSTOMERS = [
@@ -879,18 +892,20 @@ function OwnerDashboard() {
     setWaSending(true);
     setWaSentCount(null);
 
+    const fullMessage = `${waPromo.message} ${waPromo.couponCode}`;
+
     // Open modal
     setWaBroadcastModal({
       isOpen: true,
       progress: 0,
       currentTargetCustomer: targets[0].name,
       currentTargetPhone: targets[0].phone || "+62 8xx-xxxx-xxxx",
-      logs: [`[${new Date().toLocaleTimeString()}] Memulai penyiaran ke segmentasi: ${waPromo.segment === "loyal" ? "Pelanggan Loyal" : waPromo.segment === "inactive" ? "Pelanggan Pasif" : "Semua Pelanggan"}...`],
+      logs: [{ text: `[${new Date().toLocaleTimeString()}] Memulai penyiaran ke segmentasi: ${waPromo.segment === "loyal" ? "Pelanggan Loyal" : waPromo.segment === "inactive" ? "Pelanggan Pasif" : "Semua Pelanggan"}...` }],
       sentCount: 0
     });
 
     let index = 0;
-    const intervalTime = Math.max(300, 3000 / targets.length);
+    const intervalTime = Math.max(800, 3000 / targets.length);
 
     const timer = setInterval(() => {
       if (index >= targets.length) {
@@ -902,14 +917,22 @@ function OwnerDashboard() {
           progress: 100,
           currentTargetCustomer: null,
           currentTargetPhone: null,
-          logs: [...prev.logs, `[${new Date().toLocaleTimeString()}] ✅ Penyiaran selesai! Berhasil menyiarkan pesan promosi ke ${targets.length} pelanggan.`]
+          logs: [...prev.logs, { text: `[${new Date().toLocaleTimeString()}] ✅ Penyiaran selesai! Berhasil menyiarkan pesan promosi ke ${targets.length} pelanggan.` }]
         }));
         return;
       }
 
       const current = targets[index];
+
+      // Real-time WhatsApp sending via Click-to-Chat API window.open
+      if (current.phone) {
+        const formattedPhone = formatWhatsAppPhone(current.phone);
+        window.open(`https://api.whatsapp.com/send?phone=${formattedPhone}&text=${encodeURIComponent(fullMessage)}`, '_blank');
+      }
+
       setWaBroadcastModal(prev => {
         const nextProgress = Math.round(((index + 1) / targets.length) * 100);
+        const formattedPhone = current.phone ? formatWhatsAppPhone(current.phone) : undefined;
         return {
           ...prev,
           progress: nextProgress,
@@ -918,7 +941,11 @@ function OwnerDashboard() {
           sentCount: index + 1,
           logs: [
             ...prev.logs,
-            `[${new Date().toLocaleTimeString()}] Mengirim ke ${current.name} (${current.phone || "No HP tidak ada"})... Terkirim!`
+            { 
+              text: `[${new Date().toLocaleTimeString()}] Mengirim ke ${current.name} (${current.phone || "No HP tidak ada"})... Terkirim!`,
+              phone: formattedPhone,
+              fullMessage: fullMessage
+            }
           ]
         };
       });
@@ -2512,12 +2539,25 @@ function OwnerDashboard() {
 
                 <div className="space-y-1.5">
                   <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Log Aktivitas</span>
-                  <div className="h-40 overflow-y-auto border border-border bg-muted/20 rounded-xl p-3 font-mono text-[9px] leading-relaxed space-y-1 select-none no-scrollbar">
-                    {waBroadcastModal.logs.map((log, idx) => (
-                      <div key={idx} className={log.includes("✅") ? "text-green-600 font-bold" : "text-muted-foreground"}>
-                        {log}
-                      </div>
-                    ))}
+                  <div className="h-40 overflow-y-auto border border-border bg-muted/20 rounded-xl p-3 font-mono text-[9px] leading-relaxed space-y-1.5 select-none no-scrollbar">
+                    {waBroadcastModal.logs.map((log, idx) => {
+                      const isDone = log.text.includes("✅");
+                      return (
+                        <div key={idx} className={`flex justify-between items-center py-0.5 border-b border-border/10 last:border-0 ${isDone ? "text-green-655 font-bold" : "text-muted-foreground"}`}>
+                          <span>{log.text}</span>
+                          {log.phone && log.fullMessage && (
+                            <a
+                              href={`https://api.whatsapp.com/send?phone=${log.phone}&text=${encodeURIComponent(log.fullMessage)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="px-2.5 py-1 bg-green-500 hover:bg-green-600 text-white font-bold text-[8px] rounded-lg transition-all flex items-center gap-0.5 flex-shrink-0"
+                            >
+                              📱 Chat WA
+                            </a>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               </div>

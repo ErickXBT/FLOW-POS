@@ -159,6 +159,8 @@ export interface Tenant {
   showVariants?: boolean;
   showToppings?: boolean;
   enableCustomerLogin?: boolean;
+  enableTax?: boolean;
+  taxPercentage?: number;
   pointSystemConfig?: TenantPointSystemConfig;
   createdAt: string;
 }
@@ -204,6 +206,8 @@ export interface TenantUpdate {
   showVariants?: boolean;
   showToppings?: boolean;
   enableCustomerLogin?: boolean;
+  enableTax?: boolean;
+  taxPercentage?: number;
   pointSystemConfig?: TenantUpdatePointSystemConfig;
 }
 

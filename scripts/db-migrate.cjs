@@ -26,6 +26,13 @@ async function run() {
       ADD COLUMN IF NOT EXISTS delivery_fee_far integer NOT NULL DEFAULT 5000;
     `);
 
+    console.log('Applying migration: adding enable_tax and tax_percentage columns to tenants...');
+    await client.query(`
+      ALTER TABLE tenants 
+      ADD COLUMN IF NOT EXISTS enable_tax boolean NOT NULL DEFAULT false,
+      ADD COLUMN IF NOT EXISTS tax_percentage numeric(5, 2) NOT NULL DEFAULT 10.00;
+    `);
+
     console.log('Applying migration: adding google_maps_location column to customer_orders...');
     await client.query(`
       ALTER TABLE customer_orders
@@ -38,7 +45,7 @@ async function run() {
     const res = await client.query(`
       SELECT column_name, data_type 
       FROM information_schema.columns 
-      WHERE table_name = 'tenants' AND column_name IN ('cover_url', 'bio', 'delivery_fee_near', 'delivery_fee_far');
+      WHERE table_name = 'tenants' AND column_name IN ('cover_url', 'bio', 'delivery_fee_near', 'delivery_fee_far', 'enable_tax', 'tax_percentage');
     `);
     console.log('Verification: tenants columns in database:', res.rows);
 

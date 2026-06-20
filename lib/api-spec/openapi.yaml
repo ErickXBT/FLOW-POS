@@ -1403,6 +1403,10 @@ components:
           type: boolean
         enableCustomerLogin:
           type: boolean
+        enableTax:
+          type: boolean
+        taxPercentage:
+          type: number
         pointSystemConfig:
           type: object
           properties:
@@ -1448,6 +1452,10 @@ components:
           type: boolean
         enableCustomerLogin:
           type: boolean
+        enableTax:
+          type: boolean
+        taxPercentage:
+          type: number
         pointSystemConfig:
           type: object
           properties:

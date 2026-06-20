@@ -10,6 +10,7 @@ export const inventoryAdjustmentsTable = pgTable("inventory_adjustments", {
   quantity: integer("quantity").notNull(),
   notes: text("notes"),
   tenantId: integer("tenant_id").notNull(),
+  branchId: integer("branch_id"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

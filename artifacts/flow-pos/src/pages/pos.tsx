@@ -87,7 +87,18 @@ export default function POSPage() {
 
   const [cart, setCart] = useState<CartItem[]>([]);
   const [discount, setDiscount] = useState(0);
-  const [taxPct, setTaxPct] = useState(11);
+  const [taxPct, setTaxPct] = useState(0);
+
+  // Load tax settings from tenant
+  useEffect(() => {
+    if (tenant) {
+      if ((tenant as any).enableTax) {
+        setTaxPct(Number((tenant as any).taxPercentage ?? 10));
+      } else {
+        setTaxPct(0);
+      }
+    }
+  }, [tenant]);
   const [paymentMethod, setPaymentMethod] = useState("cash");
   const [success, setSuccess] = useState(false);
   const queryClient = useQueryClient();
@@ -583,10 +594,12 @@ export default function POSPage() {
                 className="w-24 text-right px-2 py-0.5 border border-input rounded text-xs bg-background"
               />
             </div>
-            <div className="flex items-center justify-between text-muted-foreground">
-              <span>Pajak ({taxPct}%)</span>
-              <span>{formatRp(taxAmount)}</span>
-            </div>
+            {taxPct > 0 && (
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span>Pajak ({taxPct}%)</span>
+                <span>{formatRp(taxAmount)}</span>
+              </div>
+            )}
             <div className="flex justify-between font-bold text-base text-foreground pt-1 border-t border-border">
               <span>Total</span><span className="text-primary">{formatRp(total)}</span>
             </div>
