@@ -127,7 +127,7 @@ function OrderDetail({ id, onClose }: { id: number; onClose: () => void }) {
     }
     metaRows.push({ label: "Nama", value: order.customerName || "-" });
     metaRows.push({ label: "Pembayaran", value: getPaymentDetails(order).label });
-    metaRows.push({ label: "Kasir", value: order.employeeName || "seren" });
+    metaRows.push({ label: "Kasir", value: order.employeeName || "Kasir Utama" });
 
     // Format Metadata Lines
     const formattedMetaLines: string[] = [];
@@ -188,14 +188,21 @@ function OrderDetail({ id, onClose }: { id: number; onClose: () => void }) {
 
     // Store / Brand name
     const brandName = (user as any)?.tenantName || user?.branchName || "FreshMood";
-    ctx.font = "bold 28px 'Courier New', monospace";
-    ctx.fillText(brandName, canvas.width / 2, 45);
+    ctx.font = "bold 24px 'Courier New', monospace";
+    ctx.fillText(brandName, canvas.width / 2, 35);
+
+    // Branch location
+    const branchNameStr = order.branchName ? `Cabang: ${order.branchName}` : "";
+    if (branchNameStr) {
+      ctx.font = "bold 14px 'Courier New', monospace";
+      ctx.fillText(branchNameStr, canvas.width / 2, 55);
+    }
 
     ctx.font = "bold 15px 'Courier New', monospace";
     ctx.fillText("Struk Pembelian", canvas.width / 2, 75);
     
     ctx.font = "14px 'Courier New', monospace";
-    ctx.fillText(`Order #${order.id}`, canvas.width / 2, 98);
+    ctx.fillText(`Order #${order.id}`, canvas.width / 2, 100);
 
     ctx.textAlign = "left";
     const divider = "------------------------------------------";
@@ -379,6 +386,13 @@ function OrderDetail({ id, onClose }: { id: number; onClose: () => void }) {
                 </div>
               )}
               
+              {order.branchName && (
+                <div>
+                  <div className="text-muted-foreground text-xs font-semibold mb-1 uppercase tracking-wider">Cabang</div>
+                  <div className="font-bold text-foreground text-sm">{order.branchName}</div>
+                </div>
+              )}
+              
               <div>
                 <div className="text-muted-foreground text-xs font-semibold mb-1 uppercase tracking-wider">Status</div>
                 <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold border ${STATUS_MAP[order.status]?.cls || "bg-gray-150 text-gray-700 border-gray-200"}`}>
@@ -414,7 +428,7 @@ function OrderDetail({ id, onClose }: { id: number; onClose: () => void }) {
                 <div className="text-muted-foreground text-xs font-semibold mb-1 uppercase tracking-wider">Kasir</div>
                 <div className="flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                  <span className="font-bold text-foreground capitalize">{order.employeeName || "seren"}</span>
+                  <span className="font-bold text-foreground capitalize">{order.employeeName || "Kasir Utama"}</span>
                 </div>
               </div>
             </div>

@@ -43,5 +43,9 @@ export interface Tenant {
   enableTax?: boolean;
   taxPercentage?: number;
   pointSystemConfig?: TenantPointSystemConfig;
+  /** @nullable */
+  receiptFooter?: string | null;
+  /** @nullable */
+  defaultCashierName?: string | null;
   createdAt: string;
 }

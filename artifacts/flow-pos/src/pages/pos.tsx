@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useListProducts, useListCategories, useCreateOrder, getListOrdersQueryKey, useGetTenant } from "@workspace/api-client-react";
+import { useListProducts, useListCategories, useCreateOrder, getListOrdersQueryKey, useGetTenant, useListEmployees } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Banknote, Smartphone, QrCode, X, Check, Package, Sparkles, Gift, Percent } from "lucide-react";
 import { useActiveBranch } from "@/hooks/use-active-branch";
@@ -33,6 +33,47 @@ export default function POSPage() {
   const isFashion = tenant?.businessType === "fashion";
   const [search, setSearch] = useState("");
   const [activeCat, setActiveCat] = useState<number | null>(null);
+
+  // Cashier shift state
+  const { data: employeesData } = useListEmployees();
+  const employees = employeesData || [];
+  const activeEmployees = employees.filter((emp: any) => emp.isActive);
+
+  const [shiftActive, setShiftActive] = useState(() => localStorage.getItem("flow_shift_active") === "true");
+  const [activeCashierName, setActiveCashierName] = useState(() => localStorage.getItem("flow_active_cashier_name") || "");
+  const [activeCashierId, setActiveCashierId] = useState<number | null>(() => {
+    const val = localStorage.getItem("flow_active_cashier_id");
+    return val ? Number(val) : null;
+  });
+
+  const [showShiftModal, setShowShiftModal] = useState(false);
+  const [selectedEmpId, setSelectedEmpId] = useState("");
+  const [customCashierName, setCustomCashierName] = useState("");
+
+  const handleStartShift = (name: string, id: number | null) => {
+    localStorage.setItem("flow_shift_active", "true");
+    localStorage.setItem("flow_active_cashier_name", name);
+    if (id !== null) {
+      localStorage.setItem("flow_active_cashier_id", String(id));
+    } else {
+      localStorage.removeItem("flow_active_cashier_id");
+    }
+    setShiftActive(true);
+    setActiveCashierName(name);
+    setActiveCashierId(id);
+    setShowShiftModal(false);
+  };
+
+  const handleEndShift = () => {
+    if (window.confirm("Apakah Anda yakin ingin mengakhiri shift kerja?")) {
+      localStorage.removeItem("flow_shift_active");
+      localStorage.removeItem("flow_active_cashier_name");
+      localStorage.removeItem("flow_active_cashier_id");
+      setShiftActive(false);
+      setActiveCashierName("");
+      setActiveCashierId(null);
+    }
+  };
 
   const [promoBanners, setPromoBanners] = useState<any[]>([]);
   const [activeCoupons, setActiveCoupons] = useState<any[]>([]);
@@ -309,7 +350,9 @@ export default function POSPage() {
           customerName,
           customerPhone,
           deliveryAddress,
-          branchId: activeBranchId
+          branchId: activeBranchId,
+          employeeId: activeCashierId,
+          employeeName: activeCashierName || tenant?.defaultCashierName || "Kasir Utama"
         } as any)
       }
     }, {
@@ -326,6 +369,14 @@ export default function POSPage() {
         setTimeout(() => setSuccess(false), 3000);
       }
     });
+  };
+
+  const handleCheckoutClick = () => {
+    if (!shiftActive) {
+      setShowShiftModal(true);
+      return;
+    }
+    checkout();
   };
 
   const handleBannerClick = (pb: any) => {
@@ -502,6 +553,35 @@ export default function POSPage() {
           {cart.length > 0 && (
             <button onClick={() => setCart([])} className="text-muted-foreground hover:text-destructive transition-colors ml-1">
               <Trash2 size={16} />
+            </button>
+          )}
+        </div>
+
+        {/* Shift Management Banner */}
+        <div className={`px-4 py-3 border-b flex items-center justify-between text-xs font-semibold ${
+          shiftActive 
+            ? "bg-green-500/10 border-green-500/25 text-green-700 dark:text-green-400" 
+            : "bg-amber-500/10 border-amber-500/25 text-amber-700 dark:text-amber-400"
+        }`}>
+          <div className="flex items-center gap-1.5 min-w-0">
+            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${shiftActive ? "bg-green-500 animate-pulse" : "bg-amber-500"}`} />
+            <span className="truncate">
+              {shiftActive ? `Shift: ${activeCashierName}` : "Shift Kasir Nonaktif"}
+            </span>
+          </div>
+          {shiftActive ? (
+            <button
+              onClick={handleEndShift}
+              className="px-2.5 py-1 bg-destructive/10 hover:bg-destructive hover:text-white border border-destructive/20 text-destructive rounded-lg font-bold transition-all"
+            >
+              Akhiri Shift
+            </button>
+          ) : (
+            <button
+              onClick={() => setShowShiftModal(true)}
+              className="px-2.5 py-1 bg-primary text-primary-foreground hover:opacity-90 rounded-lg font-bold transition-all shadow"
+            >
+              Mulai Shift
             </button>
           )}
         </div>
@@ -719,7 +799,7 @@ export default function POSPage() {
 
           <button
             data-testid="button-checkout"
-            onClick={checkout}
+            onClick={handleCheckoutClick}
             disabled={cart.length === 0 || createOrder.isPending}
             className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-bold text-sm hover:opacity-90 active:scale-95 transition-all disabled:opacity-40"
           >
@@ -910,6 +990,118 @@ export default function POSPage() {
                 className="flex-1 py-2.5 bg-primary text-primary-foreground font-bold text-xs rounded-xl hover:opacity-90 active:scale-95 transition-all"
               >
                 Tambah Ke Keranjang
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Start Shift Modal */}
+      {showShiftModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-card border border-card-border rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col animate-scale-up">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-muted/20">
+              <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
+                🟢 Mulai Shift Kerja Kasir
+              </h3>
+              <button
+                onClick={() => setShowShiftModal(false)}
+                className="p-1 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            
+            <div className="p-5 space-y-4">
+              <p className="text-xs text-muted-foreground">
+                Pilih atau masukkan nama kasir untuk memulai pencatatan shift hari ini.
+              </p>
+              
+              {activeEmployees.length > 0 ? (
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-xs font-semibold text-foreground mb-1">
+                      Pilih Karyawan Kasir
+                    </label>
+                    <select
+                      value={selectedEmpId}
+                      onChange={(e) => {
+                        setSelectedEmpId(e.target.value);
+                        if (e.target.value !== "custom") {
+                          setCustomCashierName("");
+                        }
+                      }}
+                      className="w-full px-3 py-2 border border-input rounded-xl text-xs bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    >
+                      <option value="">-- Pilih Kasir --</option>
+                      {activeEmployees.map((emp: any) => (
+                        <option key={emp.id} value={emp.id}>
+                          {emp.name} ({emp.role})
+                        </option>
+                      ))}
+                      <option value="custom">Ketik Nama Manual</option>
+                    </select>
+                  </div>
+                  
+                  {selectedEmpId === "custom" && (
+                    <div className="animate-fade-in">
+                      <label className="block text-xs font-semibold text-foreground mb-1">
+                        Nama Kasir
+                      </label>
+                      <input
+                        type="text"
+                        placeholder="Masukkan nama kasir..."
+                        value={customCashierName}
+                        onChange={(e) => setCustomCashierName(e.target.value)}
+                        className="w-full px-3 py-2 border border-input rounded-xl text-xs bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="bg-amber-50 dark:bg-amber-955/20 border border-amber-200 dark:border-amber-900/50 rounded-xl p-3 text-[11px] text-amber-700 dark:text-amber-400">
+                    ℹ️ Belum ada karyawan terdaftar. Silakan masukkan nama kasir secara manual.
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-foreground mb-1">
+                      Nama Kasir Manual
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Masukkan nama kasir..."
+                      value={customCashierName}
+                      onChange={(e) => setCustomCashierName(e.target.value)}
+                      className="w-full px-3 py-2 border border-input rounded-xl text-xs bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="p-4 border-t border-border bg-muted/10 flex gap-3">
+              <button
+                onClick={() => setShowShiftModal(false)}
+                className="flex-1 py-2 border border-border text-foreground hover:bg-muted font-bold text-xs rounded-xl active:scale-95 transition-all"
+              >
+                Batal
+              </button>
+              <button
+                disabled={
+                  (activeEmployees.length > 0 && !selectedEmpId) ||
+                  ((selectedEmpId === "custom" || activeEmployees.length === 0) && !customCashierName.trim())
+                }
+                onClick={() => {
+                  if (selectedEmpId && selectedEmpId !== "custom") {
+                    const emp = activeEmployees.find((e: any) => e.id === Number(selectedEmpId));
+                    if (emp) handleStartShift(emp.name, emp.id);
+                  } else {
+                    handleStartShift(customCashierName, null);
+                  }
+                }}
+                className="flex-1 py-2 bg-primary text-primary-foreground font-bold text-xs rounded-xl hover:opacity-90 active:scale-95 transition-all disabled:opacity-40"
+              >
+                Mulai Kerja
               </button>
             </div>
           </div>

@@ -162,6 +162,10 @@ export interface Tenant {
   enableTax?: boolean;
   taxPercentage?: number;
   pointSystemConfig?: TenantPointSystemConfig;
+  /** @nullable */
+  receiptFooter?: string | null;
+  /** @nullable */
+  defaultCashierName?: string | null;
   createdAt: string;
 }
 
@@ -209,6 +213,7 @@ export interface TenantUpdate {
   enableTax?: boolean;
   taxPercentage?: number;
   pointSystemConfig?: TenantUpdatePointSystemConfig;
+  defaultCashierName?: string;
 }
 
 export type SubscriptionPlanProperty = typeof SubscriptionPlanProperty[keyof typeof SubscriptionPlanProperty];

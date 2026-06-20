@@ -26,4 +26,5 @@ export interface TenantUpdate {
   enableTax?: boolean;
   taxPercentage?: number;
   pointSystemConfig?: TenantUpdatePointSystemConfig;
+  defaultCashierName?: string;
 }

@@ -165,6 +165,7 @@ export default function SettingsPage() {
     phone: "",
     email: "",
     receiptFooter: "",
+    defaultCashierName: "",
     primaryColor: "#1D4EF5",
     logoUrl: "",
     coverUrl: "",
@@ -201,6 +202,7 @@ export default function SettingsPage() {
         phone: tenant.phone || "",
         email: tenant.email || "",
         receiptFooter: (tenant as any).receiptFooter || "",
+        defaultCashierName: (tenant as any).defaultCashierName || "",
         primaryColor: tenant.primaryColor || "#1D4EF5",
         logoUrl: tenant.logoUrl || "",
         coverUrl: (tenant as any).coverUrl || "",
@@ -320,6 +322,7 @@ export default function SettingsPage() {
           { key: "email", label: "Email Bisnis", type: "email", disabled: true },
           { key: "address", label: "Alamat" },
           { key: "receiptFooter", label: "Footer Struk" },
+          { key: "defaultCashierName", label: "Nama Kasir Default" },
         ].map(f => (
           <div key={f.key}>
             <div className="flex items-center justify-between mb-1">

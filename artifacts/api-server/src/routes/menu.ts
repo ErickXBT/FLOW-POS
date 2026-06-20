@@ -6,7 +6,7 @@ import {
   customerOrdersTable, customerOrderItemsTable, tableQrCodesTable,
   publicMenusTable, branchesTable, customerSessionsTable, customerCartsTable,
   publicMenuCategoriesTable, publicMenuProductsTable, branchSettingsTable,
-  customersTable,
+  customersTable, usersTable, employeesTable,
 } from "@workspace/db";
 import { extractToken, getRequestedBranchId } from "./auth";
 import { deductBranchStock } from "./orders";
@@ -510,9 +510,21 @@ router.get("/menu/:slug/orders/:id", async (req, res): Promise<void> => {
   const { tenant } = await resolveTenantAndMenu(slug);
   if (!tenant) { res.status(404).json({ error: "Tidak ditemukan" }); return; }
 
-  const [order] = await db.select().from(customerOrdersTable)
-    .where(and(eq(customerOrdersTable.id, Number(id)), eq(customerOrdersTable.tenantId, tenant.id)));
-  if (!order) { res.status(404).json({ error: "Pesanan tidak ditemukan" }); return; }
+  const [orderWithBranch] = await db.select({
+    order: customerOrdersTable,
+    branchName: branchesTable.name
+  })
+  .from(customerOrdersTable)
+  .leftJoin(branchesTable, eq(customerOrdersTable.branchId, branchesTable.id))
+  .where(and(eq(customerOrdersTable.id, Number(id)), eq(customerOrdersTable.tenantId, tenant.id)))
+  .limit(1);
+
+  if (!orderWithBranch) { res.status(404).json({ error: "Pesanan tidak ditemukan" }); return; }
+
+  const order = {
+    ...orderWithBranch.order,
+    branchName: orderWithBranch.branchName
+  };
 
   const items = await db.select().from(customerOrderItemsTable)
     .where(eq(customerOrderItemsTable.customerOrderId, order.id));
@@ -545,9 +557,19 @@ router.get("/tenant/customer-orders", async (req, res): Promise<void> => {
     conditions.push(eq(customerOrdersTable.branchId, branchId));
   }
 
-  const orders = await db.select().from(customerOrdersTable)
-    .where(and(...conditions)).orderBy(desc(customerOrdersTable.createdAt))
-    .limit(limit).offset(offset);
+  const ordersWithBranch = await db.select({
+    order: customerOrdersTable,
+    branchName: branchesTable.name
+  })
+  .from(customerOrdersTable)
+  .leftJoin(branchesTable, eq(customerOrdersTable.branchId, branchesTable.id))
+  .where(and(...conditions)).orderBy(desc(customerOrdersTable.createdAt))
+  .limit(limit).offset(offset);
+
+  const orders = ordersWithBranch.map(owb => ({
+    ...owb.order,
+    branchName: owb.branchName
+  }));
 
   const orderIds = orders.map(o => o.id);
   const items = orderIds.length > 0
@@ -569,9 +591,21 @@ router.get("/tenant/customer-orders/:id", async (req, res): Promise<void> => {
   if (!claims || !claims.tenantId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
   const orderId = Number(req.params.id);
-  const [order] = await db.select().from(customerOrdersTable)
-    .where(and(eq(customerOrdersTable.id, orderId), eq(customerOrdersTable.tenantId, claims.tenantId)));
-  if (!order) { res.status(404).json({ error: "Pesanan tidak ditemukan" }); return; }
+  const [orderWithBranch] = await db.select({
+    order: customerOrdersTable,
+    branchName: branchesTable.name
+  })
+  .from(customerOrdersTable)
+  .leftJoin(branchesTable, eq(customerOrdersTable.branchId, branchesTable.id))
+  .where(and(eq(customerOrdersTable.id, orderId), eq(customerOrdersTable.tenantId, claims.tenantId)))
+  .limit(1);
+
+  if (!orderWithBranch) { res.status(404).json({ error: "Pesanan tidak ditemukan" }); return; }
+
+  const order = {
+    ...orderWithBranch.order,
+    branchName: orderWithBranch.branchName
+  };
 
   const items = await db.select().from(customerOrderItemsTable)
     .where(eq(customerOrderItemsTable.customerOrderId, order.id));
@@ -587,8 +621,26 @@ router.patch("/tenant/customer-orders/:id/status", async (req, res): Promise<voi
   const { status } = req.body;
   if (!status) { res.status(400).json({ error: "Status diperlukan" }); return; }
 
+  // Resolve cashier processing this update
+  let cashierId: number | null = null;
+  let cashierName: string | null = null;
+  const [employee] = await db.select().from(employeesTable).where(eq(employeesTable.userId, claims.userId)).limit(1);
+  if (employee) {
+    cashierId = employee.id;
+    cashierName = employee.name;
+  } else {
+    const [userRec] = await db.select().from(usersTable).where(eq(usersTable.id, claims.userId)).limit(1);
+    if (userRec) {
+      cashierName = userRec.name;
+    }
+  }
+
+  const updateData: any = { status, updatedAt: new Date() };
+  if (cashierId) updateData.employeeId = cashierId;
+  if (cashierName) updateData.employeeName = cashierName;
+
   const [order] = await db.update(customerOrdersTable)
-    .set({ status, updatedAt: new Date() })
+    .set(updateData)
     .where(and(eq(customerOrdersTable.id, orderId), eq(customerOrdersTable.tenantId, claims.tenantId)))
     .returning();
   if (!order) { res.status(404).json({ error: "Pesanan tidak ditemukan" }); return; }
@@ -675,7 +727,7 @@ router.patch("/tenant/settings", async (req, res): Promise<void> => {
   const allowed = [
     "slug", "enableDineIn", "enableTakeAway", "enableDelivery",
     "enableCash", "enableQris", "enableBankTransfer", "enableEwallet",
-    "showVariants", "showToppings",
+    "showVariants", "showToppings", "defaultCashierName",
   ];
   const updates: Record<string, any> = {};
   for (const key of allowed) {

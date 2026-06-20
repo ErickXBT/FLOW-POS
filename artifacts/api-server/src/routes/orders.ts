@@ -154,8 +154,19 @@ router.get("/orders", async (req, res): Promise<void> => {
   const where = and(...conditions);
 
   const [totalResult] = await db.select({ count: count() }).from(ordersTable).where(where);
-  const orders = await db.select().from(ordersTable).where(where)
-    .orderBy(desc(ordersTable.createdAt)).limit(limit).offset(offset);
+  const ordersWithBranch = await db.select({
+    order: ordersTable,
+    branchName: branchesTable.name
+  })
+  .from(ordersTable)
+  .leftJoin(branchesTable, eq(ordersTable.branchId, branchesTable.id))
+  .where(where)
+  .orderBy(desc(ordersTable.createdAt)).limit(limit).offset(offset);
+
+  const orders = ordersWithBranch.map(owb => ({
+    ...owb.order,
+    branchName: owb.branchName
+  }));
 
   const orderIds = orders.map(o => o.id);
   const items = orderIds.length > 0
@@ -219,6 +230,24 @@ router.post("/orders", async (req, res): Promise<void> => {
     }
   }
 
+  // Resolve employee name
+  let employeeName = req.body.employeeName;
+  let employeeId = req.body.employeeId || body.data.employeeId || null;
+
+  if (!employeeName) {
+    if (employeeId) {
+      const [emp] = await db.select().from(employeesTable).where(eq(employeesTable.id, employeeId)).limit(1);
+      if (emp) {
+        employeeName = emp.name;
+      }
+    }
+  }
+
+  if (!employeeName) {
+    const [t] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, claims.tenantId!)).limit(1);
+    employeeName = (t as any)?.defaultCashierName || "Kasir Utama";
+  }
+
   const [order] = await db.insert(ordersTable).values({
     orderNumber: orderNum,
     subtotal: String(subtotal),
@@ -230,7 +259,8 @@ router.post("/orders", async (req, res): Promise<void> => {
     notes: body.data.notes ?? null,
     customerId: body.data.customerId ?? null,
     customerName,
-    employeeId: body.data.employeeId ?? null,
+    employeeId,
+    employeeName,
     tenantId: claims.tenantId!,
     branchId,
   }).returning();
@@ -275,6 +305,8 @@ router.post("/orders", async (req, res): Promise<void> => {
       total: String(total),
       status: "pending", // POS orders start as pending (Antrian Baru)
       notes: body.data.notes ?? null,
+      employeeId,
+      employeeName,
     }).returning();
 
     if (custOrder) {
@@ -404,10 +436,21 @@ router.get("/orders/:id", async (req, res): Promise<void> => {
   const params = GetOrderParams.safeParse({ id: req.params.id });
   if (!params.success) { res.status(400).json({ error: "Invalid id" }); return; }
 
-  const [order] = await db.select().from(ordersTable)
-    .where(and(eq(ordersTable.id, params.data.id), eq(ordersTable.tenantId, claims.tenantId!)));
+  const [orderWithBranch] = await db.select({
+    order: ordersTable,
+    branchName: branchesTable.name
+  })
+  .from(ordersTable)
+  .leftJoin(branchesTable, eq(ordersTable.branchId, branchesTable.id))
+  .where(and(eq(ordersTable.id, params.data.id), eq(ordersTable.tenantId, claims.tenantId!)))
+  .limit(1);
 
-  if (!order) { res.status(404).json({ error: "Order not found" }); return; }
+  if (!orderWithBranch) { res.status(404).json({ error: "Order not found" }); return; }
+
+  const order = {
+    ...orderWithBranch.order,
+    branchName: orderWithBranch.branchName
+  };
 
   const items = await db.select().from(orderItemsTable).where(eq(orderItemsTable.orderId, order.id));
   res.json(formatOrder(order, items));

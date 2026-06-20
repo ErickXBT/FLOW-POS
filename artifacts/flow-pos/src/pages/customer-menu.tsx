@@ -228,7 +228,7 @@ function TrackingView({
     }
     
     metaRows.push({ label: "Pembayaran", value: paymentLabel });
-    metaRows.push({ label: "Kasir", value: order.employeeName || "seren" });
+    metaRows.push({ label: "Kasir", value: order.employeeName || "Kasir Utama" });
 
     // Format Metadata Lines
     const formattedMetaLines: string[] = [];
@@ -289,14 +289,21 @@ function TrackingView({
 
     // Store / Brand name
     const brandName = tenantName || "FreshMood";
-    ctx.font = "bold 28px 'Courier New', monospace";
-    ctx.fillText(brandName, canvas.width / 2, 45);
+    ctx.font = "bold 24px 'Courier New', monospace";
+    ctx.fillText(brandName, canvas.width / 2, 35);
+
+    // Branch location
+    const branchNameStr = order.branchName || branchName || "";
+    if (branchNameStr) {
+      ctx.font = "bold 14px 'Courier New', monospace";
+      ctx.fillText(`Cabang: ${branchNameStr}`, canvas.width / 2, 55);
+    }
 
     ctx.font = "bold 15px 'Courier New', monospace";
     ctx.fillText("Struk Pembelian", canvas.width / 2, 75);
     
     ctx.font = "14px 'Courier New', monospace";
-    ctx.fillText(`Order #${order.id}`, canvas.width / 2, 98);
+    ctx.fillText(`Order #${order.id}`, canvas.width / 2, 100);
 
     ctx.textAlign = "left";
     const divider = "------------------------------------------";
@@ -544,6 +551,7 @@ function TrackingView({
             {order.customerPhone && <div className="flex justify-between"><span>Nomor Telepon</span><span className="font-bold text-gray-800">{order.customerPhone}</span></div>}
             {order.tableNumber && <div className="flex justify-between"><span>{isFashion ? "Fitting Room / Area" : "Nomor Meja"}</span><span className="font-bold text-gray-800">{isFashion ? "Fitting Room" : "Meja"} #{order.tableNumber}</span></div>}
             <div className="flex justify-between"><span>Metode Pembayaran</span><span className="font-bold text-gray-800">{PAY_LABELS[order.paymentMethod] ?? order.paymentMethod}</span></div>
+            {(order.branchName || branchName) && <div className="flex justify-between"><span>Cabang / Lokasi</span><span className="font-bold text-gray-800">{order.branchName || branchName}</span></div>}
           </div>
           <div className="space-y-3">
             {order.items?.map((item: any) => (

@@ -101,6 +101,8 @@ export const customerOrdersTable = pgTable("customer_orders", {
   total: numeric("total", { precision: 15, scale: 2 }).notNull().default("0"),
   status: text("status").notNull().default("pending"), // pending, confirmed, preparing, ready, on_delivery, completed, cancelled
   notes: text("notes"),
+  employeeId: integer("employee_id"),
+  employeeName: text("employee_name"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

@@ -17,6 +17,7 @@ export const tenantsTable = pgTable("tenants", {
   coverUrl: text("cover_url"),
   bio: text("bio"),
   receiptFooter: text("receipt_footer"),
+  defaultCashierName: text("default_cashier_name").default("Kasir Utama"),
   subscriptionPlan: text("subscription_plan").default("trial"),
   subscriptionExpiresAt: timestamp("subscription_expires_at", { withTimezone: true }),
   enableDineIn: boolean("enable_dine_in").notNull().default(true),
