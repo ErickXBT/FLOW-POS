@@ -311,42 +311,115 @@ router.get("/menu/:slug/products", async (req, res): Promise<void> => {
   const { tenant } = await resolveTenantAndMenu(slug, branchId);
   if (!tenant) { res.status(404).json({ error: "Tenant tidak ditemukan" }); return; }
 
-  let categories: any[] = [];
+  // 1. Fetch all active global categories for this tenant
+  const stdCats = await db.select().from(categoriesTable)
+    .where(eq(categoriesTable.tenantId, tenant.id))
+    .orderBy(categoriesTable.name);
+
+  // 2. Fetch all active global products for this tenant
+  const stdProds = await db.select().from(productsTable)
+    .where(and(eq(productsTable.tenantId, tenant.id), eq(productsTable.isActive, true)))
+    .orderBy(productsTable.name);
+
+  const categories = stdCats.map(c => ({
+    id: c.id,
+    name: c.name,
+    description: c.description,
+  }));
+
   let products: any[] = [];
 
   if (branchId) {
     const [menu] = await db.select().from(publicMenusTable)
-      .where(and(eq(publicMenusTable.tenantId, tenant.id), eq(publicMenusTable.branchId, branchId), eq(publicMenusTable.isActive, true)));
-    
+      .where(and(
+        eq(publicMenusTable.tenantId, tenant.id),
+        eq(publicMenusTable.branchId, branchId),
+        eq(publicMenusTable.isActive, true)
+      ))
+      .limit(1);
+
     if (menu) {
-      categories = await db.select().from(publicMenuCategoriesTable)
-        .where(eq(publicMenuCategoriesTable.publicMenuId, menu.id))
-        .orderBy(publicMenuCategoriesTable.sortOrder);
-      
-      if (categories.length > 0) {
-        const catIds = categories.map(c => c.id);
-        products = await db.select().from(publicMenuProductsTable)
-          .where(and(inArray(publicMenuProductsTable.publicMenuCategoryId, catIds), eq(publicMenuProductsTable.isAvailable, true)))
-          .orderBy(publicMenuProductsTable.name);
+      // Fetch branch-specific categories
+      const customCats = await db.select().from(publicMenuCategoriesTable)
+        .where(eq(publicMenuCategoriesTable.publicMenuId, menu.id));
+
+      // Map customCategoryId -> globalCategoryId by name match
+      const customToGlobalCatIdMap: Record<number, number> = {};
+      for (const cCat of customCats) {
+        const matchedGlobal = stdCats.find(gCat => gCat.name.toLowerCase() === cCat.name.toLowerCase());
+        if (matchedGlobal) {
+          customToGlobalCatIdMap[cCat.id] = matchedGlobal.id;
+        }
       }
+
+      // Fetch branch-specific product overrides
+      const branchProds = await db.select().from(publicMenuProductsTable)
+        .where(eq(publicMenuProductsTable.branchId, branchId));
+
+      const branchProdMap = new Map<number, typeof publicMenuProductsTable.$inferSelect>();
+      for (const bp of branchProds) {
+        branchProdMap.set(bp.productId, bp);
+      }
+
+      for (const p of stdProds) {
+        const bp = branchProdMap.get(p.id);
+        if (bp) {
+          // If explicitly marked unavailable for this branch, exclude it from menu
+          if (bp.isAvailable === false) {
+            continue;
+          }
+          const mappedCatId = customToGlobalCatIdMap[bp.publicMenuCategoryId] ?? p.categoryId;
+          products.push({
+            id: bp.id,
+            productId: p.id,
+            name: bp.name || p.name,
+            description: bp.description || p.description,
+            price: Number(bp.price),
+            promoPrice: bp.promoPrice ? Number(bp.promoPrice) : null,
+            imageUrl: bp.imageUrl || p.imageUrl,
+            isAvailable: bp.isAvailable,
+            stock: bp.stock,
+            variantSettings: bp.variantSettings || p.variantSettings,
+            publicMenuCategoryId: mappedCatId,
+            isBestSeller: p.isBestSeller,
+          });
+        } else {
+          // No override exists, use global active product directly
+          products.push({
+            id: p.id,
+            productId: p.id,
+            name: p.name,
+            description: p.description,
+            price: Number(p.price),
+            promoPrice: null,
+            imageUrl: p.imageUrl,
+            isAvailable: p.isActive,
+            stock: p.stock,
+            variantSettings: p.variantSettings,
+            publicMenuCategoryId: p.categoryId,
+            isBestSeller: p.isBestSeller,
+          });
+        }
+      }
+    } else {
+      // Menu not found, use global active products directly
+      products = stdProds.map(p => ({
+        id: p.id,
+        productId: p.id,
+        name: p.name,
+        description: p.description,
+        price: Number(p.price),
+        promoPrice: null,
+        imageUrl: p.imageUrl,
+        isAvailable: p.isActive,
+        stock: p.stock,
+        variantSettings: p.variantSettings,
+        publicMenuCategoryId: p.categoryId,
+        isBestSeller: p.isBestSeller,
+      }));
     }
-  }
-
-  if (categories.length === 0) {
-    const stdCats = await db.select().from(categoriesTable)
-      .where(eq(categoriesTable.tenantId, tenant.id))
-      .orderBy(categoriesTable.name);
-    
-    categories = stdCats.map(c => ({
-      id: c.id,
-      name: c.name,
-      description: c.description,
-    }));
-
-    const stdProds = await db.select().from(productsTable)
-      .where(and(eq(productsTable.tenantId, tenant.id), eq(productsTable.isActive, true)))
-      .orderBy(productsTable.name);
-
+  } else {
+    // No branchId provided, use global active products directly
     products = stdProds.map(p => ({
       id: p.id,
       productId: p.id,
@@ -360,27 +433,6 @@ router.get("/menu/:slug/products", async (req, res): Promise<void> => {
       variantSettings: p.variantSettings,
       publicMenuCategoryId: p.categoryId,
       isBestSeller: p.isBestSeller,
-    }));
-  } else {
-    categories = categories.map(c => ({
-      id: c.id,
-      name: c.name,
-      description: c.description,
-    }));
-
-    products = products.map(p => ({
-      id: p.id,
-      productId: p.productId,
-      name: p.name,
-      description: p.description,
-      price: Number(p.price),
-      promoPrice: p.promoPrice ? Number(p.promoPrice) : null,
-      imageUrl: p.imageUrl,
-      isAvailable: p.isAvailable,
-      stock: p.stock,
-      variantSettings: p.variantSettings,
-      publicMenuCategoryId: p.publicMenuCategoryId,
-      isBestSeller: false,
     }));
   }
 
