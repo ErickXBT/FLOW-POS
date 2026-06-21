@@ -5,7 +5,7 @@ import router from "./routes";
 import { logger } from "./lib/logger";
 import path from "path";
 import fs from "fs/promises";
-import { db, tenantsTable } from "@workspace/db";
+import { db, tenantsTable, publicMenusTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 
 const app: Express = express();
@@ -40,11 +40,39 @@ app.get("/menu/:slug", async (req, res, next) => {
   const { slug } = req.params;
 
   try {
-    // 1. Fetch tenant details from DB
-    const [tenant] = await db
+    let tenant = null;
+    let title = "";
+    let logoUrlSource = "";
+
+    // 1. Try to find the public menu by slug directly (handles branch-specific slugs like kebab-central-ende-2)
+    const [menu] = await db
       .select()
-      .from(tenantsTable)
-      .where(eq(tenantsTable.slug, slug));
+      .from(publicMenusTable)
+      .where(eq(publicMenusTable.slug, slug))
+      .limit(1);
+
+    if (menu) {
+      const [t] = await db
+        .select()
+        .from(tenantsTable)
+        .where(eq(tenantsTable.id, menu.tenantId))
+        .limit(1);
+      tenant = t;
+      title = `${menu.name} - Menu Online`;
+      logoUrlSource = menu.logoUrl || tenant?.logoUrl || "";
+    } else {
+      // 2. Fall back to finding tenant by slug
+      const [t] = await db
+        .select()
+        .from(tenantsTable)
+        .where(eq(tenantsTable.slug, slug))
+        .limit(1);
+      tenant = t;
+      if (tenant) {
+        title = `${tenant.name} - Menu Online`;
+        logoUrlSource = tenant.logoUrl || "";
+      }
+    }
 
     if (!tenant || tenant.status === "suspended") {
       return next();
@@ -73,15 +101,14 @@ app.get("/menu/:slug", async (req, res, next) => {
     }
 
     // 3. Inject tenant profile metadata
-    const title = `${tenant.name} - Menu Online`;
     const description = tenant.bio || `Menu digital online resmi dari ${tenant.name}. Silakan pesan menu favorit Anda secara online langsung dari smartphone Anda.`;
     
     const host = req.headers.host || "flowapp.id";
     const protocol = req.secure || req.headers["x-forwarded-proto"] === "https" ? "https" : "http";
     const absoluteOrigin = `${protocol}://${host}`;
 
-    const logoUrl = tenant.logoUrl
-      ? (tenant.logoUrl.startsWith("http") ? tenant.logoUrl : `${absoluteOrigin}${tenant.logoUrl}`)
+    const logoUrl = logoUrlSource
+      ? (logoUrlSource.startsWith("http") ? logoUrlSource : `${absoluteOrigin}${logoUrlSource}`)
       : `${absoluteOrigin}/flow_logo.png`;
 
     // Replace Title
