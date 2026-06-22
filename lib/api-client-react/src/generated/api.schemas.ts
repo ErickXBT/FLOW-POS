@@ -37,6 +37,14 @@ export const RegisterInputPlan = {
   trial: 'trial',
 } as const;
 
+export type RegisterInputBillingInterval = typeof RegisterInputBillingInterval[keyof typeof RegisterInputBillingInterval];
+
+
+export const RegisterInputBillingInterval = {
+  monthly: 'monthly',
+  yearly: 'yearly',
+} as const;
+
 export interface RegisterInput {
   name: string;
   email: string;
@@ -48,6 +56,8 @@ export interface RegisterInput {
   /** @nullable */
   address?: string | null;
   plan?: RegisterInputPlan;
+  billingInterval?: RegisterInputBillingInterval;
+  installments?: number;
 }
 
 export type UserRole = typeof UserRole[keyof typeof UserRole];
@@ -163,9 +173,9 @@ export interface Tenant {
   taxPercentage?: number;
   pointSystemConfig?: TenantPointSystemConfig;
   /** @nullable */
-  receiptFooter?: string | null;
-  /** @nullable */
   defaultCashierName?: string | null;
+  /** @nullable */
+  receiptFooter?: string | null;
   createdAt: string;
 }
 
@@ -204,6 +214,7 @@ export interface TenantUpdate {
   coverUrl?: string;
   bio?: string;
   receiptFooter?: string;
+  defaultCashierName?: string;
   enableDelivery?: boolean;
   deliveryFeeNear?: number;
   deliveryFeeFar?: number;
@@ -213,7 +224,6 @@ export interface TenantUpdate {
   enableTax?: boolean;
   taxPercentage?: number;
   pointSystemConfig?: TenantUpdatePointSystemConfig;
-  defaultCashierName?: string;
 }
 
 export type SubscriptionPlanProperty = typeof SubscriptionPlanProperty[keyof typeof SubscriptionPlanProperty];

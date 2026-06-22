@@ -17,6 +17,7 @@ export interface TenantUpdate {
   coverUrl?: string;
   bio?: string;
   receiptFooter?: string;
+  defaultCashierName?: string;
   enableDelivery?: boolean;
   deliveryFeeNear?: number;
   deliveryFeeFar?: number;
@@ -26,5 +27,4 @@ export interface TenantUpdate {
   enableTax?: boolean;
   taxPercentage?: number;
   pointSystemConfig?: TenantUpdatePointSystemConfig;
-  defaultCashierName?: string;
 }

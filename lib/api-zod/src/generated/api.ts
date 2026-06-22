@@ -48,7 +48,9 @@ export const RegisterBody = zod.object({
   "businessType": zod.enum(['fnb', 'fashion', 'restaurant', 'cafe', 'salon', 'minimarket']),
   "phone": zod.string().nullish(),
   "address": zod.string().nullish(),
-  "plan": zod.enum(['starter', 'business', 'pro', 'custom', 'trial']).optional()
+  "plan": zod.enum(['starter', 'business', 'pro', 'custom', 'trial']).optional(),
+  "billingInterval": zod.enum(['monthly', 'yearly']).optional(),
+  "installments": zod.number().optional()
 })
 
 
@@ -128,6 +130,8 @@ export const ListAdminTenantsResponse = zod.object({
   "minClaimPoints": zod.number().optional(),
   "rewardDescription": zod.string().optional()
 }).optional(),
+  "defaultCashierName": zod.string().nullish(),
+  "receiptFooter": zod.string().nullish(),
   "createdAt": zod.string()
 })),
   "total": zod.number(),
@@ -171,6 +175,8 @@ export const GetAdminTenantResponse = zod.object({
   "minClaimPoints": zod.number().optional(),
   "rewardDescription": zod.string().optional()
 }).optional(),
+  "defaultCashierName": zod.string().nullish(),
+  "receiptFooter": zod.string().nullish(),
   "createdAt": zod.string()
 })
 
@@ -222,6 +228,8 @@ export const UpdateTenantStatusResponse = zod.object({
   "minClaimPoints": zod.number().optional(),
   "rewardDescription": zod.string().optional()
 }).optional(),
+  "defaultCashierName": zod.string().nullish(),
+  "receiptFooter": zod.string().nullish(),
   "createdAt": zod.string()
 })
 
@@ -242,8 +250,6 @@ export const GetTenantResponse = zod.object({
   "primaryColor": zod.string().nullish(),
   "coverUrl": zod.string().nullish(),
   "bio": zod.string().nullish(),
-  "receiptFooter": zod.string().nullish(),
-  "defaultCashierName": zod.string().nullish(),
   "subscriptionPlan": zod.string().nullish(),
   "subscriptionExpiresAt": zod.string().nullish(),
   "enableDelivery": zod.boolean().optional(),
@@ -259,6 +265,8 @@ export const GetTenantResponse = zod.object({
   "minClaimPoints": zod.number().optional(),
   "rewardDescription": zod.string().optional()
 }).optional(),
+  "defaultCashierName": zod.string().nullish(),
+  "receiptFooter": zod.string().nullish(),
   "createdAt": zod.string()
 })
 
@@ -305,8 +313,6 @@ export const UpdateTenantResponse = zod.object({
   "primaryColor": zod.string().nullish(),
   "coverUrl": zod.string().nullish(),
   "bio": zod.string().nullish(),
-  "receiptFooter": zod.string().nullish(),
-  "defaultCashierName": zod.string().nullish(),
   "subscriptionPlan": zod.string().nullish(),
   "subscriptionExpiresAt": zod.string().nullish(),
   "enableDelivery": zod.boolean().optional(),
@@ -322,6 +328,8 @@ export const UpdateTenantResponse = zod.object({
   "minClaimPoints": zod.number().optional(),
   "rewardDescription": zod.string().optional()
 }).optional(),
+  "defaultCashierName": zod.string().nullish(),
+  "receiptFooter": zod.string().nullish(),
   "createdAt": zod.string()
 })
 

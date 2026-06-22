@@ -5,6 +5,7 @@
  * Flow POS SaaS API
  * OpenAPI spec version: 0.1.0
  */
+import type { RegisterInputBillingInterval } from './registerInputBillingInterval';
 import type { RegisterInputBusinessType } from './registerInputBusinessType';
 import type { RegisterInputPlan } from './registerInputPlan';
 
@@ -19,4 +20,6 @@ export interface RegisterInput {
   /** @nullable */
   address?: string | null;
   plan?: RegisterInputPlan;
+  billingInterval?: RegisterInputBillingInterval;
+  installments?: number;
 }

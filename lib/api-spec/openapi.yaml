@@ -1259,6 +1259,11 @@ components:
         plan:
           type: string
           enum: [starter, business, pro, custom, trial]
+        billingInterval:
+          type: string
+          enum: [monthly, yearly]
+        installments:
+          type: integer
 
 
     AuthResponse:
@@ -1416,6 +1421,10 @@ components:
               type: integer
             rewardDescription:
               type: string
+        defaultCashierName:
+          type: ["string", "null"]
+        receiptFooter:
+          type: ["string", "null"]
         createdAt:
           type: string
 
@@ -1439,6 +1448,8 @@ components:
         bio:
           type: string
         receiptFooter:
+          type: string
+        defaultCashierName:
           type: string
         enableDelivery:
           type: boolean

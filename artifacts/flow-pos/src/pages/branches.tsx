@@ -293,19 +293,19 @@ function UpgradeSubscriptionModal({ plan, limit, onClose }: { plan: string; limi
           <div className="text-[10px] font-semibold text-muted-foreground">DAFTAR PILIHAN PAKET:</div>
           <div className="grid grid-cols-3 gap-2 text-[9px] text-left">
             <div className="p-2 border border-border rounded-lg bg-muted/20">
-              <span className="font-bold text-foreground">Starter</span>
+              <span className="font-bold text-foreground">FlowApp Solo</span>
               <p className="text-[8px] text-muted-foreground">1 Outlet</p>
-              <p className="text-primary font-bold mt-0.5 font-sans">Rp299k/bln</p>
-            </div>
-            <div className="p-2 border border-border rounded-lg bg-muted/20">
-              <span className="font-bold text-foreground">Business</span>
-              <p className="text-[8px] text-muted-foreground">3 Outlet</p>
               <p className="text-primary font-bold mt-0.5 font-sans">Rp499k/bln</p>
             </div>
             <div className="p-2 border border-border rounded-lg bg-muted/20">
-              <span className="font-bold text-foreground">Pro</span>
-              <p className="text-[8px] text-muted-foreground">5 Outlet</p>
-              <p className="text-primary font-bold mt-0.5 font-sans">Rp749k/bln</p>
+              <span className="font-bold text-foreground">FlowApp Multi</span>
+              <p className="text-[8px] text-muted-foreground">Maks 3 Outlet</p>
+              <p className="text-primary font-bold mt-0.5 font-sans">Rp999.999/bln</p>
+            </div>
+            <div className="p-2 border border-border rounded-lg bg-muted/20">
+              <span className="font-bold text-foreground">Enterprise</span>
+              <p className="text-[8px] text-muted-foreground">10+ Outlet</p>
+              <p className="text-primary font-bold mt-0.5 font-sans">Hubungi Sales</p>
             </div>
           </div>
         </div>

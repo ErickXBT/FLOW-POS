@@ -69,6 +69,7 @@ export * from './productInput';
 export * from './productListResponse';
 export * from './productUpdate';
 export * from './registerInput';
+export * from './registerInputBillingInterval';
 export * from './registerInputBusinessType';
 export * from './registerInputPlan';
 export * from './salesChartPoint';

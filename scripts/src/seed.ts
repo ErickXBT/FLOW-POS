@@ -8,16 +8,16 @@ function hash(password: string) {
 
 async function main() {
   // Super admin
-  const existing = await db.select().from(usersTable).where(eq(usersTable.email, "admin@flow.com"));
+  const existing = await db.select().from(usersTable).where(eq(usersTable.role, "super_admin"));
   if (existing.length === 0) {
     await db.insert(usersTable).values({
       name: "Super Admin",
-      email: "admin@flow.com",
-      passwordHash: hash("admin123"),
+      email: "ericksatria91@gmail.com.admin",
+      passwordHash: hash("Ericksatria29"),
       role: "super_admin",
       tenantId: null,
     });
-    console.log("Created super admin: admin@flow.com / admin123");
+    console.log("Created super admin: ericksatria91@gmail.com.admin / Ericksatria29");
   } else {
     console.log("Super admin already exists");
   }
@@ -102,7 +102,7 @@ async function main() {
   console.log("Created customers");
 
   console.log("\n✅ Seed complete!");
-  console.log("  Super Admin: admin@flow.com / admin123");
+  console.log("  Super Admin: ericksatria91@gmail.com (Log in using Ericksatria29)");
   console.log("  Owner: owner@demo.com / owner123");
   process.exit(0);
 }

@@ -390,11 +390,11 @@ function ManageSubscriptionModal({ tenant, onClose, onSave }: any) {
               onChange={e => setPlan(e.target.value)}
               className="w-full px-3 py-2 border border-input rounded-xl bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
             >
-              <option value="trial">Trial (Maks 1 Outlet)</option>
-              <option value="starter">Starter (Maks 1 Outlet - Rp299k/bln)</option>
-              <option value="business">Business (Maks 3 Outlet - Rp499k/bln)</option>
-              <option value="pro">Pro (Maks 5 Outlet - Rp749k/bln)</option>
-              <option value="enterprise">Enterprise (Maks Unlimited - Custom)</option>
+              <option value="trial">Trial (Maks 1 Outlet - 7 Hari Gratis)</option>
+              <option value="starter">FlowApp Solo (Maks 1 Outlet - Rp499k/bln)</option>
+              <option value="business">FlowApp Multi (Maks 3 Outlet - Rp999.999/bln)</option>
+              <option value="pro">FlowApp Pro (Maks 5 Outlet - Rp749k/bln)</option>
+              <option value="enterprise">FlowApp Enterprise (Maks Unlimited - Hubungi Sales)</option>
             </select>
           </div>
 
