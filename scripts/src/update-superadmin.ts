@@ -12,7 +12,7 @@ async function main() {
       email: "ericksatria91@gmail.com.admin",
       passwordHash: hash("Ericksatria29")
     })
-    .where(eq(usersTable.role, "super_admin"));
+    .where(eq(usersTable.email, "admin@flow.com"));
   console.log("Updated super admin credentials!");
   process.exit(0);
 }
