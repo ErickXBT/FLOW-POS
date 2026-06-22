@@ -38,6 +38,15 @@ async function run() {
       ALTER TABLE customer_orders
       ADD COLUMN IF NOT EXISTS google_maps_location text;
     `);
+
+    console.log('Applying migration: adding claimed_discount_active, active_reward, and claimed_milestones to customers, and is_claim_reward to orders...');
+    await client.query(`
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS claimed_discount_active boolean NOT NULL DEFAULT false;
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS active_reward text;
+      ALTER TABLE customers ADD COLUMN IF NOT EXISTS claimed_milestones jsonb NOT NULL DEFAULT '[]'::jsonb;
+      ALTER TABLE customer_orders ADD COLUMN IF NOT EXISTS is_claim_reward boolean NOT NULL DEFAULT false;
+      ALTER TABLE orders ADD COLUMN IF NOT EXISTS is_claim_reward boolean NOT NULL DEFAULT false;
+    `);
     
     console.log('Migration completed successfully!');
     

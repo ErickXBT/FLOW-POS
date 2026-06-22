@@ -775,6 +775,129 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
 
   // Customer Auth States
   const [customer, setCustomer] = useState<any>(null);
+  const hasPointDiscount = customer?.claimedDiscountActive === true;
+
+  const isProductDrink = (p: Product) => {
+    if (p.publicMenuCategoryId && categories.length > 0) {
+      const cat = categories.find(c => c.id === p.publicMenuCategoryId);
+      if (cat) {
+        const catName = cat.name.toLowerCase();
+        if (catName.includes("minuman") || catName.includes("drink") || catName.includes("beverage") || catName.includes("coffee") || catName.includes("tea") || catName.includes("kopi")) {
+          return true;
+        }
+      }
+    }
+    const name = p.name.toLowerCase();
+    if (/toast|roti|bakar/i.test(name)) return false;
+    return /kopi|teh|tea|latte|americano|cappuccino|jus|juice|es |drink|beverage|coffee/i.test(name);
+  };
+
+  const isProductToast = (p: Product) => {
+    if (p.publicMenuCategoryId && categories.length > 0) {
+      const cat = categories.find(c => c.id === p.publicMenuCategoryId);
+      if (cat) {
+        const catName = cat.name.toLowerCase();
+        if (catName.includes("toast") || catName.includes("roti") || catName.includes("bakar")) {
+          return true;
+        }
+      }
+    }
+    const name = p.name.toLowerCase();
+    return /toast|roti|bakar/i.test(name);
+  };
+
+  const isProductDrinkOrToast = (p: Product) => {
+    return isProductDrink(p) || isProductToast(p);
+  };
+
+  const getGrandRewardDiscountBreakdown = (cartItems: CartItem[]) => {
+    let drinks: { cartItemId: string; basePrice: number }[] = [];
+    let toasts: { cartItemId: string; basePrice: number }[] = [];
+
+    cartItems.forEach((c) => {
+      const basePrice = c.product.promoPrice ?? c.product.price;
+      if (isProductDrink(c.product)) {
+        for (let q = 0; q < c.quantity; q++) {
+          drinks.push({ cartItemId: c.id, basePrice });
+        }
+      } else if (isProductToast(c.product)) {
+        for (let q = 0; q < c.quantity; q++) {
+          toasts.push({ cartItemId: c.id, basePrice });
+        }
+      }
+    });
+
+    drinks.sort((a, b) => b.basePrice - a.basePrice);
+    toasts.sort((a, b) => b.basePrice - a.basePrice);
+
+    const freeDrinkItem = drinks.length > 0 ? drinks[0] : null;
+    const freeToastItem = toasts.length > 0 ? toasts[0] : null;
+
+    return {
+      freeDrinkItem,
+      freeToastItem,
+      totalDiscount: (freeDrinkItem?.basePrice || 0) + (freeToastItem?.basePrice || 0)
+    };
+  };
+
+  const getCartItemPriceLabel = (c: CartItem) => {
+    if (customer?.activeReward === "grand_reward") {
+      const breakdown = getGrandRewardDiscountBreakdown(cart);
+      let freeQty = 0;
+      if (breakdown.freeDrinkItem && breakdown.freeDrinkItem.cartItemId === c.id) {
+        freeQty++;
+      }
+      if (breakdown.freeToastItem && breakdown.freeToastItem.cartItemId === c.id) {
+        freeQty++;
+      }
+      if (freeQty > 0) {
+        if (freeQty === c.quantity) {
+          return "FREE";
+        } else {
+          const basePrice = c.product.promoPrice ?? c.product.price;
+          const discountedAmount = basePrice * freeQty;
+          return `${formatRp(c.totalPrice - discountedAmount)} (1 Free)`;
+        }
+      }
+    }
+    return formatRp(c.totalPrice);
+  };
+
+  const getProductDisplayPrice = (p: Product) => {
+    const basePrice = p.promoPrice ?? p.price;
+    if (customer?.activeReward === "grand_reward") {
+      if (isProductDrink(p)) {
+        const hasDrinkInCart = cart.some(c => isProductDrink(c.product));
+        return hasDrinkInCart ? basePrice : 0;
+      }
+      if (isProductToast(p)) {
+        const hasToastInCart = cart.some(c => isProductToast(c.product));
+        return hasToastInCart ? basePrice : 0;
+      }
+      return basePrice;
+    }
+    if (hasPointDiscount) {
+      let discountPercent = 0.1;
+      if (customer?.activeReward) {
+        const match = customer.activeReward.match(/^discount_(\d+)$/);
+        if (match) {
+          discountPercent = parseInt(match[1]) / 100;
+        }
+      }
+      return Math.round(basePrice * (1 - discountPercent));
+    }
+    return basePrice;
+  };
+
+  const getItemCartPrice = (p: Product) => {
+    if (customer?.activeReward === "grand_reward") {
+      if (isProductDrinkOrToast(p)) {
+        return 0;
+      }
+    }
+    return p.promoPrice ?? p.price;
+  };
+
   const [authChecking, setAuthChecking] = useState(true);
   const [authTab, setAuthTab] = useState<"login" | "register" | "forgot">("login");
   const [authForm, setAuthForm] = useState({ name: "", phone: "", password: "", confirmPassword: "" });
@@ -1086,7 +1209,7 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
     }
   };
 
-  const handleCustomerClaimReward = async () => {
+  const handleCustomerClaimReward = async (milestone: number) => {
     setCustomerClaiming(true);
     setProfileError("");
     setProfileSuccess("");
@@ -1095,14 +1218,17 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
       const res = await fetch(`${BASE}/api/customers/${customer.id}/claim-reward`, {
         method: "POST",
         headers: {
+          "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`
-        }
+        },
+        body: JSON.stringify({ milestone })
       });
       const data = await res.json();
       if (res.ok) {
         setCustomer(data);
         setProfileSuccess("Selamat! Reward Anda berhasil diklaim.");
-        alert("🎉 Selamat! Reward Anda berhasil diklaim. Poin Anda telah direset ke siklus baru.");
+        const rewardDesc = milestone === 1000 ? "Grand Reward (Free 1 Minuman & 1 Toast) aktif!" : `Diskon ${milestone / 10}% aktif untuk transaksi berikutnya.`;
+        alert(`🎉 Selamat! Reward Anda berhasil diklaim. ${rewardDesc}`);
       } else {
         setProfileError(data.error || "Gagal mengklaim reward");
       }
@@ -1446,8 +1572,24 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
 
   const enableTax = tenant?.enableTax ?? false;
   const taxPct = enableTax ? Number(tenant?.taxPercentage ?? 10) : 0;
-  const taxAmount = cartTotal * (taxPct / 100);
-  const cartTotalWithTax = cartTotal + taxAmount;
+  const pointDiscountAmount = (() => {
+    if (!hasPointDiscount) return 0;
+    if (customer?.activeReward === "grand_reward") {
+      const breakdown = getGrandRewardDiscountBreakdown(cart);
+      return breakdown.totalDiscount;
+    }
+    let discountPercent = 0.1;
+    if (customer?.activeReward) {
+      const match = customer.activeReward.match(/^discount_(\d+)$/);
+      if (match) {
+        discountPercent = parseInt(match[1]) / 100;
+      }
+    }
+    return Math.round(cartTotal * discountPercent);
+  })();
+  const subtotalAfterDiscount = Math.max(0, cartTotal - pointDiscountAmount);
+  const taxAmount = subtotalAfterDiscount * (taxPct / 100);
+  const cartTotalWithTax = subtotalAfterDiscount + taxAmount;
 
   const filteredProducts = products.filter(p => {
     const matchCat = !activeCat || p.publicMenuCategoryId === activeCat;
@@ -1536,6 +1678,10 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
       setCart([]);
       syncCartToBackend([]);
       setStep("success");
+      const token = localStorage.getItem(`customer_token_${slug}`);
+      if (token) {
+        fetchCustomerProfile(token);
+      }
     } catch {
       setSubmitError("Terjadi kesalahan sistem, silakan coba lagi");
     }
@@ -1806,12 +1952,27 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
 
   return (
     <div className="min-h-screen bg-gray-50 pb-24 font-sans antialiased">
+      {hasPointDiscount && (
+        <div className="bg-gradient-to-r from-amber-500 to-orange-600 text-white px-4 py-3 text-center text-xs font-black flex items-center justify-center gap-2 shadow-inner animate-pulse">
+          <span>
+            🎉 Reward Aktif: {
+              customer.activeReward === "grand_reward"
+                ? "Free 1 Minuman & 1 Toast otomatis diterapkan!"
+                : `Diskon ${customer.activeReward === "discount_20" ? "20%" : customer.activeReward === "discount_30" ? "30%" : customer.activeReward === "discount_40" ? "40%" : customer.activeReward === "discount_50" ? "50%" : "10%"} otomatis diterapkan pada pesanan ini!`
+            }
+          </span>
+        </div>
+      )}
       {/* Customer Sticky Navbar if enabled and logged in */}
       {tenant.enableCustomerLogin && customer && (
         <div className="sticky top-0 z-40 bg-white border-b shadow-sm px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setProfileOpen(true)}
+              onClick={() => {
+                const token = localStorage.getItem(`customer_token_${slug}`);
+                if (token) fetchCustomerProfile(token);
+                setProfileOpen(true);
+              }}
               className="w-10 h-10 rounded-full border bg-gray-100 flex items-center justify-center overflow-hidden cursor-pointer"
             >
               {profileAvatarUrl ? (
@@ -1841,7 +2002,11 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
             </button>
 
             <button
-              onClick={() => setProfileOpen(true)}
+              onClick={() => {
+                const token = localStorage.getItem(`customer_token_${slug}`);
+                if (token) fetchCustomerProfile(token);
+                setProfileOpen(true);
+              }}
               className="p-2.5 bg-gray-50 hover:bg-gray-100 border border-gray-100 rounded-2xl text-gray-600 transition-colors cursor-pointer"
               title="Profil Saya"
             >
@@ -1972,9 +2137,20 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
                     <div className="font-bold text-xs text-gray-800 truncate">{p.name}</div>
                     <p className="text-[10px] text-gray-400 line-clamp-2 mt-0.5 leading-relaxed">{p.description || (isFashion ? "Koleksi pakaian premium terbaik." : "Rasa lezat tiada tanding.")}</p>
                   </div>
-                  <div className="flex items-baseline gap-1.5">
-                    <span className="text-xs font-black text-red-500">{formatRp(p.promoPrice || p.price)}</span>
-                    <span className="text-[10px] text-gray-300 line-through">{formatRp(p.price)}</span>
+                  <div className="flex flex-col gap-1">
+                    <div className="flex items-baseline gap-1.5 flex-wrap">
+                      <span className="text-xs font-black text-red-500">{formatRp(getProductDisplayPrice(p))}</span>
+                      {(p.promoPrice !== null || hasPointDiscount) && (
+                        <span className="text-[10px] text-gray-305 line-through">
+                          {formatRp(p.promoPrice !== null ? p.price : p.price)}
+                        </span>
+                      )}
+                    </div>
+                    {hasPointDiscount && (
+                      <span className="inline-block text-[8px] font-black bg-amber-100 text-amber-850 px-1.5 py-0.5 rounded border border-amber-200 w-max leading-none">
+                        10% POIN
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -2053,10 +2229,15 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
                     {p.description && <div className="text-[10px] text-gray-400 line-clamp-2 leading-relaxed h-7.5 overflow-hidden">{p.description}</div>}
                     <div className="flex items-center justify-between pt-1">
                       <div className="flex flex-col">
-                        {p.promoPrice ? (
+                        {p.promoPrice || hasPointDiscount ? (
                           <>
-                            <span className="text-xs sm:text-sm font-black text-red-500">{formatRp(p.promoPrice)}</span>
+                            <span className="text-xs sm:text-sm font-black text-red-500">{formatRp(getProductDisplayPrice(p))}</span>
                             <span className="text-[9px] text-gray-300 line-through leading-none">{formatRp(p.price)}</span>
+                            {hasPointDiscount && (
+                              <span className="inline-block text-[8px] font-black bg-amber-100 text-amber-800 px-1 py-0.5 rounded border border-amber-200 w-max leading-none mt-1">
+                                10% POIN
+                              </span>
+                            )}
                           </>
                         ) : (
                           <span className="text-xs sm:text-sm font-black" style={{ color: primary }}>{formatRp(p.price)}</span>
@@ -2227,7 +2408,7 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
                 </button>
               </div>
               {(() => {
-                const basePrice = selectedProduct.promoPrice ?? selectedProduct.price;
+                const normalBasePrice = selectedProduct.promoPrice ?? selectedProduct.price;
                 const toppings = tenant?.showToppings !== false ? modalToppings : [];
                 const variant = tenant?.showVariants !== false ? modalVariant : "";
 
@@ -2240,7 +2421,22 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
                   return sum + (t ? t.price : 2000);
                 }, 0);
 
-                const totalPrice = (basePrice + variantPrice + toppingsPrice) * modalQty;
+                const normalTotalPriceSingle = normalBasePrice + variantPrice + toppingsPrice;
+                let totalPrice = normalTotalPriceSingle * modalQty;
+
+                if (customer?.activeReward === "grand_reward") {
+                  if (isProductDrink(selectedProduct)) {
+                    const cartDrinksQty = cart.filter(c => isProductDrink(c.product)).reduce((sum, c) => sum + c.quantity, 0);
+                    const freeDrinksAllowed = Math.max(0, 1 - cartDrinksQty);
+                    const freeInModal = Math.min(modalQty, freeDrinksAllowed);
+                    totalPrice -= normalBasePrice * freeInModal;
+                  } else if (isProductToast(selectedProduct)) {
+                    const cartToastsQty = cart.filter(c => isProductToast(c.product)).reduce((sum, c) => sum + c.quantity, 0);
+                    const freeToastsAllowed = Math.max(0, 1 - cartToastsQty);
+                    const freeInModal = Math.min(modalQty, freeToastsAllowed);
+                    totalPrice -= normalBasePrice * freeInModal;
+                  }
+                }
 
                 return (
                   <button
@@ -2291,7 +2487,9 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
                         <Plus size={10} />
                       </button>
                     </div>
-                    <div className="text-xs font-black mt-1" style={{ color: primary }}>{formatRp(c.totalPrice)}</div>
+                    <div className="text-xs font-black mt-1" style={{ color: primary }}>
+                      {getCartItemPriceLabel(c)}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -2301,6 +2499,16 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
             <div className="p-5 border-t bg-gray-50 space-y-3.5">
               <div className="space-y-1.5 text-xs text-gray-600">
                 <div className="flex justify-between"><span>Subtotal</span><span className="font-bold text-gray-900">{formatRp(cartTotal)}</span></div>
+                {hasPointDiscount && (
+                  <div className="flex justify-between text-amber-600 font-semibold">
+                    <span>
+                      {customer.activeReward === "grand_reward"
+                        ? "Grand Reward (Free Minuman & Toast)"
+                        : `Diskon Poin (${customer.activeReward === "discount_20" ? "20%" : customer.activeReward === "discount_30" ? "30%" : customer.activeReward === "discount_40" ? "40%" : customer.activeReward === "discount_50" ? "50%" : "10%"})`}
+                    </span>
+                    <span>-{formatRp(pointDiscountAmount)}</span>
+                  </div>
+                )}
                 {enableTax && (
                   <div className="flex justify-between"><span>Pajak ({taxPct}%)</span><span className="font-bold text-gray-900">{formatRp(taxAmount)}</span></div>
                 )}
@@ -2538,6 +2746,13 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
                   <span className="text-base font-black" style={{ color: primary }}>
                     {formatRp( cartTotalWithTax + (orderType === "delivery" ? (deliveryDistance === "near" ? (tenant?.deliveryFeeNear !== undefined ? Number(tenant.deliveryFeeNear) : 0) : (tenant?.deliveryFeeFar !== undefined ? Number(tenant.deliveryFeeFar) : 5000)) : 0) )}
                   </span>
+                  {hasPointDiscount && (
+                    <span className="text-[9px] text-amber-605 font-bold leading-none mt-0.5">
+                      {customer.activeReward === "grand_reward"
+                        ? "Grand Reward Aktif (Free Minuman & Toast)"
+                        : `Hemat ${formatRp(pointDiscountAmount)} (Diskon ${customer.activeReward === "discount_20" ? "20%" : customer.activeReward === "discount_30" ? "30%" : customer.activeReward === "discount_40" ? "40%" : customer.activeReward === "discount_50" ? "50%" : "10%"})`}
+                    </span>
+                  )}
                 </div>
                 
                 <button
@@ -2818,8 +3033,8 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
                 </div>
 
                 <div className="flex items-baseline justify-between font-sans">
-                  <div className="text-2xl font-black text-amber-700">{customer.loyaltyPoints || 0}</div>
-                  <div className="text-xs text-gray-500 font-semibold">/ 1000 Poin</div>
+                  <div className="text-2xl font-black text-amber-700">{customer.loyaltyPoints || 0} Poin</div>
+                  <div className="text-xs text-gray-500 font-semibold">Target Klaim (1000 Poin)</div>
                 </div>
 
                 <div className="w-full bg-gray-200/60 rounded-full h-3 overflow-hidden">
@@ -2834,26 +3049,118 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
 
                 <div className="text-[10px] text-gray-500 leading-relaxed space-y-1 font-sans">
                   <p>• Dapatkan +10 poin setiap pembelian 1 menu (apapun produk dan harganya).</p>
-                  <p>• Setiap kelipatan 100 poin mendapatkan reward tingkatan diskon (100 poin = 10%, 200 poin = 20%, dst.).</p>
-                  <p>• Batas maksimal siklus reward adalah 1000 poin (Platinum Member).</p>
+                  <p>• Setiap kelipatan 100 poin (s.d 500) bisa klaim reward diskon 10% - 50% untuk transaksi berikutnya.</p>
+                  <p>• Poin akan terus terakumulasi hingga 1000 poin dan direset setelah mengklaim Grand Reward (1 free minuman & 1 toast).</p>
                 </div>
 
-                {(customer.loyaltyPoints || 0) >= 1000 && (
-                  <button
-                    onClick={handleCustomerClaimReward}
-                    disabled={customerClaiming}
-                    className="w-full py-3.5 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl text-xs font-black flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/20 transition-all active:scale-98 cursor-pointer font-sans"
-                  >
-                    {customerClaiming ? (
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <>
-                        <Sparkles size={14} />
-                        <span>KLAIM GRAND REWARD (Reset 1000 Poin)</span>
-                      </>
-                    )}
-                  </button>
-                )}
+                {hasPointDiscount ? (
+                  <div className="bg-gradient-to-r from-emerald-500 to-teal-650 text-white text-xs font-black p-3.5 rounded-2xl text-center shadow-inner font-sans">
+                    🎁 REWARD AKTIF: {
+                      customer.activeReward === "grand_reward"
+                        ? "FREE 1 MINUMAN & 1 TOAST"
+                        : `DISKON ${customer.activeReward === "discount_20" ? "20%" : customer.activeReward === "discount_30" ? "30%" : customer.activeReward === "discount_40" ? "40%" : customer.activeReward === "discount_50" ? "50%" : "10%"}`
+                    }
+                    <p className="text-[10px] font-normal opacity-90 mt-0.5">Diskon otomatis diterapkan pada transaksi Anda berikutnya.</p>
+                  </div>
+                ) : (() => {
+                  const claimedList = customer.claimedMilestones || [];
+                  const points = customer.loyaltyPoints || 0;
+                  
+                  if (points >= 1000) {
+                    return (
+                      <button
+                        onClick={() => handleCustomerClaimReward(1000)}
+                        disabled={customerClaiming}
+                        className="w-full py-3.5 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl text-xs font-black flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/20 transition-all active:scale-98 cursor-pointer font-sans"
+                      >
+                        {customerClaiming ? (
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <>
+                            <Sparkles size={14} />
+                            <span>KLAIM GRAND REWARD (1000 Poin)</span>
+                          </>
+                        )}
+                      </button>
+                    );
+                  }
+                  
+                  const milestones = [100, 200, 300, 400, 500];
+                  const maxClaimed = claimedList.length > 0 ? Math.max(...claimedList) : 0;
+
+                  // If points are 500+ and they have already claimed 500 milestone (50% discount)
+                  if (points >= 500 && maxClaimed === 500) {
+                    return (
+                      <div className="space-y-3">
+                        <button
+                          disabled
+                          className="w-full py-3.5 bg-gray-200 text-gray-400 border border-gray-300/40 rounded-2xl text-xs font-black flex items-center justify-center gap-1.5 cursor-not-allowed font-sans select-none"
+                        >
+                          <Sparkles size={14} className="opacity-40" />
+                          <span>KLAIM GRAND REWARD (1000 Poin)</span>
+                        </button>
+                        <div className="text-center bg-amber-50/50 rounded-2xl p-3.5 border border-dashed border-amber-200 text-xs font-semibold text-amber-800 font-sans">
+                          Kumpulkan {1000 - points} Poin Lagi untuk Klaim Grand Reward
+                        </div>
+                      </div>
+                    );
+                  }
+
+                  const claimable = milestones.filter(m => points >= m && m > maxClaimed && !claimedList.includes(m));
+                  
+                  if (claimable.length > 0) {
+                    const highestMilestone = Math.max(...claimable);
+                    const discountPercent = highestMilestone / 10;
+                    return (
+                      <button
+                        onClick={() => handleCustomerClaimReward(highestMilestone)}
+                        disabled={customerClaiming}
+                        className="w-full py-3.5 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl text-xs font-black flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/20 transition-all active:scale-98 cursor-pointer font-sans"
+                      >
+                        {customerClaiming ? (
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        ) : (
+                          <>
+                            <Sparkles size={14} />
+                            <span>KLAIM DISKON {discountPercent}% ({highestMilestone} Poin)</span>
+                          </>
+                        )}
+                      </button>
+                    );
+                  }
+                  
+                  const nextMilestone = milestones.find(m => points < m) || 1000;
+                  return (
+                    <div className="text-center bg-amber-50/50 rounded-2xl p-3.5 border border-dashed border-amber-200 text-xs font-semibold text-amber-800 font-sans">
+                      Kumpulkan {nextMilestone - points} Poin Lagi untuk Klaim {nextMilestone === 1000 ? "Grand Reward" : `Diskon ${nextMilestone / 10}%`}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Account Stats Panel */}
+              <div className="bg-gray-50 border border-gray-150 rounded-3xl p-4.5 space-y-3.5 font-sans">
+                <div className="flex items-center gap-1.5 border-b pb-2 border-gray-200">
+                  <User size={15} style={{ color: primary }} />
+                  <span className="font-black text-gray-800 text-xs uppercase tracking-wider">Ringkasan Aktivitas</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-center font-sans">
+                  <div className="bg-white border rounded-2xl p-3 flex flex-col justify-between shadow-xs">
+                    <span className="text-[9px] text-gray-400 font-extrabold uppercase">Total Transaksi</span>
+                    <span className="text-xs font-black text-gray-850 mt-1">{customer.totalOrders ?? 0} Kali</span>
+                  </div>
+                  <div className="bg-white border rounded-2xl p-3 flex flex-col justify-between shadow-xs">
+                    <span className="text-[9px] text-gray-400 font-extrabold uppercase">Total Belanja</span>
+                    <span className="text-xs font-black text-gray-850 mt-1 truncate">{formatRp(customer.totalSpent ?? 0)}</span>
+                  </div>
+                </div>
+                <div className="bg-white border rounded-2xl p-3 flex flex-col justify-between shadow-xs">
+                  <span className="text-[9px] text-gray-400 font-extrabold uppercase text-left">Produk Favorit</span>
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="text-xs font-black text-gray-850 truncate pr-2">{customer.favoriteProduct || "Belum ada"}</span>
+                    <span className="text-[9px] bg-green-50 text-green-700 px-2 py-0.5 rounded font-black uppercase shrink-0">Bestseller</span>
+                  </div>
+                </div>
               </div>
 
               {/* Form Update Profile */}

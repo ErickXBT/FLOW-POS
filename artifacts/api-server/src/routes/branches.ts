@@ -49,7 +49,7 @@ router.post("/branches", async (req, res): Promise<void> => {
   const claims = requireOwner(req, res);
   if (!claims) return;
 
-  const { name, address, phone } = req.body;
+  const { name, address, phone, franchiseeId } = req.body;
   if (!name) {
     res.status(400).json({ error: "Nama cabang wajib diisi" });
     return;
@@ -81,6 +81,7 @@ router.post("/branches", async (req, res): Promise<void> => {
     address: address || null,
     phone: phone || null,
     status: "active",
+    franchiseeId: franchiseeId ? Number(franchiseeId) : null,
   }).returning();
 
   // 3. Create default branch settings
@@ -114,13 +115,14 @@ router.patch("/branches/:id", async (req, res): Promise<void> => {
   if (!claims) return;
 
   const id = Number(req.params.id);
-  const { name, address, phone } = req.body;
+  const { name, address, phone, franchiseeId } = req.body;
 
   const [branch] = await db.update(branchesTable)
     .set({
       name,
       address: address !== undefined ? address : undefined,
       phone: phone !== undefined ? phone : undefined,
+      franchiseeId: franchiseeId !== undefined ? (franchiseeId ? Number(franchiseeId) : null) : undefined,
       updatedAt: new Date(),
     })
     .where(and(eq(branchesTable.id, id), eq(branchesTable.tenantId, claims.tenantId!)))

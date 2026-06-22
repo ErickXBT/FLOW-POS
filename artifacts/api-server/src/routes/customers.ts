@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, and, ilike, count } from "drizzle-orm";
-import { db, customersTable, tenantsTable } from "@workspace/db";
+import { eq, and, ilike, count, desc, sql } from "drizzle-orm";
+import { db, customersTable, tenantsTable, customerRetentionLogsTable, customerOrdersTable, customerOrderItemsTable } from "@workspace/db";
 import {
   ListCustomersQueryParams,
   CreateCustomerBody,
@@ -65,6 +65,35 @@ function formatCustomer(c: any) {
   };
 }
 
+async function formatCustomerWithStats(c: any) {
+  if (!c) return null;
+  // Calculate favorite product based on completed order items quantity
+  const [favProd] = await db
+    .select({
+      productName: customerOrderItemsTable.productName,
+    })
+    .from(customerOrderItemsTable)
+    .innerJoin(customerOrdersTable, eq(customerOrderItemsTable.customerOrderId, customerOrdersTable.id))
+    .where(
+      and(
+        eq(customerOrdersTable.tenantId, c.tenantId),
+        eq(customerOrdersTable.customerPhone, c.phone),
+        eq(customerOrdersTable.status, "completed")
+      )
+    )
+    .groupBy(customerOrderItemsTable.productId, customerOrderItemsTable.productName)
+    .orderBy(desc(sql`SUM(${customerOrderItemsTable.quantity})`))
+    .limit(1);
+
+  return {
+    ...c,
+    totalSpent: Number(c.totalSpent),
+    totalOrders: Number(c.totalOrders),
+    favoriteProduct: favProd ? favProd.productName : "Belum ada",
+    createdAt: c.createdAt instanceof Date ? c.createdAt.toISOString() : c.createdAt,
+  };
+}
+
 router.get("/customers", async (req, res): Promise<void> => {
   const claims = requireTenant(req, res);
   if (!claims) return;
@@ -75,10 +104,8 @@ router.get("/customers", async (req, res): Promise<void> => {
   const limit = (qp.success ? qp.data.limit : 20) ?? 20;
   const offset = (page - 1) * limit;
 
-  const branchId = await getRequestedBranchId(req, claims);
   const conditions = [eq(customersTable.tenantId, claims.tenantId!)];
   if (search) conditions.push(ilike(customersTable.name, `%${search}%`));
-  if (branchId) conditions.push(eq(customersTable.branchId, branchId));
   const where = and(...conditions);
 
   const [totalResult] = await db.select({ count: count() }).from(customersTable).where(where);
@@ -162,6 +189,25 @@ router.post("/customers/auth/register", async (req, res): Promise<void> => {
     .where(and(eq(customersTable.phone, phone), eq(customersTable.tenantId, tenant.id)));
 
   if (existing) {
+    if (!existing.passwordHash) {
+      // If the customer record was created by a cashier (no password set),
+      // allow setting name, password, and link it!
+      const [updated] = await db.update(customersTable)
+        .set({
+          name: name || existing.name,
+          passwordHash: hashPassword(password),
+          updatedAt: new Date(),
+        })
+        .where(eq(customersTable.id, existing.id))
+        .returning();
+      
+      const token = signCustomerToken({ customerId: updated.id, tenantId: tenant.id, role: "customer" });
+      res.status(200).json({
+        token,
+        customer: await formatCustomerWithStats(updated),
+      });
+      return;
+    }
     res.status(400).json({ error: "Nomor telepon sudah terdaftar untuk merchant ini" });
     return;
   }
@@ -181,7 +227,7 @@ router.post("/customers/auth/register", async (req, res): Promise<void> => {
 
   res.status(201).json({
     token,
-    customer: formatCustomer(customer),
+    customer: await formatCustomerWithStats(customer),
   });
 });
 
@@ -210,7 +256,7 @@ router.post("/customers/auth/login", async (req, res): Promise<void> => {
 
   res.json({
     token,
-    customer: formatCustomer(customer),
+    customer: await formatCustomerWithStats(customer),
   });
 });
 
@@ -229,7 +275,7 @@ router.get("/customers/auth/me", async (req, res): Promise<void> => {
     return;
   }
 
-  res.json(formatCustomer(customer));
+  res.json(await formatCustomerWithStats(customer));
 });
 
 router.patch("/customers/auth/update-profile", async (req, res): Promise<void> => {
@@ -256,7 +302,7 @@ router.patch("/customers/auth/update-profile", async (req, res): Promise<void> =
     return;
   }
 
-  res.json(formatCustomer(customer));
+  res.json(await formatCustomerWithStats(customer));
 });
 
 router.post("/customers/auth/forgot-password", async (req, res): Promise<void> => {
@@ -390,27 +436,110 @@ router.post("/customers/:id/claim-reward", async (req, res): Promise<void> => {
     return;
   }
 
-  const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, tenantId));
-  const minClaimPoints = (tenant?.pointSystemConfig as any)?.minClaimPoints ?? 1000;
-
-  if (customer.loyaltyPoints < minClaimPoints) {
-    res.status(400).json({ error: `Poin tidak mencukupi untuk klaim reward (minimal ${minClaimPoints} poin)` });
+  if (customer.claimedDiscountActive) {
+    res.status(400).json({ error: "Anda sudah memiliki klaim reward aktif yang belum digunakan." });
     return;
   }
 
-  const newPoints = customer.loyaltyPoints - minClaimPoints;
+  let milestone = Number(req.body.milestone);
+  const claimedList = (customer.claimedMilestones as number[]) || [];
+  const milestones = [100, 200, 300, 400, 500, 1000];
+  const maxClaimed = claimedList.length > 0 ? Math.max(...claimedList) : 0;
+
+  if (!milestone) {
+    // Find the highest milestone the customer can claim based on points
+    const claimable = milestones.filter(m => 
+      customer.loyaltyPoints >= m && m > maxClaimed && (m === 1000 || !claimedList.includes(m))
+    );
+    if (claimable.length === 0) {
+      res.status(400).json({ error: "Poin tidak mencukupi atau reward milestone sudah diklaim." });
+      return;
+    }
+    milestone = Math.max(...claimable);
+  } else {
+    if (!milestones.includes(milestone)) {
+      res.status(400).json({ error: "Milestone tidak valid." });
+      return;
+    }
+    if (customer.loyaltyPoints < milestone) {
+      res.status(400).json({ error: `Poin tidak mencukupi untuk klaim milestone ${milestone} poin.` });
+      return;
+    }
+    if (milestone <= maxClaimed) {
+      res.status(400).json({ error: `Anda tidak dapat mengklaim milestone ${milestone} karena sudah mengklaim milestone yang lebih tinggi (${maxClaimed} poin).` });
+      return;
+    }
+    if (milestone < 1000 && claimedList.includes(milestone)) {
+      res.status(400).json({ error: `Voucher milestone ${milestone} poin sudah pernah diklaim.` });
+      return;
+    }
+  }
+
+  let newPoints = customer.loyaltyPoints;
+  let newClaimed = [...claimedList];
+  let activeReward = "";
+
+  if (milestone === 1000) {
+    newPoints = 0; // reset to 0
+    newClaimed = []; // reset cycle
+    activeReward = "grand_reward";
+  } else {
+    newClaimed.push(milestone);
+    activeReward = `discount_${milestone / 10}`; // e.g. discount_10, discount_20, etc.
+  }
+
   const newLevel = getMembershipLevel(newPoints);
 
   const [updatedCustomer] = await db.update(customersTable)
     .set({
       loyaltyPoints: newPoints,
       membershipLevel: newLevel,
+      claimedDiscountActive: true,
+      activeReward: activeReward,
+      claimedMilestones: newClaimed,
       updatedAt: new Date(),
     })
     .where(eq(customersTable.id, customer.id))
     .returning();
 
   res.json(formatCustomer(updatedCustomer));
+});
+
+// ── CUSTOMER RETENTION AUTOMATION ENDPOINTS ──────────────────────────────────────
+router.post("/customers/retention/send", async (req, res): Promise<void> => {
+  const adminClaims = requireTenant(req, res);
+  if (!adminClaims) return;
+
+  const { customerId, customerName, phone, message, couponCode } = req.body;
+  if (!customerId || !customerName || !phone || !message || !couponCode) {
+    res.status(400).json({ error: "Field customerId, customerName, phone, message, dan couponCode wajib diisi" });
+    return;
+  }
+
+  // Insert log
+  const [log] = await db.insert(customerRetentionLogsTable).values({
+    tenantId: adminClaims.tenantId!,
+    customerId: Number(customerId),
+    customerName,
+    phone,
+    message,
+    couponCode,
+  }).returning();
+
+  console.log(`[RETENTION AUTOMATION WHATSAPP] Sent message to ${customerName} (${phone}): "${message}" with coupon: ${couponCode}`);
+
+  res.status(201).json(log);
+});
+
+router.get("/customers/retention/logs", async (req, res): Promise<void> => {
+  const adminClaims = requireTenant(req, res);
+  if (!adminClaims) return;
+
+  const logs = await db.select().from(customerRetentionLogsTable)
+    .where(eq(customerRetentionLogsTable.tenantId, adminClaims.tenantId!))
+    .orderBy(desc(customerRetentionLogsTable.sentAt));
+
+  res.json(logs);
 });
 
 export default router;

@@ -46,32 +46,145 @@ export default function POSPage() {
     return val ? Number(val) : null;
   });
 
+  const [activeShift, setActiveShift] = useState<any>(null);
+  const [openingCash, setOpeningCash] = useState("100000");
+  const [actualCash, setActualCash] = useState("");
+  const [shiftNotes, setShiftNotes] = useState("");
   const [showShiftModal, setShowShiftModal] = useState(false);
+  const [showEndShiftModal, setShowEndShiftModal] = useState(false);
   const [selectedEmpId, setSelectedEmpId] = useState("");
   const [customCashierName, setCustomCashierName] = useState("");
+  const [isPriority, setIsPriority] = useState(false);
 
-  const handleStartShift = (name: string, id: number | null) => {
-    localStorage.setItem("flow_shift_active", "true");
-    localStorage.setItem("flow_active_cashier_name", name);
-    if (id !== null) {
-      localStorage.setItem("flow_active_cashier_id", String(id));
-    } else {
-      localStorage.removeItem("flow_active_cashier_id");
+  const fetchActiveShift = async () => {
+    if (!activeBranchId) return;
+    try {
+      const token = localStorage.getItem("flow_token");
+      const res = await fetch(`/api/shifts/active?branchId=${activeBranchId}`, {
+        headers: { "Authorization": `Bearer ${token || ""}` }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setActiveShift(data);
+        if (data) {
+          setShiftActive(true);
+          setActiveCashierName(data.cashierName);
+          setActiveCashierId(data.userId);
+          localStorage.setItem("flow_shift_active", "true");
+          localStorage.setItem("flow_active_cashier_name", data.cashierName);
+          localStorage.setItem("flow_active_cashier_id", String(data.userId));
+          localStorage.setItem("flow_active_shift_id", String(data.id));
+        } else {
+          setShiftActive(false);
+          setActiveCashierName("");
+          setActiveCashierId(null);
+          localStorage.removeItem("flow_shift_active");
+          localStorage.removeItem("flow_active_cashier_name");
+          localStorage.removeItem("flow_active_cashier_id");
+          localStorage.removeItem("flow_active_shift_id");
+        }
+      }
+    } catch (err) {
+      console.error("Failed to fetch active shift:", err);
     }
-    setShiftActive(true);
-    setActiveCashierName(name);
-    setActiveCashierId(id);
-    setShowShiftModal(false);
+  };
+
+  useEffect(() => {
+    fetchActiveShift();
+  }, [activeBranchId]);
+
+  const handleStartShift = async (name: string, id: number | null) => {
+    try {
+      const token = localStorage.getItem("flow_token");
+      const res = await fetch("/api/shifts/start", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token || ""}`
+        },
+        body: JSON.stringify({
+          openingCash: Number(openingCash || 0),
+          branchId: activeBranchId,
+          cashierName: name
+        })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        alert(errData.error || "Gagal memulai shift");
+        return;
+      }
+
+      const data = await res.json();
+      localStorage.setItem("flow_shift_active", "true");
+      localStorage.setItem("flow_active_cashier_name", name);
+      localStorage.setItem("flow_active_shift_id", String(data.id));
+      if (id !== null) {
+        localStorage.setItem("flow_active_cashier_id", String(id));
+      } else {
+        localStorage.removeItem("flow_active_cashier_id");
+      }
+      setShiftActive(true);
+      setActiveCashierName(name);
+      setActiveCashierId(id);
+      setActiveShift(data);
+      setShowShiftModal(false);
+    } catch (err) {
+      console.error("Failed to start shift:", err);
+      alert("Gagal menghubungi server untuk memulai shift");
+    }
   };
 
   const handleEndShift = () => {
-    if (window.confirm("Apakah Anda yakin ingin mengakhiri shift kerja?")) {
+    // Open the End Shift Modal instead of directly calling confirm
+    if (activeShift) {
+      setActualCash(String(activeShift.expectedCash || 0));
+      setShiftNotes("");
+      setShowEndShiftModal(true);
+    } else {
+      alert("Tidak ada shift aktif");
+    }
+  };
+
+  const handleEndShiftSubmit = async () => {
+    if (!activeShift) return;
+    try {
+      const token = localStorage.getItem("flow_token");
+      const res = await fetch("/api/shifts/end", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token || ""}`
+        },
+        body: JSON.stringify({
+          shiftId: activeShift.id,
+          closingCash: Number(actualCash || 0),
+          actualCash: Number(actualCash || 0),
+          notes: shiftNotes
+        })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        alert(errData.error || "Gagal mengakhiri shift");
+        return;
+      }
+
       localStorage.removeItem("flow_shift_active");
       localStorage.removeItem("flow_active_cashier_name");
       localStorage.removeItem("flow_active_cashier_id");
+      localStorage.removeItem("flow_active_shift_id");
       setShiftActive(false);
       setActiveCashierName("");
       setActiveCashierId(null);
+      setActiveShift(null);
+      setActualCash("");
+      setShiftNotes("");
+      setShowEndShiftModal(false);
+      alert("Shift kasir berhasil diakhiri dan laporan disimpan!");
+    } catch (err) {
+      console.error("Failed to end shift:", err);
+      alert("Gagal menghubungi server untuk mengakhiri shift");
     }
   };
 
@@ -327,6 +440,7 @@ export default function POSPage() {
   };
 
   const checkout = () => {
+    const shiftIdVal = localStorage.getItem("flow_active_shift_id");
     createOrder.mutate({
       data: {
         items: cart.map(i => ({
@@ -352,19 +466,24 @@ export default function POSPage() {
           deliveryAddress,
           branchId: activeBranchId,
           employeeId: activeCashierId,
-          employeeName: activeCashierName || tenant?.defaultCashierName || "Kasir Utama"
+          employeeName: activeCashierName || tenant?.defaultCashierName || "Kasir Utama",
+          shiftId: shiftIdVal ? Number(shiftIdVal) : null,
+          priority: isPriority ? "high" : "normal",
         } as any)
       }
     }, {
       onSuccess: () => {
         setCart([]);
         setDiscount(0);
+        setSelectedCouponCode("");
         setOrderType("dine_in");
         setTableNumber("");
         setCustomerName("");
         setCustomerPhone("");
         setDeliveryAddress("");
+        setIsPriority(false);
         setSuccess(true);
+        fetchActiveShift(); // Refresh shift calculations
         queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
         setTimeout(() => setSuccess(false), 3000);
       }
@@ -719,6 +838,19 @@ export default function POSPage() {
                   {ot.label}
                 </button>
               ))}
+            </div>
+
+            {/* Priority Toggle */}
+            <div className="flex items-center justify-between p-2 rounded-lg bg-destructive/5 border border-destructive/20 text-[10px] font-semibold text-destructive mt-2">
+              <span className="flex items-center gap-1">
+                <span className="animate-pulse text-xs">🚨</span> Prioritaskan Pesanan (KDS)
+              </span>
+              <input
+                type="checkbox"
+                checked={isPriority}
+                onChange={e => setIsPriority(e.target.checked)}
+                className="w-3.5 h-3.5 rounded text-destructive focus:ring-destructive cursor-pointer bg-background border-input"
+              />
             </div>
 
             {/* Nama Pelanggan (Selalu tampil di POS) */}
@@ -1077,6 +1209,23 @@ export default function POSPage() {
                   </div>
                 </div>
               )}
+
+              {/* Uang Kas Awal */}
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1">
+                  Uang Kas Awal (Modal Pembukaan)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">Rp</span>
+                  <input
+                    type="number"
+                    value={openingCash}
+                    onChange={(e) => setOpeningCash(e.target.value)}
+                    placeholder="100000"
+                    className="w-full pl-8 pr-3 py-2 border border-input rounded-xl text-xs bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary font-semibold"
+                  />
+                </div>
+              </div>
             </div>
             
             <div className="p-4 border-t border-border bg-muted/10 flex gap-3">
@@ -1102,6 +1251,117 @@ export default function POSPage() {
                 className="flex-1 py-2 bg-primary text-primary-foreground font-bold text-xs rounded-xl hover:opacity-90 active:scale-95 transition-all disabled:opacity-40"
               >
                 Mulai Kerja
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* End Shift Modal */}
+      {showEndShiftModal && activeShift && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-card border border-card-border rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col animate-scale-up">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-muted/20">
+              <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
+                🔴 Akhiri Shift Kerja Kasir
+              </h3>
+              <button
+                onClick={() => setShowEndShiftModal(false)}
+                className="p-1 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            
+            <div className="p-5 space-y-4">
+              <div className="space-y-2 text-xs">
+                <div className="flex justify-between py-1 border-b border-border/40 text-muted-foreground">
+                  <span>Nama Kasir:</span>
+                  <span className="font-bold text-foreground">{activeShift.cashierName}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-border/40 text-muted-foreground">
+                  <span>Mulai Shift:</span>
+                  <span className="font-semibold text-foreground">
+                    {activeShift.openedAt ? new Date(activeShift.openedAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" }) : "-"}
+                  </span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-border/40 text-muted-foreground">
+                  <span>Kas Awal:</span>
+                  <span className="font-semibold text-foreground">{formatRp(Number(activeShift.openingCash || 0))}</span>
+                </div>
+                <div className="flex justify-between py-1 border-b border-border/40 text-muted-foreground">
+                  <span>Uang Kas Terhitung (Sistem):</span>
+                  <span className="font-bold text-primary text-sm">{formatRp(Number(activeShift.expectedCash || 0))}</span>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1">
+                  Uang Kas Fisik di Drawer (Actual Cash)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">Rp</span>
+                  <input
+                    type="number"
+                    value={actualCash}
+                    onChange={(e) => setActualCash(e.target.value)}
+                    placeholder="Masukkan jumlah kas fisik..."
+                    className="w-full pl-8 pr-3 py-2 border border-input rounded-xl text-xs bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary font-bold text-primary"
+                  />
+                </div>
+              </div>
+
+              {/* Cash Discrepancy Display */}
+              {(() => {
+                const diff = Number(actualCash || 0) - Number(activeShift.expectedCash || 0);
+                return (
+                  <div className={`p-3 rounded-xl border text-xs flex flex-col gap-1 ${
+                    diff === 0 
+                      ? "bg-green-500/5 border-green-500/20 text-green-700 dark:text-green-400" 
+                      : diff > 0 
+                        ? "bg-blue-500/5 border-blue-500/20 text-blue-700 dark:text-blue-400" 
+                        : "bg-destructive/5 border-destructive/20 text-destructive"
+                  }`}>
+                    <div className="flex justify-between font-semibold">
+                      <span>Selisih Kas (Discrepancy):</span>
+                      <span className="font-bold">{diff === 0 ? "Pas" : diff > 0 ? `Lebih (+${formatRp(diff)})` : `Kurang (${formatRp(diff)})`}</span>
+                    </div>
+                    <span className="text-[10px] opacity-80 leading-normal">
+                      {diff === 0 
+                        ? "Jumlah kas fisik cocok dengan pencatatan sistem." 
+                        : diff > 0 
+                          ? "Terdapat kelebihan uang kas dibanding pencatatan transaksi." 
+                          : "Terdapat kekurangan uang kas (selisih minus) dibanding pencatatan."}
+                    </span>
+                  </div>
+                );
+              })()}
+
+              <div>
+                <label className="block text-xs font-semibold text-foreground mb-1">
+                  Catatan Penutupan Shift
+                </label>
+                <textarea
+                  value={shiftNotes}
+                  onChange={(e) => setShiftNotes(e.target.value)}
+                  placeholder="Ketik catatan jika ada selisih kas..."
+                  rows={2.5}
+                  className="w-full px-3 py-2 border border-input rounded-xl text-xs bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                />
+              </div>
+            </div>
+            
+            <div className="p-4 border-t border-border bg-muted/10 flex gap-3">
+              <button
+                onClick={() => setShowEndShiftModal(false)}
+                className="flex-1 py-2 border border-border text-foreground hover:bg-muted font-bold text-xs rounded-xl active:scale-95 transition-all"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleEndShiftSubmit}
+                className="flex-1 py-2 bg-destructive text-destructive-foreground font-bold text-xs rounded-xl hover:opacity-90 active:scale-95 transition-all shadow"
+              >
+                Tutup Shift & Simpan Laporan
               </button>
             </div>
           </div>

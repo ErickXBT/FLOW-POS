@@ -103,6 +103,9 @@ export const customerOrdersTable = pgTable("customer_orders", {
   notes: text("notes"),
   employeeId: integer("employee_id"),
   employeeName: text("employee_name"),
+  priority: text("priority").notNull().default("normal"), // normal, high
+  estimatedTime: integer("estimated_time"),
+  isClaimReward: boolean("is_claim_reward").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

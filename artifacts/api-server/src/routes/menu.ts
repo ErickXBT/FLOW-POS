@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, desc, sql, inArray } from "drizzle-orm";
+import { eq, and, desc, sql, inArray, ilike } from "drizzle-orm";
 import crypto from "crypto";
 import {
   db, tenantsTable, categoriesTable, productsTable,
@@ -487,13 +487,91 @@ router.post("/menu/:slug/orders", async (req, res): Promise<void> => {
       variantSelection: i.variantSelection ?? null
     };
   });
+  const { customerId } = req.body;
+  let isClaimReward = false;
+  let discountAmount = 0;
+  let finalCustomer = null;
+
+  if (customerId) {
+    const [cust] = await db.select().from(customersTable)
+      .where(and(eq(customersTable.id, Number(customerId)), eq(customersTable.tenantId, tenant.id)));
+    if (cust) {
+      finalCustomer = cust;
+      if (cust.claimedDiscountActive) {
+        isClaimReward = true;
+        if (cust.activeReward === "grand_reward") {
+          // Grand Reward: Free 1 Minuman & 1 Toast
+          // Fetch categories of this tenant to identify drinks
+          const drinksCategoryIds = (await db.select().from(categoriesTable)
+            .where(and(
+              eq(categoriesTable.tenantId, tenant.id),
+              sql`name ILIKE '%minuman%' OR name ILIKE '%drink%' OR name ILIKE '%beverage%' OR name ILIKE '%coffee%' OR name ILIKE '%tea%' OR name ILIKE '%kopi%'`
+            )))
+            .map(c => c.id);
+
+          const drinkPrices: number[] = [];
+          const toastPrices: number[] = [];
+
+          for (const item of orderItems) {
+            const prod = products.find(p => p.id === item.productId);
+            if (prod) {
+              const isDrink = (prod.categoryId && drinksCategoryIds.includes(prod.categoryId)) ||
+                              /kopi|teh|tea|latte|americano|cappuccino|jus|juice|es |drink|beverage|coffee/i.test(prod.name);
+              const isToast = !/kopi|teh|tea|latte|americano|cappuccino|jus|juice|es |drink|beverage|coffee/i.test(prod.name) &&
+                              /roti|toast|bakar/i.test(prod.name);
+              const price = Number(item.price);
+
+              if (isDrink) {
+                for (let q = 0; q < item.quantity; q++) {
+                  drinkPrices.push(price);
+                }
+              } else if (isToast) {
+                for (let q = 0; q < item.quantity; q++) {
+                  toastPrices.push(price);
+                }
+              }
+            }
+          }
+
+          drinkPrices.sort((a, b) => b - a);
+          toastPrices.sort((a, b) => b - a);
+
+          const freeDrinkDiscount = drinkPrices.length > 0 ? drinkPrices[0] : 0;
+          const freeToastDiscount = toastPrices.length > 0 ? toastPrices[0] : 0;
+
+          discountAmount = freeDrinkDiscount + freeToastDiscount;
+        } else {
+          let discountPercent = 0.1;
+          if (cust.activeReward === "discount_20") discountPercent = 0.2;
+          else if (cust.activeReward === "discount_30") discountPercent = 0.3;
+          else if (cust.activeReward === "discount_40") discountPercent = 0.4;
+          else if (cust.activeReward === "discount_50") discountPercent = 0.5;
+
+          discountAmount = subtotal * discountPercent;
+        }
+      }
+    }
+  }
+
+  let orderNotesWithReward = notes ?? null;
+  if (isClaimReward && finalCustomer && finalCustomer.activeReward) {
+    const rewardTag = `[REWARD:${finalCustomer.activeReward}]`;
+    orderNotesWithReward = orderNotesWithReward
+      ? `${orderNotesWithReward} ${rewardTag}`
+      : rewardTag;
+  }
 
   const fee = Number(deliveryFee ?? 0);
   const enableTax = (tenant as any).enableTax ?? false;
   const taxPercentage = enableTax ? Number(tenant.taxPercentage ?? 10) : 0;
-  const taxAmount = subtotal * (taxPercentage / 100);
-  const total = subtotal + taxAmount + fee;
+  const subtotalAfterDiscount = subtotal - discountAmount;
+  const taxAmount = subtotalAfterDiscount * (taxPercentage / 100);
+  const total = subtotalAfterDiscount + taxAmount + fee;
   const orderNum = `MENU-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+  const maxPrepTime = products.length > 0 ? Math.max(...products.map(p => (p as any).prepTime || 5)) : 5;
+  const totalItemsCount = orderItems.reduce((sum: number, item: any) => sum + item.quantity, 0);
+  const estimatedTime = maxPrepTime + (totalItemsCount - 1) * 1;
 
   const [order] = await db.insert(customerOrdersTable).values({
     orderNumber: orderNum, tenantId: tenant.id, branchId: activeBranchId,
@@ -501,8 +579,11 @@ router.post("/menu/:slug/orders", async (req, res): Promise<void> => {
     customerPhone: customerPhone ?? null, tableNumber: tableNumber ?? null,
     deliveryAddress: deliveryAddress ?? null, deliveryNotes: deliveryNotes ?? null,
     deliveryFee: String(fee), paymentMethod: paymentMethod ?? "cash",
-    subtotal: String(subtotal), discount: "0", tax: String(taxAmount), total: String(total),
-    status: "pending", notes: notes ?? null,
+    subtotal: String(subtotal), discount: String(discountAmount), tax: String(taxAmount), total: String(total),
+    status: "pending", notes: orderNotesWithReward,
+    priority: "normal",
+    estimatedTime: estimatedTime,
+    isClaimReward: isClaimReward,
   }).returning();
 
   const insertedItems = await db.insert(customerOrderItemsTable)
@@ -522,34 +603,31 @@ router.post("/menu/:slug/orders", async (req, res): Promise<void> => {
   }
 
   // Credit points and update stats for logged in customer
-  const { customerId } = req.body;
-  if (customerId) {
-    const [customer] = await db.select().from(customersTable)
-      .where(and(eq(customersTable.id, Number(customerId)), eq(customersTable.tenantId, tenant.id)));
-    if (customer) {
-      const pointsPerItem = (tenant.pointSystemConfig as any)?.pointsPerItem ?? 10;
-      const totalItems = items.reduce((sum: number, item: any) => sum + Number(item.quantity || 0), 0);
-      const pointsEarned = totalItems * pointsPerItem;
-      const newPoints = customer.loyaltyPoints + pointsEarned;
-      
-      const getMembershipLevel = (pts: number) => {
-        if (pts >= 1000) return "platinum";
-        if (pts >= 500) return "gold";
-        if (pts >= 100) return "silver";
-        return "regular";
-      };
-      const newLevel = getMembershipLevel(newPoints);
+  if (finalCustomer) {
+    const pointsPerItem = (tenant.pointSystemConfig as any)?.pointsPerItem ?? 10;
+    const totalItems = items.reduce((sum: number, item: any) => sum + Number(item.quantity || 0), 0);
+    const pointsEarned = totalItems * pointsPerItem;
+    const newPoints = finalCustomer.loyaltyPoints + pointsEarned;
+    
+    const getMembershipLevel = (pts: number) => {
+      if (pts >= 1000) return "platinum";
+      if (pts >= 500) return "gold";
+      if (pts >= 100) return "silver";
+      return "regular";
+    };
+    const newLevel = getMembershipLevel(newPoints);
 
-      await db.update(customersTable)
-        .set({
-          totalSpent: String(Number(customer.totalSpent) + total),
-          totalOrders: customer.totalOrders + 1,
-          loyaltyPoints: newPoints,
-          membershipLevel: newLevel,
-          updatedAt: new Date(),
-        })
-        .where(eq(customersTable.id, customer.id));
-    }
+    await db.update(customersTable)
+      .set({
+        totalSpent: String(Number(finalCustomer.totalSpent) + total),
+        totalOrders: finalCustomer.totalOrders + 1,
+        loyaltyPoints: newPoints,
+        membershipLevel: newLevel,
+        claimedDiscountActive: false,
+        activeReward: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(customersTable.id, finalCustomer.id));
   }
 
   const formatted = formatCustomerOrder(order, insertedItems);

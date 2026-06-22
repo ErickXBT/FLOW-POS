@@ -14,6 +14,7 @@ import menuRouter from "./menu";
 import activityRouter from "./activity";
 import branchesRouter from "./branches";
 import rolesRouter from "./roles";
+import shiftsRouter from "./shifts";
 
 const router: IRouter = Router();
 
@@ -32,5 +33,6 @@ router.use(menuRouter);
 router.use(activityRouter);
 router.use(branchesRouter);
 router.use(rolesRouter);
+router.use(shiftsRouter);
 
 export default router;

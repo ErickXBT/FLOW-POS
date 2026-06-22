@@ -23,5 +23,9 @@ export interface Customer {
   /** @nullable */
   notes?: string | null;
   tenantId: number;
+  claimedDiscountActive?: boolean;
+  claimedMilestones?: number[];
+  /** @nullable */
+  activeReward?: string | null;
   createdAt: string;
 }

@@ -111,8 +111,17 @@ export default function KitchenDisplayPage() {
     setUpdating(null);
   }
 
-  const pendingOrders = orders.filter(o => o.status === "pending" || o.status === "confirmed");
-  const preparingOrders = orders.filter(o => o.status === "preparing");
+  const sortOrders = (list: any[]) => {
+    return [...list].sort((a, b) => {
+      const aPri = a.priority === "high" ? 1 : 0;
+      const bPri = b.priority === "high" ? 1 : 0;
+      if (aPri !== bPri) return bPri - aPri; // priority orders first
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime(); // oldest first
+    });
+  };
+
+  const pendingOrders = sortOrders(orders.filter(o => o.status === "pending" || o.status === "confirmed"));
+  const preparingOrders = sortOrders(orders.filter(o => o.status === "preparing"));
 
   const isFashion = user?.businessType === "fashion";
 
@@ -204,29 +213,126 @@ export default function KitchenDisplayPage() {
   );
 }
 
+function TimerAndProgress({ createdAt, estimatedTime }: { createdAt: string; estimatedTime: number }) {
+  const [elapsedSecs, setElapsedSecs] = useState(0);
+
+  useEffect(() => {
+    const start = new Date(createdAt).getTime();
+    const update = () => {
+      setElapsedSecs(Math.floor((Date.now() - start) / 1000));
+    };
+    update();
+    const iv = setInterval(update, 1000);
+    return () => clearInterval(iv);
+  }, [createdAt]);
+
+  const formatTimer = (totalSecs: number) => {
+    const h = Math.floor(totalSecs / 3600);
+    const m = Math.floor((totalSecs % 3600) / 60);
+    const s = totalSecs % 60;
+    const pad = (n: number) => String(n).padStart(2, "0");
+    if (h > 0) return `${pad(h)}:${pad(m)}:${pad(s)}`;
+    return `${pad(m)}:${pad(s)}`;
+  };
+
+  const mins = elapsedSecs / 60;
+  
+  let colorClass = "text-green-400";
+  if (mins >= 10) {
+    colorClass = "text-red-500";
+  } else if (mins >= 5) {
+    colorClass = "text-yellow-500";
+  }
+
+  const totalDuration = (estimatedTime || 5) * 60; 
+  const pct = Math.min(100, (elapsedSecs / totalDuration) * 100);
+  const remainingSecs = totalDuration - elapsedSecs;
+
+  return (
+    <div className="space-y-1.5 w-full mt-2">
+      <div className="flex items-center justify-between text-xs">
+        <span className={`font-bold font-mono text-sm flex items-center gap-1 ${colorClass}`}>
+          <Clock size={12} /> {formatTimer(elapsedSecs)}
+        </span>
+        {remainingSecs > 0 ? (
+          <span className="text-gray-400 text-[10px] font-semibold">
+            Estimasi: {Math.ceil(remainingSecs / 60)}m tersisa
+          </span>
+        ) : (
+          <span className="text-red-400 text-[10px] font-bold animate-pulse">
+            Terlambat {Math.floor(Math.abs(remainingSecs) / 60)}m
+          </span>
+        )}
+      </div>
+      
+      <div className="w-full h-1.5 bg-gray-800 rounded-full overflow-hidden">
+        <div 
+          style={{ width: `${pct}%` }} 
+          className={`h-full transition-all duration-1000 ${
+            pct >= 100 
+              ? "bg-red-500" 
+              : pct >= 80 
+                ? "bg-yellow-500" 
+                : "bg-green-500"
+          }`}
+        />
+      </div>
+    </div>
+  );
+}
+
 function KitchenOrderCard({ order, updating, onConfirm, onPrepare, onReady, onCancel }: any) {
   const { user } = useAuth();
   const isFashion = user?.businessType === "fashion";
-  const [tick, setTick] = useState(0);
-  useEffect(() => { const iv = setInterval(() => setTick(t => t + 1), 30000); return () => clearInterval(iv); }, []);
-  const mins = Math.floor((Date.now() - new Date(order.createdAt).getTime()) / 60000);
+  const [mins, setMins] = useState(0);
+
+  useEffect(() => {
+    const start = new Date(order.createdAt).getTime();
+    const update = () => {
+      setMins(Math.floor((Date.now() - start) / 60000));
+    };
+    update();
+    const iv = setInterval(update, 10000);
+    return () => clearInterval(iv);
+  }, [order.createdAt]);
+
   const isUrgent = mins >= 10 && order.status !== "ready";
+  const isPriority = order.priority === "high";
+
+  let cardBorder = "border-gray-700";
+  if (isUrgent) cardBorder = "border-red-500/60 ring-1 ring-red-500/20";
+  else if (mins >= 5) cardBorder = "border-yellow-500/50";
+  
+  if (isPriority) {
+    cardBorder = "border-red-500 shadow-[0_0_12px_rgba(239,68,68,0.25)] ring-2 ring-red-500/30";
+  }
 
   return (
-    <div className={`rounded-xl border bg-gray-900 overflow-hidden transition-all ${isUrgent ? "border-red-500/60" : "border-gray-700"}`}>
+    <div className={`rounded-xl border bg-gray-900 overflow-hidden transition-all ${cardBorder}`}>
       {/* Header */}
-      <div className={`px-3 py-2.5 flex items-center justify-between ${isUrgent ? "bg-red-900/30" : "bg-gray-800"}`}>
-        <div>
-          <div className="font-bold text-white text-sm">{order.customerName}</div>
-          <div className="text-xs text-gray-400 flex items-center gap-2 mt-0.5">
+      <div className={`px-3 py-2.5 flex items-start justify-between ${isPriority ? "bg-red-950/20" : isUrgent ? "bg-red-900/30" : "bg-gray-800"}`}>
+        <div className="space-y-1.5 flex-1 min-w-0 pr-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="font-bold text-white text-sm truncate">{order.customerName}</span>
+            {isPriority && (
+              <span className="inline-flex items-center bg-red-600 text-white font-extrabold text-[8px] px-2 py-0.5 rounded-full uppercase tracking-wider animate-pulse shadow">
+                🚨 PRIORITAS
+              </span>
+            )}
+          </div>
+          <div className="text-xs text-gray-400 flex items-center gap-2">
             <span>{TYPE_ICON[order.orderType]} {TYPE_LABEL[order.orderType]}</span>
             {order.tableNumber && <span className="bg-gray-700 px-1.5 py-0.5 rounded text-gray-300">{formatTableNumber(order.tableNumber, isFashion)}</span>}
           </div>
         </div>
-        <div className={`text-right ${isUrgent ? "text-red-400" : "text-gray-400"}`}>
-          <div className={`font-bold text-lg ${isUrgent ? "text-red-400" : "text-amber-400"}`}>{elapsed(order.createdAt)}</div>
-          <div className="text-xs opacity-70">yang lalu</div>
+        <div className="flex-shrink-0 flex flex-col items-end">
+          <span className="text-[10px] text-gray-500 font-mono font-semibold">#{order.id}</span>
         </div>
+      </div>
+
+      {/* Timer and Progress Bar */}
+      <div className="px-3 py-2 border-b border-gray-850 bg-gray-900/60">
+        <TimerAndProgress createdAt={order.createdAt} estimatedTime={Number(order.estimatedTime || 5)} />
       </div>
 
       {/* Items */}

@@ -1734,6 +1734,8 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/OrderItem"
+        isClaimReward:
+          type: boolean
         createdAt:
           type: string
 
@@ -1848,6 +1850,14 @@ components:
           type: ["string", "null"]
         tenantId:
           type: integer
+        claimedDiscountActive:
+          type: boolean
+        claimedMilestones:
+          type: array
+          items:
+            type: integer
+        activeReward:
+          type: ["string", "null"]
         createdAt:
           type: string
 

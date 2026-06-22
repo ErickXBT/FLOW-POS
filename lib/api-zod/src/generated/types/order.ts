@@ -32,5 +32,6 @@ export interface Order {
   /** @nullable */
   branchId?: number | null;
   items?: OrderItem[];
+  isClaimReward?: boolean;
   createdAt: string;
 }

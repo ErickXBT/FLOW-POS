@@ -1,14 +1,15 @@
 import { useState, useEffect } from "react";
-import { useListBranches, useCreateBranch, useUpdateBranch, useDeleteBranch, getListBranchesQueryKey, useGetTenant } from "@workspace/api-client-react";
+import { useListBranches, useCreateBranch, useUpdateBranch, useDeleteBranch, getListBranchesQueryKey, useGetTenant, useListEmployees } from "@workspace/api-client-react";
 import { useQueryClient, useQuery } from "@tanstack/react-query";
 import { Plus, Search, MapPin, Phone, Edit2, Trash2, X, Building2, Lock, Settings } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 
-function BranchForm({ initial, onSubmit, onClose, loading }: any) {
+function BranchForm({ initial, onSubmit, onClose, loading, candidates }: any) {
   const [form, setForm] = useState({
     name: initial?.name || "",
     address: initial?.address || "",
     phone: initial?.phone || "",
+    franchiseeId: initial?.franchiseeId || "",
   });
 
   return (
@@ -29,7 +30,7 @@ function BranchForm({ initial, onSubmit, onClose, loading }: any) {
               placeholder="Contoh: Jakarta Selatan, Bandung Cihampelas"
               value={form.name}
               onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
-              className="w-full px-3.5 py-2 rounded-xl border border-input bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+              className="w-full px-3.5 py-2 rounded-xl border border-input bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-semibold"
             />
           </div>
           <div>
@@ -48,8 +49,23 @@ function BranchForm({ initial, onSubmit, onClose, loading }: any) {
               placeholder="08xx atau (021)xxxx"
               value={form.phone}
               onChange={e => setForm(p => ({ ...p, phone: e.target.value }))}
-              className="w-full px-3.5 py-2 rounded-xl border border-input bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+              className="w-full px-3.5 py-2 rounded-xl border border-input bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-semibold"
             />
+          </div>
+          <div>
+            <label className="block text-xs font-medium mb-1 text-foreground">Pemilik Cabang (Franchisee / Owner)</label>
+            <select
+              value={form.franchiseeId || ""}
+              onChange={e => setForm(p => ({ ...p, franchiseeId: e.target.value ? Number(e.target.value) : "" }))}
+              className="w-full px-3.5 py-2 rounded-xl border border-input bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all font-semibold"
+            >
+              <option value="">-- Tanpa Franchisee (Pusat) --</option>
+              {(candidates || []).map((cand: any) => (
+                <option key={cand.id} value={cand.userId}>
+                  {cand.name} ({cand.role === "owner" ? "Owner" : "Manager"})
+                </option>
+              ))}
+            </select>
           </div>
         </div>
         <div className="flex gap-3 px-6 pb-6">
@@ -331,9 +347,12 @@ export default function BranchesPage() {
 
   const { data: branches, isLoading } = useListBranches();
   const { data: tenant } = useGetTenant();
+  const { data: employeesData } = useListEmployees();
   const createBranch = useCreateBranch();
   const updateBranch = useUpdateBranch();
   const deleteBranch = useDeleteBranch();
+
+  const candidates = (employeesData || []).filter((e: any) => (e.role === "owner" || e.role === "manager") && e.userId);
 
   const PLAN_LIMITS: Record<string, number> = {
     trial: 1,
@@ -457,6 +476,15 @@ export default function BranchesPage() {
                       <span>{b.phone}</span>
                     </div>
                   )}
+                  {(() => {
+                    const candidate = (employeesData || []).find((e: any) => e.userId === b.franchiseeId);
+                    return (
+                      <div className="flex items-center gap-2 pt-1.5 border-t border-border/40 mt-1.5">
+                        <span className="font-bold text-[10px] text-primary uppercase tracking-wider">Pemilik Cabang:</span>
+                        <span className="font-semibold text-foreground text-[11px]">{candidate ? candidate.name : "Pusat"}</span>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
               {isOwner && (
@@ -493,6 +521,7 @@ export default function BranchesPage() {
           onSubmit={handleCreate}
           onClose={() => setShowForm(false)}
           loading={createBranch.isPending}
+          candidates={candidates}
         />
       )}
       {editing && (
@@ -501,6 +530,7 @@ export default function BranchesPage() {
           onSubmit={handleUpdate}
           onClose={() => setEditing(null)}
           loading={updateBranch.isPending}
+          candidates={candidates}
         />
       )}
       {showUpgradeModal && (

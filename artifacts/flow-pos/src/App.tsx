@@ -24,6 +24,7 @@ import QrManagerPage from "@/pages/qr-manager";
 import KitchenDisplayPage from "@/pages/kitchen-display";
 import DeliveryOrdersPage from "@/pages/delivery-orders";
 import ActivityLogsPage from "@/pages/activity-logs";
+import FlowAIPage from "@/pages/flowai";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -109,6 +110,7 @@ function AppRoutes() {
         <Switch>
           {/* Owner / Manager */}
           <Route path="/dashboard"><DashboardPage /></Route>
+          <Route path="/flowai"><FlowAIPage /></Route>
           <Route path="/reports"><ReportsPage /></Route>
           <Route path="/employees"><EmployeesPage /></Route>
           <Route path="/branches"><BranchesPage /></Route>

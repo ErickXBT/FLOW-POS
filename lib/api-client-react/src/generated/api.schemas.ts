@@ -414,6 +414,7 @@ export interface Order {
   /** @nullable */
   branchId?: number | null;
   items?: OrderItem[];
+  isClaimReward?: boolean;
   createdAt: string;
 }
 
@@ -498,6 +499,10 @@ export interface Customer {
   /** @nullable */
   notes?: string | null;
   tenantId: number;
+  claimedDiscountActive?: boolean;
+  claimedMilestones?: number[];
+  /** @nullable */
+  activeReward?: string | null;
   createdAt: string;
 }
 

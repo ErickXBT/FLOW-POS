@@ -601,6 +601,7 @@ export const ListOrdersResponse = zod.object({
   "price": zod.number(),
   "subtotal": zod.number()
 })).optional(),
+  "isClaimReward": zod.boolean().optional(),
   "createdAt": zod.string()
 })),
   "total": zod.number(),
@@ -664,6 +665,7 @@ export const GetRecentOrdersResponseItem = zod.object({
   "price": zod.number(),
   "subtotal": zod.number()
 })).optional(),
+  "isClaimReward": zod.boolean().optional(),
   "createdAt": zod.string()
 })
 export const GetRecentOrdersResponse = zod.array(GetRecentOrdersResponseItem)
@@ -700,6 +702,7 @@ export const GetOrderResponse = zod.object({
   "price": zod.number(),
   "subtotal": zod.number()
 })).optional(),
+  "isClaimReward": zod.boolean().optional(),
   "createdAt": zod.string()
 })
 
@@ -739,6 +742,7 @@ export const UpdateOrderStatusResponse = zod.object({
   "price": zod.number(),
   "subtotal": zod.number()
 })).optional(),
+  "isClaimReward": zod.boolean().optional(),
   "createdAt": zod.string()
 })
 
@@ -765,6 +769,9 @@ export const ListCustomersResponse = zod.object({
   "membershipLevel": zod.enum(['regular', 'silver', 'gold', 'platinum']).optional(),
   "notes": zod.string().nullish(),
   "tenantId": zod.number(),
+  "claimedDiscountActive": zod.boolean().optional(),
+  "claimedMilestones": zod.array(zod.number()).optional(),
+  "activeReward": zod.string().nullish(),
   "createdAt": zod.string()
 })),
   "total": zod.number(),
@@ -804,6 +811,9 @@ export const GetCustomerResponse = zod.object({
   "membershipLevel": zod.enum(['regular', 'silver', 'gold', 'platinum']).optional(),
   "notes": zod.string().nullish(),
   "tenantId": zod.number(),
+  "claimedDiscountActive": zod.boolean().optional(),
+  "claimedMilestones": zod.array(zod.number()).optional(),
+  "activeReward": zod.string().nullish(),
   "createdAt": zod.string()
 })
 
@@ -835,6 +845,9 @@ export const UpdateCustomerResponse = zod.object({
   "membershipLevel": zod.enum(['regular', 'silver', 'gold', 'platinum']).optional(),
   "notes": zod.string().nullish(),
   "tenantId": zod.number(),
+  "claimedDiscountActive": zod.boolean().optional(),
+  "claimedMilestones": zod.array(zod.number()).optional(),
+  "activeReward": zod.string().nullish(),
   "createdAt": zod.string()
 })
 

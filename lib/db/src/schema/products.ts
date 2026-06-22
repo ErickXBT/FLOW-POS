@@ -18,6 +18,7 @@ export const productsTable = pgTable("products", {
   isActive: boolean("is_active").notNull().default(true),
   isBestSeller: boolean("is_best_seller").notNull().default(false),
   variantSettings: text("variant_settings"),
+  prepTime: integer("prep_time").notNull().default(5), // preparation time in minutes
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

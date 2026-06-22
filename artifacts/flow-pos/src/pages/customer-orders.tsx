@@ -38,6 +38,54 @@ const formatTableNumber = (num: string, isFashion: boolean) => {
   return `${prefix} #${clean}`;
 };
 
+const getRewardInfo = (notes: string | null, isClaimReward: boolean, discountAmount: number, subtotalAmount: number) => {
+  if (!isClaimReward) return null;
+
+  let notesClean = notes || "";
+  let rewardType = "";
+
+  const match = notesClean.match(/\[REWARD:([^\]]+)\]/);
+  if (match) {
+    rewardType = match[1];
+    notesClean = notesClean.replace(/\[REWARD:[^\]]+\]/, "").trim();
+  }
+
+  if (!rewardType && subtotalAmount > 0) {
+    const ratio = discountAmount / subtotalAmount;
+    if (Math.abs(ratio - 0.2) < 0.01) rewardType = "discount_20";
+    else if (Math.abs(ratio - 0.3) < 0.01) rewardType = "discount_30";
+    else if (Math.abs(ratio - 0.4) < 0.01) rewardType = "discount_40";
+    else if (Math.abs(ratio - 0.5) < 0.01) rewardType = "discount_50";
+    else if (Math.abs(ratio - 0.1) < 0.01) rewardType = "discount_10";
+    else rewardType = "grand_reward";
+  }
+
+  let badgeLabel = "🎁 Klaim Diskon 10%";
+  let rowLabel = "Diskon Poin (10%)";
+
+  if (rewardType === "grand_reward") {
+    badgeLabel = "🎁 Klaim Grand Reward";
+    rowLabel = "Grand Reward 1000 Poin";
+  } else if (rewardType === "discount_20") {
+    badgeLabel = "🎁 Klaim Diskon 20%";
+    rowLabel = "Diskon Poin (20%)";
+  } else if (rewardType === "discount_30") {
+    badgeLabel = "🎁 Klaim Diskon 30%";
+    rowLabel = "Diskon Poin (30%)";
+  } else if (rewardType === "discount_40") {
+    badgeLabel = "🎁 Klaim Diskon 40%";
+    rowLabel = "Diskon Poin (40%)";
+  } else if (rewardType === "discount_50") {
+    badgeLabel = "🎁 Klaim Diskon 50%";
+    rowLabel = "Diskon Poin (50%)";
+  } else if (rewardType === "discount_10") {
+    badgeLabel = "🎁 Klaim Diskon 10%";
+    rowLabel = "Diskon Poin (10%)";
+  }
+
+  return { badgeLabel, rowLabel, cleanNotes: notesClean || null };
+};
+
 export default function CustomerOrdersPage() {
   const { user } = useAuth();
   const { activeBranchId, activeBranchName } = useActiveBranch();
@@ -213,7 +261,20 @@ export default function CustomerOrdersPage() {
                   <div className="flex items-start justify-between gap-2">
                     <div>
                       <div className="font-mono text-xs text-muted-foreground">{order.orderNumber}</div>
-                      <div className="font-bold text-foreground text-sm mt-0.5">{order.customerName}</div>
+                      <div className="font-bold text-foreground text-sm mt-0.5 flex items-center gap-1.5 flex-wrap">
+                        <span>{order.customerName}</span>
+                        {order.isClaimReward && (
+                          <span className="relative flex h-2 w-2 mr-0.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                          </span>
+                        )}
+                        {order.isClaimReward && (
+                          <span className="text-[9px] font-black bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded animate-pulse">
+                            CLAIM REWARD
+                          </span>
+                        )}
+                      </div>
                       {order.customerPhone && <div className="text-xs text-muted-foreground">{order.customerPhone}</div>}
                     </div>
                     <div className="text-right flex-shrink-0">
@@ -223,10 +284,18 @@ export default function CustomerOrdersPage() {
                       <div className="text-xs text-muted-foreground mt-1">{timeAgo(order.createdAt)}</div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                  <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground flex-wrap">
                     <span>{displayTypeIcons[order.orderType]} {displayTypeLabels[order.orderType] ?? order.orderType}</span>
                     {order.tableNumber && <span>• {formatTableNumber(order.tableNumber, isFashion)}</span>}
                     <span>• {PAY_LABEL[order.paymentMethod] ?? order.paymentMethod}</span>
+                    {(() => {
+                      const rewardInfo = getRewardInfo(order.notes, order.isClaimReward, Number(order.discount), Number(order.subtotal));
+                      return rewardInfo && (
+                        <span className="text-[10px] font-bold text-amber-605 bg-amber-50 dark:bg-amber-950/20 px-2 py-0.5 rounded-lg border border-amber-200 flex items-center gap-1">
+                          {rewardInfo.badgeLabel}
+                        </span>
+                      );
+                    })()}
                   </div>
                 </div>
 
@@ -266,13 +335,47 @@ export default function CustomerOrdersPage() {
                       </a>
                     </div>
                   )}
-                  {order.notes && (
-                    <div className="mt-1 text-xs text-muted-foreground italic">"{order.notes}"</div>
-                  )}
+                  {(() => {
+                    const rewardInfo = getRewardInfo(order.notes, order.isClaimReward, Number(order.discount), Number(order.subtotal));
+                    const displayNotes = rewardInfo ? rewardInfo.cleanNotes : order.notes;
+                    return displayNotes && (
+                      <div className="mt-1 text-xs text-muted-foreground italic">"{displayNotes}"</div>
+                    );
+                  })()}
                 </div>
 
                 {/* Total */}
                 <div className="px-4 pb-3 border-t border-border/50 pt-2.5">
+                  {order.isClaimReward && Number(order.discount) > 0 && (
+                    <div className="space-y-1 pb-2 border-b border-dashed mb-2 text-xs text-muted-foreground">
+                      <div className="flex justify-between">
+                        <span>Subtotal</span>
+                        <span className="font-semibold text-foreground">{formatRp(Number(order.subtotal))}</span>
+                      </div>
+                      {(() => {
+                        const rewardInfo = getRewardInfo(order.notes, order.isClaimReward, Number(order.discount), Number(order.subtotal));
+                        const label = rewardInfo ? rewardInfo.rowLabel : "Diskon Poin (10%)";
+                        return (
+                          <div className="flex justify-between text-amber-600 font-bold">
+                            <span>{label}</span>
+                            <span>-{formatRp(Number(order.discount))}</span>
+                          </div>
+                        );
+                      })()}
+                      {Number(order.tax) > 0 && (
+                        <div className="flex justify-between">
+                          <span>Pajak</span>
+                          <span className="font-semibold text-foreground">{formatRp(Number(order.tax))}</span>
+                        </div>
+                      )}
+                      {Number(order.deliveryFee) > 0 && (
+                        <div className="flex justify-between">
+                          <span>Ongkir</span>
+                          <span className="font-semibold text-foreground">{formatRp(Number(order.deliveryFee))}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
                   <div className="flex justify-between items-center text-sm font-bold mb-3">
                     <span className="text-muted-foreground">Total</span>
                     <span className="text-primary text-base">{formatRp(Number(order.total))}</span>

@@ -3,6 +3,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { tenantsTable } from "./tenants";
 import { employeesTable } from "./employees";
+import { usersTable } from "./users";
 
 export const branchesTable = pgTable("branches", {
   id: serial("id").primaryKey(),
@@ -11,6 +12,7 @@ export const branchesTable = pgTable("branches", {
   address: text("address"),
   phone: text("phone"),
   status: text("status").notNull().default("active"), // active, inactive, locked
+  franchiseeId: integer("franchisee_id").references(() => usersTable.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

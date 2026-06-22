@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, Eye, X, ClipboardList, Download, ArrowLeft, ArrowRight } from "lucide-react";
+import { Search, Eye, X, ClipboardList, Download, ArrowLeft, ArrowRight, Trash2 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useActiveBranch } from "@/hooks/use-active-branch";
 
@@ -62,11 +62,42 @@ function formatDateTime(iso: string) {
   return { dateStr, relativeStr };
 }
 
-function OrderDetail({ id, onClose }: { id: number; onClose: () => void }) {
+function OrderDetail({ id, onClose, onVoidSuccess }: { id: number; onClose: () => void; onVoidSuccess?: () => void }) {
   const { user } = useAuth();
   const [order, setOrder] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const token = localStorage.getItem("flow_token") ?? "";
+
+  const [showVoidDialog, setShowVoidDialog] = useState(false);
+  const [voidReason, setVoidReason] = useState("");
+
+  const submitVoid = async () => {
+    if (!voidReason.trim()) return;
+    try {
+      const res = await fetch(`${BASE}/api/orders/${id}/void`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify({ voidReason })
+      });
+      if (res.ok) {
+        alert("Transaksi berhasil divalidasi sebagai Void!");
+        setShowVoidDialog(false);
+        setVoidReason("");
+        const data = await res.json();
+        setOrder(data);
+        if (onVoidSuccess) onVoidSuccess();
+      } else {
+        const err = await res.json();
+        alert(err.error || "Gagal void transaksi");
+      }
+    } catch (err) {
+      console.error("Failed to void order:", err);
+      alert("Gagal menghubungi server untuk void transaksi");
+    }
+  };
 
   useEffect(() => {
     const fetchDetail = async () => {
@@ -370,7 +401,14 @@ function OrderDetail({ id, onClose }: { id: number; onClose: () => void }) {
             <div className="space-y-4">
               <div>
                 <div className="text-muted-foreground text-xs font-semibold mb-1 uppercase tracking-wider">Customer</div>
-                <div className="font-bold text-foreground text-base leading-snug">{order.customerName || "-"}</div>
+                <div className="font-bold text-foreground text-base leading-snug flex items-center gap-1.5 flex-wrap">
+                  <span>{order.customerName || "-"}</span>
+                  {order.isClaimReward && (
+                    <span className="text-[10px] font-black bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded border border-amber-200 uppercase tracking-wide flex items-center gap-0.5 animate-pulse">
+                      🎁 Claim Reward
+                    </span>
+                  )}
+                </div>
               </div>
               
               {order.orderType === "delivery" && order.deliveryAddress && (
@@ -491,7 +529,67 @@ function OrderDetail({ id, onClose }: { id: number; onClose: () => void }) {
           >
             <Download size={16} /> Download Struk
           </button>
+          {(() => {
+            const canVoid = user?.role === "owner" || user?.role === "manager" || (user as any)?.role === "super_admin";
+            const isNotVoided = order.status !== "void" && order.status !== "cancelled" && order.status !== "refunded";
+            if (canVoid && isNotVoided) {
+              return (
+                <button
+                  onClick={() => setShowVoidDialog(true)}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 bg-destructive hover:bg-destructive/90 text-destructive-foreground font-bold text-sm rounded-xl active:scale-95 transition-all shadow-sm"
+                >
+                  <Trash2 size={16} /> Void Transaksi
+                </button>
+              );
+            }
+            return null;
+          })()}
         </div>
+
+        {/* Confirm Void Dialog Overlay */}
+        {showVoidDialog && (
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-xs flex items-center justify-center p-6 z-50 rounded-2xl">
+            <div className="bg-card border border-border rounded-2xl p-5 w-full max-w-sm shadow-2xl space-y-4">
+              <h3 className="font-bold text-base text-foreground flex items-center gap-2">
+                ⚠️ Konfirmasi Void Transaksi
+              </h3>
+              <p className="text-xs text-muted-foreground leading-normal">
+                Void transaksi ini akan menghapus omset dari sistem dan mencatat sebab pembatalan pada log aktivitas.
+              </p>
+              <div className="space-y-1">
+                <label className="block text-xs font-semibold text-foreground">
+                  Sebab Void (Alasan Pembatalan)
+                </label>
+                <textarea
+                  value={voidReason}
+                  onChange={(e) => setVoidReason(e.target.value)}
+                  placeholder="Contoh: Salah input item, Pelanggan membatalkan pesanan, dll..."
+                  rows={3}
+                  className="w-full px-3 py-2 border border-input rounded-xl text-xs bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary resize-none"
+                  required
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => {
+                    setShowVoidDialog(false);
+                    setVoidReason("");
+                  }}
+                  className="flex-1 py-2 border border-border text-foreground hover:bg-muted font-bold text-xs rounded-xl transition-all"
+                >
+                  Batal
+                </button>
+                <button
+                  onClick={submitVoid}
+                  disabled={!voidReason.trim()}
+                  className="flex-1 py-2 bg-destructive text-destructive-foreground font-bold text-xs rounded-xl hover:opacity-90 transition-all disabled:opacity-40"
+                >
+                  Void Sekarang
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -624,11 +722,25 @@ export default function OrdersPage() {
                         {o.orderType === "dine_in" && o.tableNumber ? (
                           <div className="flex flex-col">
                             <span className="font-bold text-foreground text-sm">{o.tableNumber}</span>
-                            <span className="text-xs text-muted-foreground">{o.customerName || "-"}</span>
+                            <div className="text-xs text-muted-foreground flex items-center gap-1.5 flex-wrap">
+                              <span>{o.customerName || "-"}</span>
+                              {o.isClaimReward && (
+                                <span className="text-[9px] font-black bg-amber-100 text-amber-805 px-1.5 py-0.2 rounded border border-amber-200 uppercase tracking-wide">
+                                  REWARD
+                                </span>
+                              )}
+                            </div>
                           </div>
                         ) : (
                           <div className="flex flex-col">
-                            <span className="font-semibold text-foreground text-sm">{o.customerName || "-"}</span>
+                            <div className="font-semibold text-foreground text-sm flex items-center gap-1.5 flex-wrap">
+                              <span>{o.customerName || "-"}</span>
+                              {o.isClaimReward && (
+                                <span className="text-[9px] font-black bg-amber-100 text-amber-805 px-1.5 py-0.2 rounded border border-amber-200 uppercase tracking-wide">
+                                  REWARD
+                                </span>
+                              )}
+                            </div>
                             {o.orderType === "delivery" && o.deliveryAddress && (
                               <span className="text-xs text-muted-foreground truncate max-w-[160px] mt-0.5">{o.deliveryAddress}</span>
                             )}
@@ -692,7 +804,7 @@ export default function OrdersPage() {
       )}
 
       {/* Order Detail Modal */}
-      {viewId && <OrderDetail id={viewId} onClose={() => setViewId(null)} />}
+      {viewId && <OrderDetail id={viewId} onClose={() => setViewId(null)} onVoidSuccess={fetchOrders} />}
     </div>
   );
 }

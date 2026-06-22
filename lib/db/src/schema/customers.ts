@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, integer, numeric } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, integer, numeric, boolean, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
@@ -12,6 +12,9 @@ export const customersTable = pgTable("customers", {
   totalSpent: numeric("total_spent", { precision: 15, scale: 2 }).notNull().default("0"),
   totalOrders: integer("total_orders").notNull().default(0),
   membershipLevel: text("membership_level").notNull().default("regular"), // regular, silver, gold, platinum
+  claimedDiscountActive: boolean("claimed_discount_active").notNull().default(false),
+  activeReward: text("active_reward"), // discount_10, discount_20, discount_30, discount_40, discount_50, grand_reward, or null
+  claimedMilestones: jsonb("claimed_milestones").$type<number[]>().notNull().default([]),
   notes: text("notes"),
   passwordHash: text("password_hash"),
   avatarUrl: text("avatar_url"),
