@@ -488,7 +488,7 @@ router.post("/auth/change-password", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Pengguna tidak ditemukan" });
     return;
   }
-  if (user.passwordHash !== hashPassword(currentPassword)) {
+  if (!verifyPassword(currentPassword, user.passwordHash)) {
     res.status(400).json({ error: "Password saat ini salah" });
     return;
   }
