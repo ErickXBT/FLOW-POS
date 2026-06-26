@@ -207,7 +207,7 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
       navItems.push({ href: "/dashboard", label: "Dashboard", icon: <LayoutDashboard size={18} /> });
     }
     if (user.role === "owner" || user.role === "manager" || hasPermission(user, "view_reports")) {
-      navItems.push({ href: "/flowai", label: "FlowAI Insights", icon: <Sparkles size={18} className="text-amber-500" /> });
+      navItems.push({ href: "/flowai", label: "FlowAI Insights", icon: <Sparkles size={18} /> });
     }
     if (hasPermission(user, "view_pos")) {
       navItems.push({ href: "/pos", label: "Kasir (POS)", icon: <ShoppingCart size={18} /> });
@@ -263,14 +263,14 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
       navItems.push({ href: "/settings", label: "Pengaturan", icon: <Settings size={18} /> });
     }
     if (user.role === "owner" || user.role === "manager" || user.role === "cashier" || hasPermission(user, "manage_settings")) {
-      navItems.push({ href: "/printer-settings", label: "Pengaturan Printer", icon: <Printer size={18} className="text-blue-400" /> });
+      navItems.push({ href: "/printer-settings", label: "Pengaturan Printer", icon: <Printer size={18} /> });
     }
     // Tenant Owner & Manager cash & stock transfer tools
     if (user.role === "owner" || user.role === "manager") {
-      navItems.push({ href: "/rekap-kas", label: "Rekap Kas Bulanan", icon: <Coins size={18} className="text-emerald-500" /> });
-      navItems.push({ href: "/mutasi-kas", label: "Mutasi Kas", icon: <ArrowLeftRight size={18} className="text-blue-500" /> });
-      navItems.push({ href: "/riwayat-cetak-struk", label: "Riwayat Cetak Struk", icon: <Receipt size={18} className="text-amber-500" /> });
-      navItems.push({ href: "/ambil-stok", label: "Ambil/Saluran Stok", icon: <Warehouse size={18} className="text-indigo-500" /> });
+      navItems.push({ href: "/rekap-kas", label: "Rekap Kas Bulanan", icon: <Coins size={18} /> });
+      navItems.push({ href: "/mutasi-kas", label: "Mutasi Kas", icon: <ArrowLeftRight size={18} /> });
+      navItems.push({ href: "/riwayat-cetak-struk", label: "Riwayat Cetak Struk", icon: <Receipt size={18} /> });
+      navItems.push({ href: "/ambil-stok", label: "Ambil/Saluran Stok", icon: <Warehouse size={18} /> });
     }
   }
 
