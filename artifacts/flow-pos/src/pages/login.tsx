@@ -58,7 +58,9 @@ export default function LoginPage({ onLogin }: { onLogin: (token: string, user: 
         onLogin(data.token, data.user);
         setLocation("/dashboard");
       },
-      onError: () => setError("Email atau password salah"),
+      onError: (err: any) => {
+        setError(err.data?.error || err.data?.message || err.message || "Email atau password salah");
+      },
     });
   };
 
