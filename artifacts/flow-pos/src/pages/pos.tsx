@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useListProducts, useListCategories, useCreateOrder, getListOrdersQueryKey, useGetTenant, useListEmployees } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Banknote, Smartphone, QrCode, X, Check, Package, Sparkles, Gift, Percent, Printer } from "lucide-react";
+import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Banknote, Smartphone, QrCode, X, Check, Package, Sparkles, Gift, Percent, Printer, Download } from "lucide-react";
 import { useActiveBranch } from "@/hooks/use-active-branch";
 import { Link } from "wouter";
 
@@ -58,6 +58,8 @@ export default function POSPage() {
   const [selectedEmpId, setSelectedEmpId] = useState("");
   const [customCashierName, setCustomCashierName] = useState("");
   const [isPriority, setIsPriority] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [lastCreatedOrder, setLastCreatedOrder] = useState<any | null>(null);
 
   const fetchActiveShift = async () => {
     if (!activeBranchId) return;
@@ -486,7 +488,7 @@ export default function POSPage() {
         } as any)
       }
     }, {
-      onSuccess: () => {
+      onSuccess: (data: any) => {
         setCart([]);
         setDiscount(0);
         setSelectedCouponCode("");
@@ -500,8 +502,393 @@ export default function POSPage() {
         fetchActiveShift(); // Refresh shift calculations
         queryClient.invalidateQueries({ queryKey: getListOrdersQueryKey() });
         setTimeout(() => setSuccess(false), 3000);
+        setLastCreatedOrder(data);
+        setShowSuccessModal(true);
       }
     });
+  };
+
+  const handlePrintReceipt = (order: any) => {
+    if (!order) return;
+    const storeName = tenant?.name || "Flow POS Kasir";
+    const storeAddress = tenant?.address || "";
+    const storePhone = tenant?.phone || "";
+    
+    let paperSize = "58mm";
+    try {
+      const stored = localStorage.getItem("flow_printer_settings");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed.paperSize) paperSize = parsed.paperSize;
+      }
+    } catch (e) {}
+
+    const paperWidth = paperSize === "58mm" ? "280px" : "380px";
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Pop-up Terblokir! Silakan izinkan pop-up di browser Anda untuk mencetak struk.");
+      return;
+    }
+
+    const formattedDate = new Date(order.createdAt).toLocaleString("id-ID", {
+      day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
+    });
+
+    const itemsHtml = (order.items || []).map((item: any) => `
+      <div class="item-row">
+        <span>${item.quantity}x ${item.productName || item.name}</span>
+        <span>${formatRp(Number(item.subtotal))}</span>
+      </div>
+      ${item.variantSelection ? `
+      <div class="item-row" style="font-size: 10px; color: #555; margin-top: -2px; margin-bottom: 2px;">
+        <span>&nbsp;&nbsp;Varian: ${item.variantSelection}</span>
+        <span></span>
+      </div>` : ""}
+      ${item.notes ? `
+      <div class="item-row" style="font-size: 10px; color: #555; margin-top: -2px; margin-bottom: 2px; font-style: italic;">
+        <span>&nbsp;&nbsp;"${item.notes}"</span>
+        <span></span>
+      </div>` : ""}
+    `).join("");
+
+    let totalsHtml = `
+      <div class="item-row">
+        <span>Subtotal</span>
+        <span>${formatRp(Number(order.subtotal))}</span>
+      </div>
+    `;
+
+    if (Number(order.discount) > 0) {
+      totalsHtml += `
+        <div class="item-row">
+          <span>Diskon</span>
+          <span>-${formatRp(Number(order.discount))}</span>
+        </div>
+      `;
+    }
+    if (Number(order.serviceCharge) > 0) {
+      totalsHtml += `
+        <div class="item-row">
+          <span>Biaya Servis</span>
+          <span>${formatRp(Number(order.serviceCharge))}</span>
+        </div>
+      `;
+    }
+    if (Number(order.tax) > 0) {
+      totalsHtml += `
+        <div class="item-row">
+          <span>Pajak (PB1)</span>
+          <span>${formatRp(Number(order.tax))}</span>
+        </div>
+      `;
+    }
+
+    const htmlContent = `
+      <html>
+        <head>
+          <title>Nota - ${storeName}</title>
+          <style>
+            @media print {
+              body { margin: 0; padding: 10px; }
+            }
+            body {
+              font-family: 'Courier New', Courier, monospace;
+              width: ${paperWidth};
+              font-size: 12px;
+              color: #000;
+              margin: 0 auto;
+              padding: 20px;
+              background-color: #fff;
+            }
+            .text-center { text-align: center; }
+            .divider { border-top: 1px dashed #000; margin: 8px 0; }
+            .item-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
+            .footer-msg { font-size: 11px; margin-top: 15px; }
+          </style>
+        </head>
+        <body>
+          <div class="text-center">
+            <h3 style="margin: 0 0 4px 0;">${storeName.toUpperCase()}</h3>
+            ${storeAddress ? `<p style="margin: 0 0 2px 0; font-size: 10px;">${storeAddress}</p>` : ""}
+            ${storePhone ? `<p style="margin: 0 0 8px 0; font-size: 10px;">Telp: ${storePhone}</p>` : ""}
+          </div>
+          <div class="divider"></div>
+          <div>
+            <p style="margin: 0 0 4px 0;">Nota: ${order.orderNumber}</p>
+            <p style="margin: 0 0 4px 0;">Tanggal: ${formattedDate}</p>
+            <p style="margin: 0 0 4px 0;">Kasir: ${order.employeeName || "Kasir Utama"}</p>
+            ${order.customerName ? `<p style="margin: 0 0 4px 0;">Pelanggan: ${order.customerName}</p>` : ""}
+            ${order.tableNumber ? `<p style="margin: 0 0 4px 0;">Meja: ${order.tableNumber}</p>` : ""}
+          </div>
+          <div class="divider"></div>
+          ${itemsHtml}
+          <div class="divider"></div>
+          ${totalsHtml}
+          <div class="divider"></div>
+          <div class="item-row" style="font-weight: bold; font-size: 14px;">
+            <span>TOTAL</span>
+            <span>${formatRp(Number(order.total))}</span>
+          </div>
+          <div class="divider"></div>
+          <div class="text-center footer-msg">
+            <p style="margin: 0 0 4px 0;">Terima kasih atas kunjungan Anda!</p>
+            <p style="margin: 0 0 8px 0;">Selamat menikmati 🍽️</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
+    printWindow.focus();
+    
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 500);
+  };
+
+  const handleDownloadReceipt = (order: any) => {
+    if (!order) return;
+
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    const wordWrap = (str: string, maxLength: number): string[] => {
+      const words = str.split(" ");
+      const lines: string[] = [];
+      let currentLine = "";
+      for (const word of words) {
+        if ((currentLine + " " + word).trim().length <= maxLength) {
+          currentLine = (currentLine + " " + word).trim();
+        } else {
+          if (currentLine) lines.push(currentLine);
+          currentLine = word;
+        }
+      }
+      if (currentLine) lines.push(currentLine);
+      return words.length > 0 ? lines : [""];
+    };
+
+    const getPaymentLabel = (method: string) => {
+      switch (method) {
+        case "cash": return "Tunai";
+        case "qris": return "QRIS";
+        case "bank_transfer": return "Transfer";
+        case "ewallet": return "E-Wallet";
+        default: return method || "-";
+      }
+    };
+
+    const formattedDate = new Date(order.createdAt).toLocaleString("id-ID", {
+      day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
+    });
+
+    const metaRows = [
+      { label: "Tanggal", value: formattedDate },
+      { label: "Tipe", value: order.orderType === "dine_in" ? "Dine In" : order.orderType === "take_away" ? "Take Away" : "Delivery" }
+    ];
+    if (order.orderType === "delivery" && order.deliveryAddress) {
+      metaRows.push({ label: "Alamat", value: order.deliveryAddress });
+    } else if (order.orderType === "dine_in" && order.tableNumber) {
+      metaRows.push({ label: "Meja", value: order.tableNumber });
+    }
+    metaRows.push({ label: "Nama", value: order.customerName || "-" });
+    metaRows.push({ label: "Pembayaran", value: getPaymentLabel(order.paymentMethod) });
+    metaRows.push({ label: "Kasir", value: order.employeeName || "Kasir Utama" });
+
+    const formattedMetaLines: string[] = [];
+    metaRows.forEach(row => {
+      const paddedLabel = row.label.padEnd(10, " ");
+      const prefix = `${paddedLabel} : `;
+      const valLines = wordWrap(row.value, 29);
+      valLines.forEach((line, idx) => {
+        if (idx === 0) {
+          formattedMetaLines.push(prefix + line);
+        } else {
+          formattedMetaLines.push("".padEnd(13, " ") + line);
+        }
+      });
+    });
+
+    const processedItems = (order.items || []).map((item: any) => {
+      const productName = item.productName || item.name || "Produk";
+      const nameLines = wordWrap(productName, 27);
+      const varLines = item.variantSelection ? wordWrap(item.variantSelection, 45) : [];
+      return { item, nameLines, varLines };
+    });
+
+    const headerH = 135;
+    const divider1H = 20;
+    const metaH = formattedMetaLines.length * 22;
+    const divider2H = 20;
+    
+    let itemsH = 0;
+    processedItems.forEach((pi: any) => {
+      itemsH += pi.nameLines.length * 22;
+      itemsH += pi.varLines.length * 16;
+      itemsH += 8;
+    });
+    
+    const divider3H = 20;
+    
+    let totalsCount = 1;
+    if (Number(order.subtotal) > 0) totalsCount++;
+    if (Number(order.discount || 0) > 0) totalsCount++;
+    if (Number(order.serviceCharge || 0) > 0) totalsCount++;
+    if (Number(order.tax || 0) > 0) totalsCount++;
+    
+    const totalsH = totalsCount * 22 + 25;
+    const divider4H = 20;
+    const footerH = 80;
+
+    canvas.width = 400;
+    canvas.height = headerH + divider1H + metaH + divider2H + itemsH + divider3H + totalsH + divider4H + footerH;
+
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    ctx.fillStyle = "#000000";
+    ctx.textAlign = "center";
+
+    const brandName = tenant?.name || "Flow POS";
+    ctx.font = "bold 24px 'Courier New', monospace";
+    ctx.fillText(brandName, canvas.width / 2, 35);
+
+    const branchNameStr = order.branchName ? `Cabang: ${order.branchName}` : "";
+    if (branchNameStr) {
+      ctx.font = "bold 14px 'Courier New', monospace";
+      ctx.fillText(branchNameStr, canvas.width / 2, 55);
+    }
+
+    ctx.font = "bold 15px 'Courier New', monospace";
+    ctx.fillText("Struk Pembelian", canvas.width / 2, 75);
+    
+    ctx.font = "14px 'Courier New', monospace";
+    ctx.fillText(`Order #${order.id || order.orderNumber || ''}`, canvas.width / 2, 100);
+
+    ctx.textAlign = "left";
+    const divider = "------------------------------------------";
+    
+    let y = 125;
+    ctx.font = "14px 'Courier New', monospace";
+    ctx.fillText(divider, 20, y);
+    y += 20;
+
+    formattedMetaLines.forEach(line => {
+      ctx.font = "14px 'Courier New', monospace";
+      ctx.fillText(line, 20, y);
+      y += 22;
+    });
+
+    ctx.fillText(divider, 20, y);
+    y += 20;
+
+    processedItems.forEach((pi: any) => {
+      ctx.font = "14px 'Courier New', monospace";
+      ctx.fillStyle = "#d97706";
+      ctx.fillText(`${pi.item.quantity}x`, 20, y);
+      
+      ctx.fillStyle = "#000000";
+      ctx.fillText(pi.nameLines[0], 50, y);
+
+      ctx.textAlign = "right";
+      ctx.font = "bold 14px 'Courier New', monospace";
+      ctx.fillText(formatRp(Number(pi.item.subtotal || pi.item.price * pi.item.quantity)), canvas.width - 20, y);
+      ctx.textAlign = "left";
+      y += 22;
+
+      ctx.font = "14px 'Courier New', monospace";
+      for (let i = 1; i < pi.nameLines.length; i++) {
+        ctx.fillText(pi.nameLines[i], 50, y);
+        y += 22;
+      }
+
+      ctx.font = "11px 'Courier New', monospace";
+      ctx.fillStyle = "#555555";
+      pi.varLines.forEach((line: string) => {
+        ctx.fillText(line, 50, y);
+        y += 16;
+      });
+      ctx.fillStyle = "#000000";
+      y += 8;
+    });
+
+    ctx.font = "14px 'Courier New', monospace";
+    ctx.fillText(divider, 20, y);
+    y += 20;
+
+    const drawTotalRow = (label: string, value: string, isBold = false) => {
+      ctx.font = isBold ? "bold 16px 'Courier New', monospace" : "14px 'Courier New', monospace";
+      ctx.fillText(label, 20, y);
+      ctx.textAlign = "right";
+      ctx.fillText(value, canvas.width - 20, y);
+      ctx.textAlign = "left";
+      y += 22;
+    };
+
+    drawTotalRow("Subtotal", formatRp(Number(order.subtotal)));
+    if (Number(order.discount || 0) > 0) {
+      drawTotalRow("Diskon", `-${formatRp(Number(order.discount))}`);
+    }
+    if (Number(order.serviceCharge || 0) > 0) {
+      drawTotalRow("Biaya Servis", formatRp(Number(order.serviceCharge)));
+    }
+    if (Number(order.tax || 0) > 0) {
+      drawTotalRow("Pajak (PB1)", formatRp(Number(order.tax)));
+    }
+
+    y += 5;
+    ctx.lineWidth = 1.5;
+    ctx.strokeStyle = "#000000";
+    ctx.beginPath();
+    ctx.moveTo(20, y);
+    ctx.lineTo(canvas.width - 20, y);
+    ctx.stroke();
+    y += 20;
+
+    drawTotalRow("TOTAL", formatRp(Number(order.total)), true);
+
+    ctx.font = "14px 'Courier New', monospace";
+    ctx.fillText(divider, 20, y);
+    y += 20;
+
+    ctx.textAlign = "center";
+    ctx.font = "italic 13px 'Courier New', monospace";
+    ctx.fillText(`Terima kasih telah memesan di ${brandName}!`, canvas.width / 2, y);
+    y += 20;
+    ctx.fillText("Selamat menikmati 🍽️", canvas.width / 2, y);
+
+    let tenantCode = "FM";
+    if (brandName) {
+      const lower = brandName.toLowerCase();
+      if (lower.includes("freshmood") || lower.includes("fresh mood")) {
+        tenantCode = "FM";
+      } else {
+        const words = brandName.trim().split(/\s+/);
+        if (words.length >= 2) {
+          tenantCode = (words[0].charAt(0) + words[1].charAt(0)).toUpperCase();
+        } else {
+          tenantCode = brandName.slice(0, 2).toUpperCase();
+        }
+      }
+    }
+    const filename = `${tenantCode}${order.id || order.orderNumber || Date.now()}.jpg`;
+
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.style.display = "none";
+      link.download = filename;
+      link.href = url;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 100);
+    }, "image/jpeg", 0.95);
   };
 
   const handleCheckoutClick = () => {
@@ -1508,6 +1895,78 @@ export default function POSPage() {
                 className="w-full py-2.5 bg-primary text-primary-foreground font-bold text-xs rounded-xl hover:opacity-90 active:scale-95 transition-all shadow"
               >
                 Selesai
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Checkout Success Modal */}
+      {showSuccessModal && lastCreatedOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-card border border-card-border rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden flex flex-col animate-scale-up">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-muted/20">
+              <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
+                🎉 Transaksi Berhasil
+              </h3>
+              <button
+                onClick={() => setShowSuccessModal(false)}
+                className="p-1 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            
+            <div className="p-5 space-y-4">
+              <div className="text-center py-2">
+                <div className="w-12 h-12 bg-green-500/10 rounded-full flex items-center justify-center mx-auto mb-2">
+                  <Check className="text-green-600" size={24} />
+                </div>
+                <h4 className="font-bold text-base text-foreground">Pembayaran Berhasil</h4>
+                <p className="text-xs text-muted-foreground mt-0.5 font-mono">
+                  {lastCreatedOrder.orderNumber}
+                </p>
+              </div>
+
+              <div className="bg-muted/10 border border-border/40 rounded-xl p-3.5 space-y-2 text-xs">
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Metode Bayar:</span>
+                  <span className="font-bold text-foreground uppercase">{lastCreatedOrder.paymentMethod}</span>
+                </div>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Waktu:</span>
+                  <span className="font-semibold text-foreground">
+                    {new Date(lastCreatedOrder.createdAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                </div>
+                <div className="flex justify-between text-muted-foreground pt-1 border-t border-border/40">
+                  <span>Total Pembayaran:</span>
+                  <span className="font-extrabold text-primary text-sm">{formatRp(Number(lastCreatedOrder.total))}</span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <button
+                  onClick={() => handlePrintReceipt(lastCreatedOrder)}
+                  className="w-full py-2.5 bg-primary text-primary-foreground font-bold text-xs rounded-xl hover:opacity-90 active:scale-95 transition-all shadow flex items-center justify-center gap-2"
+                >
+                  <Printer size={15} /> Cetak Struk (Print)
+                </button>
+                <button
+                  onClick={() => handleDownloadReceipt(lastCreatedOrder)}
+                  className="w-full py-2.5 bg-muted border border-border text-foreground hover:bg-muted/80 font-bold text-xs rounded-xl active:scale-95 transition-all flex items-center justify-center gap-2"
+                >
+                  <Download size={15} /> Download Struk (JPG)
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-border bg-muted/10">
+              <button
+                onClick={() => setShowSuccessModal(false)}
+                className="w-full py-2 bg-slate-900 dark:bg-slate-800 text-white font-bold text-xs rounded-xl hover:opacity-90 active:scale-95 transition-all"
+              >
+                Transaksi Baru
               </button>
             </div>
           </div>

@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { QrCode, Plus, Trash2, Download, Copy, Check, ExternalLink, Globe, MapPin } from "lucide-react";
+import { QrCode, Plus, Trash2, Download, Copy, Check, ExternalLink, Globe, MapPin, Printer } from "lucide-react";
 import QRCode from "qrcode";
 import { useActiveBranch } from "@/hooks/use-active-branch";
 
@@ -221,6 +221,107 @@ export default function QrManagerPage() {
     a.href = dataUrl;
     a.download = `qr-${name}.png`;
     a.click();
+  }
+
+  function printQR(qrImg: string, tableId: string, branchName: string, label: string) {
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) {
+      alert("Pop-up Terblokir! Silakan izinkan pop-up di browser Anda untuk mencetak QR Code.");
+      return;
+    }
+
+    const htmlContent = `
+      <html>
+        <head>
+          <title>Print QR Meja ${tableId}</title>
+          <style>
+            @media print {
+              body { margin: 0; padding: 0; }
+              @page { size: auto; margin: 0; }
+            }
+            body {
+              font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+              text-align: center;
+              padding: 20px;
+              color: #333;
+              background-color: #fff;
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+              justify-content: center;
+              height: 100vh;
+              box-sizing: border-box;
+            }
+            .card {
+              border: 3px solid #1D4EF5;
+              border-radius: 20px;
+              padding: 30px;
+              width: 320px;
+              box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+              display: flex;
+              flex-direction: column;
+              align-items: center;
+            }
+            .logo {
+              font-size: 24px;
+              font-weight: 800;
+              color: #1D4EF5;
+              margin-bottom: 5px;
+            }
+            .branch {
+              font-size: 12px;
+              color: #666;
+              margin-bottom: 20px;
+              font-weight: 600;
+            }
+            .qr-image {
+              width: 200px;
+              height: 200px;
+              margin-bottom: 20px;
+            }
+            .table-number {
+              font-size: 28px;
+              font-weight: 800;
+              color: #111;
+              margin-bottom: 5px;
+            }
+            .instruction {
+              font-size: 13px;
+              color: #555;
+              font-weight: 500;
+            }
+            .label-tag {
+              font-size: 11px;
+              background-color: #EBF0FF;
+              color: #1D4EF5;
+              padding: 4px 8px;
+              border-radius: 6px;
+              font-weight: bold;
+              margin-top: 10px;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <div class="logo font-sans">Flow POS</div>
+            <div class="branch font-sans">${branchName}</div>
+            <img class="qr-image" src="${qrImg}" />
+            <div class="table-number font-sans">${isFashion ? "Fitting Room" : "MEJA"} ${tableId}</div>
+            <div class="instruction font-sans">Scan untuk melihat Menu & Memesan</div>
+            ${label ? `<div class="label-tag font-sans">${label}</div>` : ""}
+          </div>
+          <script>
+            window.onload = function() {
+              window.print();
+              setTimeout(function() { window.close(); }, 500);
+            };
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
   }
 
   const publicMenuUrl = slug ? `${window.location.origin}${BASE}/menu/${slug}` : "";
@@ -521,6 +622,12 @@ export default function QrManagerPage() {
                           <button onClick={() => downloadQR(qrImg, isFashion ? `qr-fitting-${qr.tableId}` : `qr-meja-${qr.tableId}`)}
                             className="flex items-center gap-1 text-[10px] bg-primary/10 text-primary px-2 py-1 rounded-md hover:bg-primary/20 transition-colors font-sans">
                             <Download size={10} /> Save PNG
+                          </button>
+                        )}
+                        {qrImg && (
+                          <button onClick={() => printQR(qrImg, qr.tableId, branchName, qr.label)}
+                            className="flex items-center gap-1 text-[10px] bg-indigo-50 text-indigo-650 px-2 py-1 rounded-md hover:bg-indigo-150 transition-colors font-sans">
+                            <Printer size={10} /> Print QR
                           </button>
                         )}
                         <button onClick={() => deleteQrCode(qr.id)}

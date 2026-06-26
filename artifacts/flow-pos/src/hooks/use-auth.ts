@@ -92,12 +92,13 @@ export function useAuth() {
         const data = await res.json();
         setUser(data);
       } else {
-        setStoredToken(null);
-        setUser(null);
+        if (res.status === 401 || res.status === 403) {
+          setStoredToken(null);
+          setUser(null);
+        }
       }
     } catch {
-      setStoredToken(null);
-      setUser(null);
+      // Keep token on network/offline errors to avoid auto-logout
     } finally {
       setLoading(false);
     }

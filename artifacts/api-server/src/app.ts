@@ -14,6 +14,8 @@ import { rateLimit } from "express-rate-limit";
 
 const app: Express = express();
 
+app.set("trust proxy", true);
+
 app.use(
   pinoHttp({
     logger,
@@ -80,12 +82,28 @@ app.use(
 );
 
 // Rate Limiting Config
+const whitelistedIps = process.env.WHITELISTED_IPS
+  ? process.env.WHITELISTED_IPS.split(",").map(ip => ip.trim())
+  : [];
+
+const skipRateLimit = (req: any) => {
+  if (process.env.NODE_ENV === "development") {
+    return true;
+  }
+  const clientIp = req.ip || req.socket.remoteAddress || "";
+  if (whitelistedIps.includes(clientIp)) {
+    return true;
+  }
+  return false;
+};
+
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // Limit each IP to 100 requests per windowMs
   message: { error: "Terlalu banyak permintaan dari IP ini, silakan coba lagi setelah 15 menit." },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: skipRateLimit,
 });
 
 const authLimiter = rateLimit({
@@ -94,6 +112,7 @@ const authLimiter = rateLimit({
   message: { error: "Terlalu banyak percobaan masuk/daftar. Silakan coba lagi setelah 15 menit demi keamanan akun Anda." },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: skipRateLimit,
 });
 
 // Apply rate limiting
