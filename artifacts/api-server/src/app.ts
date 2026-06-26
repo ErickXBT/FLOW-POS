@@ -292,7 +292,7 @@ app.use("/api", async (req: any, res: any, next: any) => {
   ];
 
   // Exclude public paths and public menu routes
-  const isPublicPath = publicPaths.some(p => req.path.startsWith(p)) || req.path.startsWith("/api/menu/");
+  const isPublicPath = publicPaths.some(p => req.originalUrl.startsWith(p)) || req.originalUrl.startsWith("/api/menu/");
 
   if (isPublicPath) {
     return next();
@@ -322,7 +322,7 @@ app.use("/api", async (req: any, res: any, next: any) => {
         if (tenant.status === "suspended" || tenant.status === "frozen") {
           const isAllowedPath = [
             "/api/auth/logout",
-          ].some(p => req.path.startsWith(p));
+          ].some(p => req.originalUrl.startsWith(p));
 
           if (!isAllowedPath) {
             res.status(403).json({
@@ -346,7 +346,7 @@ app.use("/api", async (req: any, res: any, next: any) => {
             "/api/tenant",
             "/api/tenant/subscription",
             "/api/subscriptions/plans",
-          ].some(p => req.path.startsWith(p));
+          ].some(p => req.originalUrl.startsWith(p));
 
           if (!isAllowedPath) {
             res.status(402).json({ error: "trial_expired", message: "Masa uji coba gratis Anda telah habis. Silakan hubungi admin atau lakukan upgrade ke FlowApp UMKM." });
