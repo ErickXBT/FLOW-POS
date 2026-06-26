@@ -27,3 +27,18 @@ export const insertSubscriptionSchema = createInsertSchema(subscriptionsTable).o
 export type InsertSubscription = z.infer<typeof insertSubscriptionSchema>;
 export type Subscription = typeof subscriptionsTable.$inferSelect;
 export type SubscriptionPlan = typeof subscriptionPlansTable.$inferSelect;
+
+export const subscriptionUpgradeRequestsTable = pgTable("subscription_upgrade_requests", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").notNull(),
+  requestedPlan: text("requested_plan").notNull(), // trial, starter, business, pro, enterprise
+  billingCycle: text("billing_cycle").notNull(), // monthly, yearly
+  status: text("status").notNull().default("pending"), // pending, approved, rejected
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
+});
+
+export const insertSubscriptionUpgradeRequestSchema = createInsertSchema(subscriptionUpgradeRequestsTable).omit({ id: true, createdAt: true, updatedAt: true });
+export type InsertSubscriptionUpgradeRequest = z.infer<typeof insertSubscriptionUpgradeRequestSchema>;
+export type SubscriptionUpgradeRequest = typeof subscriptionUpgradeRequestsTable.$inferSelect;
+

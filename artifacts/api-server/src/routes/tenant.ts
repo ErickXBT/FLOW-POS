@@ -1,7 +1,7 @@
 import { Router, type IRouter } from "express";
 import { eq, and } from "drizzle-orm";
-import { db, tenantsTable, subscriptionsTable, subscriptionPlansTable, publicMenusTable, usersTable } from "@workspace/db";
-import { UpdateTenantBody } from "@workspace/api-zod";
+import { db, tenantsTable, subscriptionsTable, subscriptionPlansTable, publicMenusTable, usersTable, subscriptionUpgradeRequestsTable } from "@workspace/db";
+import { UpdateTenantBody, CreateSubscriptionUpgradeRequestBody } from "@workspace/api-zod";
 import { extractToken } from "./auth";
 
 const router: IRouter = Router();
@@ -36,6 +36,9 @@ router.get("/tenant", async (req, res): Promise<void> => {
 
   res.json({
     ...tenant,
+    taxPercentage: tenant.taxPercentage ? Number(tenant.taxPercentage) : 10,
+    enableServiceCharge: tenant.enableServiceCharge ?? false,
+    serviceChargePercentage: tenant.serviceChargePercentage ? Number(tenant.serviceChargePercentage) : 10,
     subscriptionExpiresAt: tenant.subscriptionExpiresAt?.toISOString() ?? null,
     createdAt: tenant.createdAt.toISOString(),
   });
@@ -62,6 +65,9 @@ router.patch("/tenant", async (req, res): Promise<void> => {
 
   res.json({
     ...tenant,
+    taxPercentage: tenant.taxPercentage ? Number(tenant.taxPercentage) : 10,
+    enableServiceCharge: tenant.enableServiceCharge ?? false,
+    serviceChargePercentage: tenant.serviceChargePercentage ? Number(tenant.serviceChargePercentage) : 10,
     subscriptionExpiresAt: tenant.subscriptionExpiresAt?.toISOString() ?? null,
     createdAt: tenant.createdAt.toISOString(),
   });
@@ -78,6 +84,12 @@ router.get("/tenant/subscription", async (req, res): Promise<void> => {
 
   if (!sub) { res.status(404).json({ error: "No subscription" }); return; }
 
+  const [pending] = await db.select().from(subscriptionUpgradeRequestsTable)
+    .where(and(
+      eq(subscriptionUpgradeRequestsTable.tenantId, claims.tenantId),
+      eq(subscriptionUpgradeRequestsTable.status, "pending")
+    ));
+
   res.json({
     id: sub.id,
     plan: sub.plan,
@@ -85,6 +97,55 @@ router.get("/tenant/subscription", async (req, res): Promise<void> => {
     price: Number(sub.price),
     startedAt: sub.startedAt.toISOString(),
     expiresAt: sub.expiresAt.toISOString(),
+    pendingUpgradeRequest: pending ? {
+      id: pending.id,
+      tenantId: pending.tenantId,
+      requestedPlan: pending.requestedPlan,
+      billingCycle: pending.billingCycle,
+      status: pending.status,
+      createdAt: pending.createdAt.toISOString(),
+      updatedAt: pending.updatedAt.toISOString(),
+    } : null,
+  });
+});
+
+router.post("/tenant/upgrade-request", async (req, res): Promise<void> => {
+  const claims = requireAuth(req, res);
+  if (!claims) return;
+  if (!claims.tenantId) { res.status(400).json({ error: "No tenant" }); return; }
+
+  const body = CreateSubscriptionUpgradeRequestBody.safeParse(req.body);
+  if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
+
+  const { requestedPlan, billingCycle } = body.data;
+
+  // Check if there is already a pending upgrade request for this tenant
+  const [existingPending] = await db.select().from(subscriptionUpgradeRequestsTable)
+    .where(and(
+      eq(subscriptionUpgradeRequestsTable.tenantId, claims.tenantId),
+      eq(subscriptionUpgradeRequestsTable.status, "pending")
+    ));
+
+  if (existingPending) {
+    res.status(400).json({ error: "Anda sudah memiliki permintaan upgrade yang sedang diproses." });
+    return;
+  }
+
+  const [newRequest] = await db.insert(subscriptionUpgradeRequestsTable).values({
+    tenantId: claims.tenantId,
+    requestedPlan,
+    billingCycle,
+    status: "pending",
+  }).returning();
+
+  res.json({
+    id: newRequest.id,
+    tenantId: newRequest.tenantId,
+    requestedPlan: newRequest.requestedPlan,
+    billingCycle: newRequest.billingCycle,
+    status: newRequest.status,
+    createdAt: newRequest.createdAt.toISOString(),
+    updatedAt: newRequest.updatedAt.toISOString(),
   });
 });
 

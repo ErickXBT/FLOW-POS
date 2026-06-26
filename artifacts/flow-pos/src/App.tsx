@@ -34,6 +34,11 @@ const queryClient = new QueryClient({
 
 import BranchesPage from "@/pages/branches";
 import RolesPage from "@/pages/roles";
+import RekapKasPage from "@/pages/rekap-kas";
+import MutasiKasPage from "@/pages/mutasi-kas";
+import RiwayatCetakStrukPage from "@/pages/riwayat-cetak-struk";
+import AmbilStokPage from "@/pages/ambil-stok";
+import PrinterSettingsPage from "@/pages/printer-settings";
 
 // Default landing page per role after login
 function defaultRoute(user: AuthUser): string {
@@ -120,6 +125,11 @@ function AppRoutes() {
           <Route path="/settings"><SettingsPage /></Route>
           <Route path="/qr-menu"><QrManagerPage /></Route>
           <Route path="/activity-logs"><ActivityLogsPage /></Route>
+          <Route path="/rekap-kas"><RekapKasPage /></Route>
+          <Route path="/mutasi-kas"><MutasiKasPage /></Route>
+          <Route path="/riwayat-cetak-struk"><RiwayatCetakStrukPage /></Route>
+          <Route path="/ambil-stok"><AmbilStokPage /></Route>
+          <Route path="/printer-settings"><PrinterSettingsPage /></Route>
 
           {/* All operational roles */}
           <Route path="/pos"><POSPage /></Route>

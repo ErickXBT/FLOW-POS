@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef } from "react";
-import { useGetTenant, useUpdateTenant, useGetTenantSubscription, getGetTenantQueryKey } from "@workspace/api-client-react";
+import { useGetTenant, useUpdateTenant, useGetTenantSubscription, getGetTenantQueryKey, useCreateSubscriptionUpgradeRequest, getGetTenantSubscriptionQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Building2, Save, CreditCard, Image, UploadCloud, Trash2, Lock, User } from "lucide-react";
+import { Building2, Save, CreditCard, Image, UploadCloud, Trash2, Lock, User, Printer, Clock, ArrowUpCircle, Check, X } from "lucide-react";
 import { useAuth, ROLE_LABELS } from "@/hooks/use-auth";
+import { Link } from "wouter";
 
 const ALL_BUSINESS_TYPES = [
   { value: "fnb", label: "F&B" },
@@ -17,6 +18,13 @@ export default function SettingsPage() {
   const { data: sub } = useGetTenantSubscription();
   const updateTenant = useUpdateTenant();
   const { user, refetch } = useAuth();
+  
+  const createUpgradeRequest = useCreateSubscriptionUpgradeRequest();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradePlan, setUpgradePlan] = useState<"starter" | "business" | "pro">("business");
+  const [upgradeCycle, setUpgradeCycle] = useState<"monthly" | "yearly">("monthly");
+  const [upgradeError, setUpgradeError] = useState("");
+  const [upgradeSuccess, setUpgradeSuccess] = useState(false);
 
   const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || "");
   const [profileName, setProfileName] = useState(user?.name || "");
@@ -178,8 +186,13 @@ export default function SettingsPage() {
     },
     enableTax: false,
     taxPercentage: 10,
+    enableServiceCharge: false,
+    serviceChargePercentage: 10,
     qrisId: "",
     qrisImageUrl: "",
+    enableOpsHours: false,
+    opsOpeningTime: "10:00",
+    opsClosingTime: "22:00",
   });
   
   const [saved, setSaved] = useState(false);
@@ -220,8 +233,13 @@ export default function SettingsPage() {
         },
         enableTax: (tenant as any).enableTax ?? false,
         taxPercentage: (tenant as any).taxPercentage !== undefined ? Number((tenant as any).taxPercentage) : 10,
+        enableServiceCharge: (tenant as any).enableServiceCharge ?? false,
+        serviceChargePercentage: (tenant as any).serviceChargePercentage !== undefined ? Number((tenant as any).serviceChargePercentage) : 10,
         qrisId: (tenant as any).qrisId || "",
         qrisImageUrl: (tenant as any).qrisImageUrl || "",
+        enableOpsHours: (tenant as any).enableOpsHours ?? false,
+        opsOpeningTime: (tenant as any).opsOpeningTime || "10:00",
+        opsClosingTime: (tenant as any).opsClosingTime || "22:00",
       });
     }
   }, [tenant]);
@@ -397,6 +415,21 @@ export default function SettingsPage() {
           </button>
           {saved && <span className="text-green-600 dark:text-green-400 text-sm font-medium">✓ Tersimpan</span>}
         </div>
+      </div>
+
+      {/* Printer settings link */}
+      <div className="bg-card border border-card-border rounded-xl p-6 shadow-sm space-y-4">
+        <div className="flex items-center gap-2 font-semibold text-foreground">
+          <Printer size={18} className="text-primary" /> Koneksi Printer &amp; Struk
+        </div>
+        <p className="text-xs text-muted-foreground leading-relaxed">
+          Hubungkan mesin printer thermal kasir Anda lewat Bluetooth, WebUSB nirkabel, maupun jaringan nirkabel LAN (Ethernet/Wi-Fi).
+        </p>
+        <Link href="/printer-settings">
+          <a className="inline-flex items-center justify-center px-4 py-2 border border-slate-200 dark:border-slate-850 hover:bg-slate-50 dark:hover:bg-slate-800 font-semibold text-xs rounded-xl transition-all text-primary hover:underline cursor-pointer">
+            Buka Pengaturan Printer →
+          </a>
+        </Link>
       </div>
 
       {/* Profil Pengguna */}
@@ -683,6 +716,62 @@ export default function SettingsPage() {
         </div>
       </div>
 
+      {/* Pengaturan Jam Operasional */}
+      <div className="bg-card border border-card-border rounded-xl p-6 shadow-sm space-y-4">
+        <div className="flex items-center gap-2 font-semibold text-foreground mb-4">
+          <Clock size={18} className="text-primary" /> Pengaturan Jam Operasional Brand
+        </div>
+        <div className="flex items-center justify-between p-3 bg-muted/20 border border-border/50 rounded-lg">
+          <div>
+            <div className="text-sm font-semibold">Aktifkan Jam Operasional</div>
+            <div className="text-xs text-muted-foreground">Aktifkan jam operasional brand untuk membatasi pemesanan pelanggan di luar jam buka.</div>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={form.enableOpsHours}
+              onChange={e => setForm(p => ({ ...p, enableOpsHours: e.target.checked }))}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+          </label>
+        </div>
+
+        {form.enableOpsHours && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+            <div>
+              <label className="block text-xs font-semibold mb-1 text-foreground">Jam Buka *</label>
+              <input
+                type="time"
+                value={form.opsOpeningTime}
+                onChange={e => setForm(p => ({ ...p, opsOpeningTime: e.target.value }))}
+                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold mb-1 text-foreground">Jam Tutup *</label>
+              <input
+                type="time"
+                value={form.opsClosingTime}
+                onChange={e => setForm(p => ({ ...p, opsClosingTime: e.target.value }))}
+                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+                required
+              />
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center gap-3 pt-2">
+          <button onClick={handleSave} disabled={updateTenant.isPending}
+            className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity">
+            <Save size={16} />
+            {updateTenant.isPending ? "Menyimpan..." : "Simpan Perubahan"}
+          </button>
+          {saved && <span className="text-green-600 dark:text-green-400 text-sm font-medium">✓ Tersimpan</span>}
+        </div>
+      </div>
+
       {/* Pengaturan Pajak */}
       <div className="bg-card border border-card-border rounded-xl p-6 shadow-sm space-y-4">
         <div className="flex items-center gap-2 font-semibold text-foreground mb-4">
@@ -717,6 +806,57 @@ export default function SettingsPage() {
                 onChange={e => setForm(p => ({
                   ...p,
                   taxPercentage: Math.max(0, parseFloat(e.target.value) || 0)
+                }))}
+                className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center gap-3 pt-2">
+          <button onClick={handleSave} disabled={updateTenant.isPending}
+            className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity">
+            <Save size={16} />
+            {updateTenant.isPending ? "Menyimpan..." : "Simpan Perubahan"}
+          </button>
+          {saved && <span className="text-green-600 dark:text-green-400 text-sm font-medium">✓ Tersimpan</span>}
+        </div>
+      </div>
+
+      {/* Pengaturan Biaya Servis */}
+      <div className="bg-card border border-card-border rounded-xl p-6 shadow-sm space-y-4">
+        <div className="flex items-center gap-2 font-semibold text-foreground mb-4">
+          <Building2 size={18} className="text-primary" /> Pengaturan Biaya Servis
+        </div>
+        <div className="flex items-center justify-between p-3 bg-muted/20 border border-border/50 rounded-lg">
+          <div>
+            <div className="text-sm font-semibold">Aktifkan Biaya Servis (Service Charge) untuk Customer</div>
+            <div className="text-xs text-muted-foreground">Aktifkan jika ingin mengenakan biaya servis pada setiap transaksi pelanggan (F&B dan Fashion).</div>
+          </div>
+          <label className="relative inline-flex items-center cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={form.enableServiceCharge}
+              onChange={e => setForm(p => ({ ...p, enableServiceCharge: e.target.checked }))}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-muted peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+          </label>
+        </div>
+
+        {form.enableServiceCharge && (
+          <div className="space-y-3 pt-2">
+            <div>
+              <label className="block text-xs font-semibold mb-1 text-foreground">Persentase Biaya Servis (%) *</label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                step="0.01"
+                value={form.serviceChargePercentage}
+                onChange={e => setForm(p => ({
+                  ...p,
+                  serviceChargePercentage: Math.max(0, parseFloat(e.target.value) || 0)
                 }))}
                 className="w-full px-3 py-2 rounded-lg border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
@@ -915,6 +1055,160 @@ export default function SettingsPage() {
             <div>
               <div className="text-muted-foreground text-xs mb-1">Berakhir</div>
               <div className="font-semibold">{new Date(sub.expiresAt).toLocaleDateString("id-ID", { day: "2-digit", month: "long", year: "numeric" })}</div>
+            </div>
+
+            {sub.pendingUpgradeRequest && (
+              <div className="col-span-2 mt-4 p-3.5 bg-primary/5 border border-primary/20 rounded-xl flex items-start gap-3">
+                <ArrowUpCircle className="text-primary animate-pulse shrink-0 mt-0.5" size={18} />
+                <div className="text-xs">
+                  <div className="font-bold text-foreground">Permintaan Upgrade Pending</div>
+                  <div className="text-muted-foreground mt-1">
+                    Menunggu persetujuan Super Admin untuk paket <span className="font-semibold capitalize text-foreground">{(sub.pendingUpgradeRequest as any).requestedPlan}</span> ({ (sub.pendingUpgradeRequest as any).billingCycle === "yearly" ? "Tahunan" : "Bulanan"}).
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {!sub.pendingUpgradeRequest && sub.plan !== "enterprise" && (
+              <div className="col-span-2 mt-4 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setShowUpgradeModal(true)}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-primary/10 hover:bg-primary/20 text-primary rounded-lg text-xs font-bold transition-all cursor-pointer"
+                >
+                  <ArrowUpCircle size={15} /> Upgrade Paket Langganan
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {showUpgradeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-fade-in font-sans">
+          <div className="bg-card border border-card-border rounded-2xl shadow-xl w-full max-w-lg animate-scale-up overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+              <h2 className="font-semibold text-foreground text-sm font-sans flex items-center gap-2">
+                <ArrowUpCircle className="text-primary animate-pulse" size={18} /> Upgrade Paket Langganan
+              </h2>
+              <button type="button" onClick={() => { setShowUpgradeModal(false); setUpgradeError(""); }} className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer">
+                <X size={18} />
+              </button>
+            </div>
+            
+            <div className="p-6 space-y-5">
+              {upgradeError && <div className="p-3 text-xs bg-red-100 text-red-700 dark:bg-red-950/20 rounded-xl">{upgradeError}</div>}
+              {upgradeSuccess && <div className="p-3 text-xs bg-green-100 text-green-700 dark:bg-green-950/20 rounded-xl">Permintaan upgrade berhasil diajukan! Silakan hubungi Super Admin untuk persetujuan.</div>}
+              
+              <div>
+                <label className="block text-[10px] font-semibold text-muted-foreground uppercase mb-2">Pilih Siklus Tagihan</label>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setUpgradeCycle("monthly")}
+                    className={`flex-1 py-2.5 border rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+                      upgradeCycle === "monthly"
+                        ? "border-primary bg-primary/5 text-primary"
+                        : "border-border hover:bg-muted text-muted-foreground bg-transparent"
+                    }`}
+                  >
+                    Bulanan
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUpgradeCycle("yearly")}
+                    className={`flex-1 py-2.5 border rounded-xl text-xs font-semibold cursor-pointer transition-all flex items-center justify-center gap-1.5 ${
+                      upgradeCycle === "yearly"
+                        ? "border-primary bg-primary/5 text-primary"
+                        : "border-border hover:bg-muted text-muted-foreground bg-transparent"
+                    }`}
+                  >
+                    Tahunan
+                    <span className="px-1.5 py-0.5 rounded-full bg-green-500 text-white text-[9px] font-extrabold uppercase">Hemat 15%</span>
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-semibold text-muted-foreground uppercase mb-2">Pilih Paket</label>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                  {[
+                    { id: "starter", name: "FlowApp UMKM", branches: "Maks 1 Outlet", monthly: "Rp 169.000", yearly: "Rp 1.723.800" },
+                    { id: "business", name: "FlowApp Multi", branches: "Maks 3 Outlet", monthly: "Rp 299.000", yearly: "Rp 3.049.800" },
+                    { id: "pro", name: "FlowApp Pro", branches: "Maks 5 Outlet", monthly: "Rp 749.000", yearly: "Rp 6.741.000" },
+                  ].map((p) => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setUpgradePlan(p.id as any)}
+                      className={`flex flex-col text-left p-3.5 border rounded-xl cursor-pointer transition-all ${
+                        upgradePlan === p.id
+                          ? "border-primary bg-primary/5 ring-1 ring-primary"
+                          : "border-border hover:bg-muted text-foreground bg-transparent"
+                      }`}
+                    >
+                      <span className="font-bold text-xs">{p.name}</span>
+                      <span className="text-[10px] text-muted-foreground mt-0.5">{p.branches}</span>
+                      <span className="text-xs font-semibold text-primary mt-2">
+                        {upgradeCycle === "yearly" ? p.yearly : p.monthly}
+                        <span className="text-[9px] text-muted-foreground font-normal">/{upgradeCycle === "yearly" ? "thn" : "bln"}</span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-muted/30 border border-border p-4 rounded-xl space-y-2 text-xs">
+                <div className="font-semibold text-foreground">Detail Upgrade:</div>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Paket Baru:</span>
+                  <span className="font-medium text-foreground capitalize">{upgradePlan} ({upgradeCycle === "yearly" ? "Tahunan" : "Bulanan"})</span>
+                </div>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Estimasi Biaya:</span>
+                  <span className="font-bold text-primary">
+                    {upgradePlan === "starter" ? (upgradeCycle === "yearly" ? "Rp 1.723.800" : "Rp 169.000") :
+                     upgradePlan === "business" ? (upgradeCycle === "yearly" ? "Rp 3.049.800" : "Rp 299.000") :
+                     (upgradeCycle === "yearly" ? "Rp 6.741.000" : "Rp 749.000")}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 px-6 py-4 border-t border-border bg-muted/10">
+              <button
+                type="button"
+                onClick={() => { setShowUpgradeModal(false); setUpgradeError(""); }}
+                className="flex-1 py-2 border border-border rounded-xl text-xs font-medium hover:bg-muted text-foreground font-sans cursor-pointer"
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                disabled={createUpgradeRequest.isPending || upgradeSuccess}
+                onClick={async () => {
+                  setUpgradeError("");
+                  try {
+                    await createUpgradeRequest.mutateAsync({
+                      data: {
+                        requestedPlan: upgradePlan,
+                        billingCycle: upgradeCycle,
+                      }
+                    });
+                    setUpgradeSuccess(true);
+                    qc.invalidateQueries({ queryKey: getGetTenantSubscriptionQueryKey() });
+                    setTimeout(() => {
+                      setShowUpgradeModal(false);
+                      setUpgradeSuccess(false);
+                    }, 2000);
+                  } catch (err: any) {
+                    setUpgradeError(err.response?.data?.error || err.message || "Gagal mengajukan upgrade");
+                  }
+                }}
+                className="flex-1 py-2 bg-primary text-primary-foreground rounded-xl text-xs font-semibold hover:opacity-90 disabled:opacity-50 font-sans cursor-pointer"
+              >
+                {createUpgradeRequest.isPending ? "Mengajukan..." : "Ajukan Upgrade"}
+              </button>
             </div>
           </div>
         </div>

@@ -16,6 +16,9 @@ export const shiftsTable = pgTable("shifts", {
   expectedCash: numeric("expected_cash", { precision: 15, scale: 2 }),
   actualCash: numeric("actual_cash", { precision: 15, scale: 2 }),
   discrepancy: numeric("discrepancy", { precision: 15, scale: 2 }),
+  totalRevenue: numeric("total_revenue", { precision: 15, scale: 2 }).default("0"),
+  avgOrderValue: numeric("avg_order_value", { precision: 15, scale: 2 }).default("0"),
+  busiestHour: text("busiest_hour"),
   status: text("status").notNull().default("open"), // open, closed
   openedAt: timestamp("opened_at", { withTimezone: true }).notNull().defaultNow(),
   closedAt: timestamp("closed_at", { withTimezone: true }),

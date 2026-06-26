@@ -28,5 +28,12 @@ export interface TenantUpdate {
   enableCustomerLogin?: boolean;
   enableTax?: boolean;
   taxPercentage?: number;
+  enableServiceCharge?: boolean;
+  serviceChargePercentage?: number;
+  showDeliveryInfo?: boolean;
+  estimatedDeliveryTime?: string;
+  enableOpsHours?: boolean;
+  opsOpeningTime?: string;
+  opsClosingTime?: string;
   pointSystemConfig?: TenantUpdatePointSystemConfig;
 }

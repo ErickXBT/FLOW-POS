@@ -229,4 +229,202 @@ router.get("/inventory/adjustments/list", async (req: any, res: any): Promise<vo
   res.json(adjustments.map(a => ({ ...a, createdAt: a.createdAt.toISOString() })));
 });
 
+// 4. Stock Transfer between branches / centers
+router.post("/inventory/transfer", async (req: any, res: any): Promise<void> => {
+  const claims = requireTenant(req, res);
+  if (!claims) return;
+
+  const { productId, type, sourceBranchId, targetBranchId, quantity, notes } = req.body;
+  if (!productId || !type || !quantity || Number(quantity) <= 0) {
+    res.status(400).json({ error: "Input tidak valid. Product, Type, dan Qty wajib diisi." });
+    return;
+  }
+
+  const qty = Number(quantity);
+
+  const [product] = await db.select().from(productsTable)
+    .where(and(eq(productsTable.id, Number(productId)), eq(productsTable.tenantId, claims.tenantId!)))
+    .limit(1);
+
+  if (!product) {
+    res.status(404).json({ error: "Produk tidak ditemukan" });
+    return;
+  }
+
+  // A. Decrease Source Stock
+  if (type === "ambil_pusat") {
+    // Source is Pusat
+    const currentPusatStock = product.stock ?? 0;
+    if (currentPusatStock < qty) {
+      res.status(400).json({ error: `Stok Gudang Pusat tidak mencukupi (Tersisa: ${currentPusatStock})` });
+      return;
+    }
+    await db.update(productsTable)
+      .set({ stock: currentPusatStock - qty, updatedAt: new Date() })
+      .where(eq(productsTable.id, product.id));
+  } else {
+    // Source is a branch (kembali_pusat or kirim_cabang)
+    if (!sourceBranchId) {
+      res.status(400).json({ error: "Cabang asal harus ditentukan" });
+      return;
+    }
+    const [branchProd] = await db.select().from(publicMenuProductsTable)
+      .where(and(
+        eq(publicMenuProductsTable.productId, product.id),
+        eq(publicMenuProductsTable.branchId, Number(sourceBranchId))
+      ))
+      .limit(1);
+
+    const currentSourceStock = branchProd?.stock ?? 0;
+    if (currentSourceStock < qty) {
+      res.status(400).json({ error: `Stok Cabang Asal tidak mencukupi (Tersisa: ${currentSourceStock})` });
+      return;
+    }
+    await db.update(publicMenuProductsTable)
+      .set({ stock: currentSourceStock - qty, updatedAt: new Date() })
+      .where(eq(publicMenuProductsTable.id, branchProd.id));
+  }
+
+  // B. Increase Target Stock
+  if (type === "kembali_pusat") {
+    // Target is Pusat
+    const currentPusatStock = product.stock ?? 0;
+    await db.update(productsTable)
+      .set({ stock: currentPusatStock + qty, updatedAt: new Date() })
+      .where(eq(productsTable.id, product.id));
+  } else {
+    // Target is a branch (ambil_pusat or kirim_cabang)
+    const targetId = Number(targetBranchId);
+    if (!targetBranchId) {
+      res.status(400).json({ error: "Cabang tujuan harus ditentukan" });
+      return;
+    }
+
+    const [branchProd] = await db.select().from(publicMenuProductsTable)
+      .where(and(
+        eq(publicMenuProductsTable.productId, product.id),
+        eq(publicMenuProductsTable.branchId, targetId)
+      ))
+      .limit(1);
+
+    if (branchProd) {
+      await db.update(publicMenuProductsTable)
+        .set({ stock: (branchProd.stock ?? 0) + qty, updatedAt: new Date() })
+        .where(eq(publicMenuProductsTable.id, branchProd.id));
+    } else {
+      // Find or create publicMenu
+      let [menu] = await db.select().from(publicMenusTable)
+        .where(and(eq(publicMenusTable.branchId, targetId), eq(publicMenusTable.tenantId, claims.tenantId!)))
+        .limit(1);
+      if (!menu) {
+        const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, claims.tenantId!)).limit(1);
+        const slug = tenant ? `${tenant.slug}-${targetId}` : `branch-${targetId}`;
+        [menu] = await db.insert(publicMenusTable).values({
+          tenantId: claims.tenantId!,
+          branchId: targetId,
+          slug,
+          name: tenant?.name || "Cabang",
+          isActive: true,
+          enableDineIn: true,
+          enableTakeAway: true,
+          enableDelivery: true,
+        }).returning();
+      }
+
+      // Find category
+      let publicMenuCategoryId: number;
+      if (product.categoryId) {
+        const [globalCat] = await db.select().from(categoriesTable).where(eq(categoriesTable.id, product.categoryId)).limit(1);
+        const catName = globalCat?.name || "Kategori";
+        let [menuCat] = await db.select().from(publicMenuCategoriesTable)
+          .where(and(
+            eq(publicMenuCategoriesTable.publicMenuId, menu.id),
+            eq(publicMenuCategoriesTable.name, catName)
+          ))
+          .limit(1);
+        if (!menuCat) {
+          [menuCat] = await db.insert(publicMenuCategoriesTable).values({
+            tenantId: claims.tenantId!,
+            branchId: targetId,
+            publicMenuId: menu.id,
+            name: catName,
+            sortOrder: 0,
+          }).returning();
+        }
+        publicMenuCategoryId = menuCat.id;
+      } else {
+        let [menuCat] = await db.select().from(publicMenuCategoriesTable)
+          .where(and(
+            eq(publicMenuCategoriesTable.publicMenuId, menu.id),
+            eq(publicMenuCategoriesTable.name, "Umum")
+          ))
+          .limit(1);
+        if (!menuCat) {
+          [menuCat] = await db.insert(publicMenuCategoriesTable).values({
+            tenantId: claims.tenantId!,
+            branchId: targetId,
+            publicMenuId: menu.id,
+            name: "Umum",
+            sortOrder: 0,
+          }).returning();
+        }
+        publicMenuCategoryId = menuCat.id;
+      }
+
+      // Create product in branch
+      await db.insert(publicMenuProductsTable).values({
+        tenantId: claims.tenantId!,
+        branchId: targetId,
+        publicMenuCategoryId,
+        productId: product.id,
+        name: product.name,
+        description: product.description,
+        price: String(product.price),
+        imageUrl: product.imageUrl,
+        isAvailable: product.isActive,
+        stock: qty,
+        variantSettings: product.variantSettings,
+      });
+    }
+  }
+
+  // C. Write adjustments to database for audit logs
+  // 1. Stock Out from source
+  await db.insert(inventoryAdjustmentsTable).values({
+    productId: product.id,
+    productName: product.name,
+    type: "stock_out",
+    quantity: qty,
+    notes: `Transfer Keluar (${type.replace("_", " ")}): ${notes || "Pemindahan Stok"}`,
+    tenantId: claims.tenantId!,
+    branchId: sourceBranchId ? Number(sourceBranchId) : null,
+  });
+
+  // 2. Stock In to target
+  await db.insert(inventoryAdjustmentsTable).values({
+    productId: product.id,
+    productName: product.name,
+    type: "stock_in",
+    quantity: qty,
+    notes: `Transfer Masuk (${type.replace("_", " ")}): ${notes || "Pemindahan Stok"}`,
+    tenantId: claims.tenantId!,
+    branchId: targetBranchId ? Number(targetBranchId) : null,
+  });
+
+  // D. Log User Activity
+  await logActivity({
+    tenantId: claims.tenantId,
+    userId: claims.userId,
+    userName: claims.role === "owner" ? "Owner" : "Manager",
+    userRole: claims.role,
+    action: "transfer_stock",
+    module: "inventory",
+    details: { productId: product.id, productName: product.name, type, quantity: qty, sourceBranchId, targetBranchId },
+    ipAddress: req.ip,
+  });
+
+  res.status(201).json({ success: true, message: "Pemindahan stok berhasil diselesaikan" });
+});
+
 export default router;
+

@@ -14,6 +14,7 @@ export interface OrderInput {
   subtotal?: number;
   discount?: number;
   tax?: number;
+  serviceCharge?: number;
   total: number;
   notes?: string;
   customerId?: number;

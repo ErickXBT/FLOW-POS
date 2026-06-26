@@ -75,7 +75,7 @@ export default function DeliveryOrdersPage() {
             } catch {}
           }
         } else if (data.type === "status_update") {
-          setOrders(prev => prev.map(o => o.id === data.orderId ? { ...o, status: data.status } : o));
+          setOrders(prev => prev.map(o => o.id === data.orderId ? { ...o, status: data.status, paymentStatus: data.paymentStatus ?? o.paymentStatus } : o));
         }
       } catch (err) {
         console.error("Error in delivery SSE handler:", err);
@@ -93,6 +93,17 @@ export default function DeliveryOrdersPage() {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${tokenRef.current}` },
       body: JSON.stringify({ status }),
+    });
+    await fetchOrders();
+    setUpdating(null);
+  }
+
+  async function updateStatusAndPayment(orderId: number, status: string, paymentStatus: string) {
+    setUpdating(orderId);
+    await fetch(`${BASE}/api/tenant/customer-orders/${orderId}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${tokenRef.current}` },
+      body: JSON.stringify({ status, paymentStatus }),
     });
     await fetchOrders();
     setUpdating(null);
@@ -186,10 +197,21 @@ export default function DeliveryOrdersPage() {
                     </span>
                   )}
                 </div>
-                <div className="text-right">
+                 <div className="text-right flex flex-col items-end">
                   <div className="font-bold text-primary text-lg">{formatRp(Number(order.total))}</div>
                   <div className="text-xs text-muted-foreground">{PAY_LABEL[order.paymentMethod] ?? order.paymentMethod}</div>
-                  <div className="text-xs text-muted-foreground flex items-center gap-1 justify-end mt-0.5">
+                  <div className="mt-1">
+                    {order.paymentStatus === "paid" ? (
+                      <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400 border border-green-200 dark:border-green-900">
+                        ✓ Lunas
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400 border border-rose-200 dark:border-rose-900 animate-pulse">
+                        ⏳ Belum Bayar
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-muted-foreground flex items-center gap-1 justify-end mt-1">
                     <Clock size={10} /> {elapsed(order.createdAt)} lalu
                   </div>
                 </div>
@@ -213,22 +235,36 @@ export default function DeliveryOrdersPage() {
                 </div>
               )}
 
-              {/* Items */}
-              <div className="px-4 py-2.5 border-b border-border/50 space-y-1.5">
-                {order.items?.map((item: any) => (
-                  <div key={item.id} className="flex flex-col text-sm border-b border-border/20 last:border-b-0 pb-1.5 last:pb-0">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">{item.productName} <span className="font-medium text-foreground">×{item.quantity}</span></span>
-                      <span className="font-medium text-foreground">{formatRp(item.subtotal)}</span>
+              {/* Items Grid with Images */}
+              <div className="px-4 py-3 border-b border-border/50">
+                <div className="grid grid-cols-2 gap-2">
+                  {order.items?.map((item: any) => (
+                    <div key={item.id} className="bg-muted/30 rounded-xl overflow-hidden border border-border/40 p-2 flex flex-col justify-between">
+                      <div className="relative aspect-video w-full rounded-lg overflow-hidden bg-muted flex items-center justify-center">
+                        {item.imageUrl ? (
+                          <img src={item.imageUrl} alt={item.productName} className="w-full h-full object-cover" />
+                        ) : (
+                          <span className="text-2xl text-muted-foreground/30">🍽️</span>
+                        )}
+                        <span className="absolute top-1 left-1 bg-background/95 text-foreground text-[10px] font-extrabold px-1.5 py-0.5 rounded border shadow-sm">
+                          {item.quantity}x
+                        </span>
+                      </div>
+                      <div className="mt-1.5 text-xs font-bold text-foreground line-clamp-1">
+                        {item.productName}
+                      </div>
+                      {item.variantSelection && (
+                        <span className="text-[9px] text-muted-foreground mt-0.5 line-clamp-1">{item.variantSelection}</span>
+                      )}
+                      {item.notes && (
+                        <span className="text-[9px] text-amber-600 dark:text-amber-500 italic mt-0.5 line-clamp-1">Catatan: {item.notes}</span>
+                      )}
+                      <div className="mt-1 text-[11px] font-bold text-primary">
+                        {formatRp(item.subtotal)}
+                      </div>
                     </div>
-                    {item.variantSelection && (
-                      <span className="text-[10px] text-muted-foreground mt-0.5 font-medium bg-muted/40 px-1.5 py-0.5 rounded w-fit inline-block">{item.variantSelection}</span>
-                    )}
-                    {item.notes && (
-                      <span className="text-xs text-amber-600 dark:text-amber-500 italic mt-0.5">Catatan: {item.notes}</span>
-                    )}
-                  </div>
-                ))}
+                  ))}
+                </div>
                 {order.notes && (
                   <div className="mt-2 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 rounded-lg p-2 font-medium">
                     📝 Catatan Pesanan: {order.notes}
@@ -245,10 +281,17 @@ export default function DeliveryOrdersPage() {
                   </button>
                 )}
                 {order.status === "on_delivery" && (
-                  <button onClick={() => updateStatus(order.id, "completed")} disabled={updating === order.id}
-                    className="w-full py-2.5 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition-colors disabled:opacity-50">
-                    {updating === order.id ? "..." : "✓ Pesanan Terkirim"}
-                  </button>
+                  order.paymentStatus !== "paid" ? (
+                    <button onClick={() => updateStatusAndPayment(order.id, "completed", "paid")} disabled={updating === order.id}
+                      className="w-full py-2.5 rounded-xl bg-green-600 text-white text-sm font-semibold hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5">
+                      {updating === order.id ? "..." : "💵 COD Terbayar & Selesai"}
+                    </button>
+                  ) : (
+                    <button onClick={() => updateStatus(order.id, "completed")} disabled={updating === order.id}
+                      className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors disabled:opacity-50">
+                      {updating === order.id ? "..." : "✓ Pesanan Terkirim"}
+                    </button>
+                  )
                 )}
                 {["pending", "confirmed", "preparing"].includes(order.status) && (
                   <div className="text-center text-xs text-muted-foreground bg-muted/50 rounded-xl py-2.5 font-medium border border-dashed border-border">
@@ -257,7 +300,12 @@ export default function DeliveryOrdersPage() {
                 )}
                 {(order.status === "completed" || order.status === "cancelled") && (
                   <div className={`text-center text-sm font-medium py-1 ${order.status === "completed" ? "text-green-600" : "text-red-500"}`}>
-                    {order.status === "completed" ? "✓ Terkirim" : "✗ Dibatalkan"}
+                    {order.status === "completed" ? (
+                      <span className="flex flex-col items-center gap-0.5">
+                        <span>✓ Terkirim</span>
+                        {order.paymentStatus === "paid" && <span className="text-[10px] text-green-500 font-bold bg-green-50 dark:bg-green-950/20 px-1.5 py-0.5 rounded border border-green-200 dark:border-green-900">💵 Lunas</span>}
+                      </span>
+                    ) : "✗ Dibatalkan"}
                   </div>
                 )}
               </div>

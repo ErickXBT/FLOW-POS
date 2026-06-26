@@ -20,5 +20,7 @@ export interface Employee {
   branchId?: number | null;
   /** @nullable */
   customRoleId?: number | null;
+  /** @nullable */
+  employeeShiftId?: number | null;
   createdAt: string;
 }

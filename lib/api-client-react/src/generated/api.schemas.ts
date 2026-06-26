@@ -97,6 +97,7 @@ export interface AdminStats {
   totalTenants: number;
   activeTenants: number;
   suspendedTenants: number;
+  frozenTenants: number;
   trialUsers: number;
   expiredSubscriptions: number;
   monthlyRevenue: number;
@@ -128,6 +129,7 @@ export type TenantStatus = typeof TenantStatus[keyof typeof TenantStatus];
 export const TenantStatus = {
   active: 'active',
   suspended: 'suspended',
+  frozen: 'frozen',
   trial: 'trial',
   expired: 'expired',
 } as const;
@@ -171,6 +173,8 @@ export interface Tenant {
   enableCustomerLogin?: boolean;
   enableTax?: boolean;
   taxPercentage?: number;
+  enableServiceCharge?: boolean;
+  serviceChargePercentage?: number;
   pointSystemConfig?: TenantPointSystemConfig;
   /** @nullable */
   defaultCashierName?: string | null;
@@ -180,6 +184,14 @@ export interface Tenant {
   qrisId?: string | null;
   /** @nullable */
   qrisImageUrl?: string | null;
+  showDeliveryInfo?: boolean;
+  /** @nullable */
+  estimatedDeliveryTime?: string | null;
+  enableOpsHours?: boolean;
+  /** @nullable */
+  opsOpeningTime?: string | null;
+  /** @nullable */
+  opsClosingTime?: string | null;
   createdAt: string;
 }
 
@@ -196,6 +208,7 @@ export type TenantStatusUpdateStatus = typeof TenantStatusUpdateStatus[keyof typ
 export const TenantStatusUpdateStatus = {
   active: 'active',
   suspended: 'suspended',
+  frozen: 'frozen',
 } as const;
 
 export interface TenantStatusUpdate {
@@ -229,6 +242,13 @@ export interface TenantUpdate {
   enableCustomerLogin?: boolean;
   enableTax?: boolean;
   taxPercentage?: number;
+  enableServiceCharge?: boolean;
+  serviceChargePercentage?: number;
+  showDeliveryInfo?: boolean;
+  estimatedDeliveryTime?: string;
+  enableOpsHours?: boolean;
+  opsOpeningTime?: string;
+  opsClosingTime?: string;
   pointSystemConfig?: TenantUpdatePointSystemConfig;
 }
 
@@ -251,6 +271,44 @@ export const SubscriptionStatus = {
   cancelled: 'cancelled',
 } as const;
 
+export type SubscriptionUpgradeRequestRequestedPlan = typeof SubscriptionUpgradeRequestRequestedPlan[keyof typeof SubscriptionUpgradeRequestRequestedPlan];
+
+
+export const SubscriptionUpgradeRequestRequestedPlan = {
+  starter: 'starter',
+  business: 'business',
+  pro: 'pro',
+  enterprise: 'enterprise',
+} as const;
+
+export type SubscriptionUpgradeRequestBillingCycle = typeof SubscriptionUpgradeRequestBillingCycle[keyof typeof SubscriptionUpgradeRequestBillingCycle];
+
+
+export const SubscriptionUpgradeRequestBillingCycle = {
+  monthly: 'monthly',
+  yearly: 'yearly',
+} as const;
+
+export type SubscriptionUpgradeRequestStatus = typeof SubscriptionUpgradeRequestStatus[keyof typeof SubscriptionUpgradeRequestStatus];
+
+
+export const SubscriptionUpgradeRequestStatus = {
+  pending: 'pending',
+  approved: 'approved',
+  rejected: 'rejected',
+} as const;
+
+export interface SubscriptionUpgradeRequest {
+  id: number;
+  tenantId: number;
+  tenantName?: string;
+  requestedPlan: SubscriptionUpgradeRequestRequestedPlan;
+  billingCycle: SubscriptionUpgradeRequestBillingCycle;
+  status: SubscriptionUpgradeRequestStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Subscription {
   id: number;
   plan: SubscriptionPlanProperty;
@@ -258,6 +316,7 @@ export interface Subscription {
   expiresAt: string;
   startedAt?: string;
   price?: number;
+  pendingUpgradeRequest?: SubscriptionUpgradeRequest;
 }
 
 export interface SubscriptionPlan {
@@ -403,6 +462,7 @@ export interface Order {
   subtotal?: number;
   discount?: number;
   tax?: number;
+  serviceCharge?: number;
   total: number;
   status: OrderStatus;
   paymentMethod: OrderPaymentMethod;
@@ -458,6 +518,7 @@ export interface OrderInput {
   subtotal?: number;
   discount?: number;
   tax?: number;
+  serviceCharge?: number;
   total: number;
   notes?: string;
   customerId?: number;
@@ -549,6 +610,8 @@ export interface Employee {
   branchId?: number | null;
   /** @nullable */
   customRoleId?: number | null;
+  /** @nullable */
+  employeeShiftId?: number | null;
   createdAt: string;
 }
 
@@ -561,6 +624,8 @@ export interface EmployeeInput {
   branchId?: number | null;
   /** @nullable */
   customRoleId?: number | null;
+  /** @nullable */
+  employeeShiftId?: number | null;
 }
 
 export interface EmployeeUpdate {
@@ -573,6 +638,8 @@ export interface EmployeeUpdate {
   branchId?: number | null;
   /** @nullable */
   customRoleId?: number | null;
+  /** @nullable */
+  employeeShiftId?: number | null;
 }
 
 export interface InventoryItem {
@@ -643,6 +710,14 @@ export interface PaymentMethodBreakdown {
   total: number;
 }
 
+export interface CategoryBreakdown {
+  /** @nullable */
+  categoryId: number | null;
+  name: string;
+  totalSold: number;
+  revenue: number;
+}
+
 export interface SalesReport {
   totalRevenue: number;
   totalOrders: number;
@@ -650,6 +725,7 @@ export interface SalesReport {
   averageOrderValue: number;
   topProducts?: TopProduct[];
   byPaymentMethod?: PaymentMethodBreakdown[];
+  byCategory?: CategoryBreakdown[];
 }
 
 export interface SalesChartPoint {
@@ -785,6 +861,88 @@ export interface SecurityLog {
   createdAt: string;
 }
 
+export interface EmployeeShift {
+  id: number;
+  tenantId: number;
+  name: string;
+  startTime: string;
+  endTime: string;
+  createdAt: string;
+}
+
+export interface EmployeeShiftInput {
+  name: string;
+  startTime: string;
+  endTime: string;
+}
+
+export interface EmployeeAttendance {
+  id: number;
+  tenantId: number;
+  employeeId: number;
+  /** @nullable */
+  employeeName?: string | null;
+  /** @nullable */
+  branchId?: number | null;
+  /** @nullable */
+  branchName?: string | null;
+  /** @nullable */
+  employeeShiftId?: number | null;
+  /** @nullable */
+  shiftName?: string | null;
+  checkInTime: string;
+  /** @nullable */
+  checkOutTime?: string | null;
+  checkInPhoto: string;
+  /** @nullable */
+  checkOutPhoto?: string | null;
+  checkInStatus: string;
+  /** @nullable */
+  checkOutStatus?: string | null;
+  /** @nullable */
+  checkInNotes?: string | null;
+  /** @nullable */
+  checkOutNotes?: string | null;
+  createdAt: string;
+}
+
+export interface CheckInEmployeeInput {
+  employeeId: number;
+  branchId?: number;
+  employeeShiftId?: number;
+  photo: string;
+  notes?: string;
+}
+
+export interface CheckOutEmployeeInput {
+  employeeId: number;
+  photo: string;
+  notes?: string;
+}
+
+export type SubscriptionUpgradeRequestInputRequestedPlan = typeof SubscriptionUpgradeRequestInputRequestedPlan[keyof typeof SubscriptionUpgradeRequestInputRequestedPlan];
+
+
+export const SubscriptionUpgradeRequestInputRequestedPlan = {
+  starter: 'starter',
+  business: 'business',
+  pro: 'pro',
+  enterprise: 'enterprise',
+} as const;
+
+export type SubscriptionUpgradeRequestInputBillingCycle = typeof SubscriptionUpgradeRequestInputBillingCycle[keyof typeof SubscriptionUpgradeRequestInputBillingCycle];
+
+
+export const SubscriptionUpgradeRequestInputBillingCycle = {
+  monthly: 'monthly',
+  yearly: 'yearly',
+} as const;
+
+export interface SubscriptionUpgradeRequestInput {
+  requestedPlan: SubscriptionUpgradeRequestInputRequestedPlan;
+  billingCycle: SubscriptionUpgradeRequestInputBillingCycle;
+}
+
 export type ListAdminTenantsParams = {
 search?: string;
 status?: string;
@@ -825,6 +983,17 @@ limit?: number;
 
 export type ListEmployeesParams = {
 search?: string;
+};
+
+export type ListEmployeeAttendanceParams = {
+employeeId?: number;
+branchId?: number;
+startDate?: string;
+endDate?: string;
+};
+
+export type GetActiveAttendanceParams = {
+employeeId: number;
 };
 
 export type ListInventoryParams = {

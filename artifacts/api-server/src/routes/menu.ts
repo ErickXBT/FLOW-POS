@@ -22,9 +22,9 @@ export function broadcastNewOrder(tenantId: number, order: any) {
   clients.forEach(c => { try { c.res.write(data); } catch {} });
 }
 
-export function broadcastStatusUpdate(tenantId: number, orderId: number, status: string) {
+export function broadcastStatusUpdate(tenantId: number, orderId: number, status: string, paymentStatus?: string) {
   const clients = sseClients.filter(c => c.tenantId === tenantId);
-  const data = `data: ${JSON.stringify({ type: "status_update", orderId, status })}\n\n`;
+  const data = `data: ${JSON.stringify({ type: "status_update", orderId, status, paymentStatus })}\n\n`;
   clients.forEach(c => { try { c.res.write(data); } catch {} });
 }
 
@@ -36,6 +36,7 @@ function formatCustomerOrder(order: any, items: any[]) {
     tax: Number(order.tax),
     total: Number(order.total),
     deliveryFee: Number(order.deliveryFee ?? 0),
+    serviceCharge: Number(order.serviceCharge || 0),
     createdAt: order.createdAt instanceof Date ? order.createdAt.toISOString() : order.createdAt,
     items: items.map(i => ({
       ...i,
@@ -167,7 +168,7 @@ router.get("/menu/:slug", async (req, res): Promise<void> => {
   const branchIdParam = req.query.branch_id ? Number(req.query.branch_id) : null;
 
   const { tenant, menu, branch } = await resolveTenantAndMenu(slug, branchIdParam);
-  if (!tenant || tenant.status === "suspended" || !menu || !branch) {
+  if (!tenant || tenant.status === "suspended" || tenant.status === "frozen" || !menu || !branch) {
     res.status(404).json({ error: "Menu tidak ditemukan" }); return;
   }
 
@@ -193,9 +194,16 @@ router.get("/menu/:slug", async (req, res): Promise<void> => {
       enableCustomerLogin: (tenant as any).enableCustomerLogin ?? false,
       enableTax: (tenant as any).enableTax ?? false,
       taxPercentage: tenant.taxPercentage !== undefined ? Number(tenant.taxPercentage) : 10,
+      enableServiceCharge: (tenant as any).enableServiceCharge ?? false,
+      serviceChargePercentage: (tenant as any).serviceChargePercentage !== undefined ? Number((tenant as any).serviceChargePercentage) : 10,
       pointSystemConfig: (tenant as any).pointSystemConfig ?? null,
       qrisId: (tenant as any).qrisId ?? null,
       qrisImageUrl: (tenant as any).qrisImageUrl ?? null,
+      showDeliveryInfo: (tenant as any).showDeliveryInfo ?? true,
+      estimatedDeliveryTime: (tenant as any).estimatedDeliveryTime ?? "25-35 menit",
+      enableOpsHours: (tenant as any).enableOpsHours ?? false,
+      opsOpeningTime: (tenant as any).opsOpeningTime ?? "10:00",
+      opsClosingTime: (tenant as any).opsClosingTime ?? "22:00",
     },
     branch: branch ? {
       id: branch.id,
@@ -447,7 +455,7 @@ router.post("/menu/:slug/orders", async (req, res): Promise<void> => {
     deliveryAddress, deliveryNotes, deliveryFee, paymentMethod, items, notes } = req.body;
 
   const { tenant } = await resolveTenantAndMenu(slug, branchId ? Number(branchId) : null);
-  if (!tenant || tenant.status === "suspended") {
+  if (!tenant || tenant.status === "suspended" || tenant.status === "frozen") {
     res.status(404).json({ error: "Menu tidak ditemukan" }); return;
   }
 
@@ -564,16 +572,24 @@ router.post("/menu/:slug/orders", async (req, res): Promise<void> => {
   }
 
   const fee = Number(deliveryFee ?? 0);
+  const enableServiceCharge = (tenant as any).enableServiceCharge ?? false;
+  const serviceChargePercentage = enableServiceCharge ? Number((tenant as any).serviceChargePercentage ?? 10) : 0;
+  const subtotalAfterDiscount = subtotal - discountAmount;
+  const serviceChargeAmount = subtotalAfterDiscount * (serviceChargePercentage / 100);
+
   const enableTax = (tenant as any).enableTax ?? false;
   const taxPercentage = enableTax ? Number(tenant.taxPercentage ?? 10) : 0;
-  const subtotalAfterDiscount = subtotal - discountAmount;
-  const taxAmount = subtotalAfterDiscount * (taxPercentage / 100);
-  const total = subtotalAfterDiscount + taxAmount + fee;
+  const taxAmount = (subtotalAfterDiscount + serviceChargeAmount) * (taxPercentage / 100);
+
+  const total = subtotalAfterDiscount + serviceChargeAmount + taxAmount + fee;
   const orderNum = `MENU-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
   const maxPrepTime = products.length > 0 ? Math.max(...products.map(p => (p as any).prepTime || 5)) : 5;
   const totalItemsCount = orderItems.reduce((sum: number, item: any) => sum + item.quantity, 0);
   const estimatedTime = maxPrepTime + (totalItemsCount - 1) * 1;
+
+  const autoPaidMethods = ["qris", "bank_transfer", "ewallet"];
+  const paymentStatus = autoPaidMethods.includes(paymentMethod ?? "cash") ? "paid" : "unpaid";
 
   const [order] = await db.insert(customerOrdersTable).values({
     orderNumber: orderNum, tenantId: tenant.id, branchId: activeBranchId,
@@ -581,8 +597,9 @@ router.post("/menu/:slug/orders", async (req, res): Promise<void> => {
     customerPhone: customerPhone ?? null, tableNumber: tableNumber ?? null,
     deliveryAddress: deliveryAddress ?? null, deliveryNotes: deliveryNotes ?? null,
     deliveryFee: String(fee), paymentMethod: paymentMethod ?? "cash",
-    subtotal: String(subtotal), discount: String(discountAmount), tax: String(taxAmount), total: String(total),
-    status: "pending", notes: orderNotesWithReward,
+    subtotal: String(subtotal), discount: String(discountAmount), tax: String(taxAmount),
+    serviceCharge: String(serviceChargeAmount), total: String(total),
+    status: "pending", paymentStatus, notes: orderNotesWithReward,
     priority: "normal",
     estimatedTime: estimatedTime,
     isClaimReward: isClaimReward,
@@ -590,6 +607,11 @@ router.post("/menu/:slug/orders", async (req, res): Promise<void> => {
 
   const insertedItems = await db.insert(customerOrderItemsTable)
     .values(orderItems.map((i: any) => ({ ...i, customerOrderId: order.id, tenantId: tenant.id, branchId: activeBranchId }))).returning();
+
+  const insertedItemsWithImage = insertedItems.map((i: any) => ({
+    ...i,
+    imageUrl: productMap[i.productId]?.imageUrl ?? null,
+  }));
 
   // Deduct stock for online orders
   try {
@@ -632,7 +654,7 @@ router.post("/menu/:slug/orders", async (req, res): Promise<void> => {
       .where(eq(customersTable.id, finalCustomer.id));
   }
 
-  const formatted = formatCustomerOrder(order, insertedItems);
+  const formatted = formatCustomerOrder(order, insertedItemsWithImage);
   broadcastNewOrder(tenant.id, formatted);
   res.status(201).json(formatted);
 });
@@ -658,7 +680,23 @@ router.get("/menu/:slug/orders/:id", async (req, res): Promise<void> => {
     branchName: orderWithBranch.branchName
   };
 
-  const items = await db.select().from(customerOrderItemsTable)
+  const items = await db.select({
+      id: customerOrderItemsTable.id,
+      tenantId: customerOrderItemsTable.tenantId,
+      branchId: customerOrderItemsTable.branchId,
+      customerOrderId: customerOrderItemsTable.customerOrderId,
+      productId: customerOrderItemsTable.productId,
+      productName: customerOrderItemsTable.productName,
+      quantity: customerOrderItemsTable.quantity,
+      price: customerOrderItemsTable.price,
+      subtotal: customerOrderItemsTable.subtotal,
+      notes: customerOrderItemsTable.notes,
+      variantSelection: customerOrderItemsTable.variantSelection,
+      createdAt: customerOrderItemsTable.createdAt,
+      imageUrl: productsTable.imageUrl,
+    })
+    .from(customerOrderItemsTable)
+    .leftJoin(productsTable, eq(customerOrderItemsTable.productId, productsTable.id))
     .where(eq(customerOrderItemsTable.customerOrderId, order.id));
   res.json(formatCustomerOrder(order, items));
 });
@@ -669,8 +707,8 @@ router.get("/tenant/customer-orders", async (req, res): Promise<void> => {
   const claims = extractToken(req);
   if (!claims || !claims.tenantId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
-  const { status, limit: limitQ, page: pageQ } = req.query as any;
-  const limit = Math.min(Number(limitQ ?? 50), 100);
+  const { status, limit: limitQ, page: pageQ, search, branchId: queryBranchId, employeeId, paymentMethod, isClaimReward, startDate, endDate } = req.query as any;
+  const limit = Math.min(Number(limitQ ?? 20), 100);
   const page = Number(pageQ ?? 1);
   const offset = (page - 1) * limit;
 
@@ -684,10 +722,53 @@ router.get("/tenant/customer-orders", async (req, res): Promise<void> => {
     }
   }
 
-  const branchId = await getRequestedBranchId(req, claims);
+  // Handle branch filter
+  const branchId = queryBranchId ? Number(queryBranchId) : await getRequestedBranchId(req, claims);
   if (branchId) {
     conditions.push(eq(customerOrdersTable.branchId, branchId));
   }
+
+  // Cashier filter
+  if (employeeId) {
+    conditions.push(eq(customerOrdersTable.employeeId, Number(employeeId)));
+  }
+
+  // Payment method filter
+  if (paymentMethod) {
+    conditions.push(eq(customerOrdersTable.paymentMethod, paymentMethod));
+  }
+
+  // Promo/Reward filter
+  if (isClaimReward === "true" || isClaimReward === "1") {
+    conditions.push(eq(customerOrdersTable.isClaimReward, true));
+  } else if (isClaimReward === "false" || isClaimReward === "0") {
+    conditions.push(eq(customerOrdersTable.isClaimReward, false));
+  }
+
+  // Date range filters
+  if (startDate) {
+    conditions.push(sql`created_at >= ${new Date(startDate)}`);
+  }
+  if (endDate) {
+    const end = new Date(endDate);
+    end.setHours(23, 59, 59, 999);
+    conditions.push(sql`created_at <= ${end}`);
+  }
+
+  // Search keyword (matches orderNumber or customerName)
+  if (search && search.trim()) {
+    const keyword = `%${search.trim()}%`;
+    conditions.push(
+      sql`(${customerOrdersTable.orderNumber} ILIKE ${keyword} OR ${customerOrdersTable.customerName} ILIKE ${keyword})`
+    );
+  }
+
+  // Get total count of matching entries
+  const [countResult] = await db
+    .select({ count: sql<number>`count(*)` })
+    .from(customerOrdersTable)
+    .where(and(...conditions));
+  const total = Number(countResult?.count ?? 0);
 
   const ordersWithBranch = await db.select({
     order: customerOrdersTable,
@@ -705,8 +786,23 @@ router.get("/tenant/customer-orders", async (req, res): Promise<void> => {
 
   const orderIds = orders.map(o => o.id);
   const items = orderIds.length > 0
-    ? await db.select().from(customerOrderItemsTable)
-        .where(inArray(customerOrderItemsTable.customerOrderId, orderIds))
+    ? await db.select({
+        id: customerOrderItemsTable.id,
+        tenantId: customerOrderItemsTable.tenantId,
+        branchId: customerOrderItemsTable.branchId,
+        customerOrderId: customerOrderItemsTable.customerOrderId,
+        productId: customerOrderItemsTable.productId,
+        productName: customerOrderItemsTable.productName,
+        quantity: customerOrderItemsTable.quantity,
+        price: customerOrderItemsTable.price,
+        subtotal: customerOrderItemsTable.subtotal,
+        notes: customerOrderItemsTable.notes,
+        variantSelection: customerOrderItemsTable.variantSelection,
+        imageUrl: productsTable.imageUrl,
+      })
+      .from(customerOrderItemsTable)
+      .leftJoin(productsTable, eq(customerOrderItemsTable.productId, productsTable.id))
+      .where(inArray(customerOrderItemsTable.customerOrderId, orderIds))
     : [];
 
   const itemsByOrder = items.reduce((acc: any, item) => {
@@ -715,7 +811,7 @@ router.get("/tenant/customer-orders", async (req, res): Promise<void> => {
     return acc;
   }, {});
 
-  res.json({ data: orders.map(o => formatCustomerOrder(o, itemsByOrder[o.id] ?? [])), total: orders.length, page, limit });
+  res.json({ data: orders.map(o => formatCustomerOrder(o, itemsByOrder[o.id] ?? [])), total, page, limit });
 });
 
 router.get("/tenant/customer-orders/:id", async (req, res): Promise<void> => {
@@ -739,7 +835,23 @@ router.get("/tenant/customer-orders/:id", async (req, res): Promise<void> => {
     branchName: orderWithBranch.branchName
   };
 
-  const items = await db.select().from(customerOrderItemsTable)
+  const items = await db.select({
+      id: customerOrderItemsTable.id,
+      tenantId: customerOrderItemsTable.tenantId,
+      branchId: customerOrderItemsTable.branchId,
+      customerOrderId: customerOrderItemsTable.customerOrderId,
+      productId: customerOrderItemsTable.productId,
+      productName: customerOrderItemsTable.productName,
+      quantity: customerOrderItemsTable.quantity,
+      price: customerOrderItemsTable.price,
+      subtotal: customerOrderItemsTable.subtotal,
+      notes: customerOrderItemsTable.notes,
+      variantSelection: customerOrderItemsTable.variantSelection,
+      createdAt: customerOrderItemsTable.createdAt,
+      imageUrl: productsTable.imageUrl,
+    })
+    .from(customerOrderItemsTable)
+    .leftJoin(productsTable, eq(customerOrderItemsTable.productId, productsTable.id))
     .where(eq(customerOrderItemsTable.customerOrderId, order.id));
 
   res.json(formatCustomerOrder(order, items));
@@ -750,8 +862,8 @@ router.patch("/tenant/customer-orders/:id/status", async (req, res): Promise<voi
   if (!claims || !claims.tenantId) { res.status(401).json({ error: "Unauthorized" }); return; }
 
   const orderId = Number(req.params.id);
-  const { status } = req.body;
-  if (!status) { res.status(400).json({ error: "Status diperlukan" }); return; }
+  const { status, paymentStatus } = req.body;
+  if (!status && !paymentStatus) { res.status(400).json({ error: "Status atau Status Pembayaran diperlukan" }); return; }
 
   // Resolve cashier processing this update
   let cashierId: number | null = null;
@@ -767,7 +879,9 @@ router.patch("/tenant/customer-orders/:id/status", async (req, res): Promise<voi
     }
   }
 
-  const updateData: any = { status, updatedAt: new Date() };
+  const updateData: any = { updatedAt: new Date() };
+  if (status) updateData.status = status;
+  if (paymentStatus) updateData.paymentStatus = paymentStatus;
   if (cashierId) updateData.employeeId = cashierId;
   if (cashierName) updateData.employeeName = cashierName;
 
@@ -777,8 +891,24 @@ router.patch("/tenant/customer-orders/:id/status", async (req, res): Promise<voi
     .returning();
   if (!order) { res.status(404).json({ error: "Pesanan tidak ditemukan" }); return; }
 
-  broadcastStatusUpdate(claims.tenantId, orderId, status);
-  const items = await db.select().from(customerOrderItemsTable)
+  broadcastStatusUpdate(claims.tenantId, orderId, order.status, order.paymentStatus);
+  const items = await db.select({
+      id: customerOrderItemsTable.id,
+      tenantId: customerOrderItemsTable.tenantId,
+      branchId: customerOrderItemsTable.branchId,
+      customerOrderId: customerOrderItemsTable.customerOrderId,
+      productId: customerOrderItemsTable.productId,
+      productName: customerOrderItemsTable.productName,
+      quantity: customerOrderItemsTable.quantity,
+      price: customerOrderItemsTable.price,
+      subtotal: customerOrderItemsTable.subtotal,
+      notes: customerOrderItemsTable.notes,
+      variantSelection: customerOrderItemsTable.variantSelection,
+      createdAt: customerOrderItemsTable.createdAt,
+      imageUrl: productsTable.imageUrl,
+    })
+    .from(customerOrderItemsTable)
+    .leftJoin(productsTable, eq(customerOrderItemsTable.productId, productsTable.id))
     .where(eq(customerOrderItemsTable.customerOrderId, order.id));
   res.json(formatCustomerOrder(order, items));
 });
@@ -860,6 +990,7 @@ router.patch("/tenant/settings", async (req, res): Promise<void> => {
     "slug", "enableDineIn", "enableTakeAway", "enableDelivery",
     "enableCash", "enableQris", "enableBankTransfer", "enableEwallet",
     "showVariants", "showToppings", "defaultCashierName",
+    "showDeliveryInfo", "estimatedDeliveryTime", "enableOpsHours", "opsOpeningTime", "opsClosingTime",
   ];
   const updates: Record<string, any> = {};
   for (const key of allowed) {

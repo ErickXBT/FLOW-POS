@@ -173,7 +173,7 @@ export default function CustomerOrdersPage() {
           playAlert();
         }
       } else if (data.type === "status_update") {
-        setOrders(prev => prev.map(o => o.id === data.orderId ? { ...o, status: data.status } : o));
+        setOrders(prev => prev.map(o => o.id === data.orderId ? { ...o, status: data.status, paymentStatus: data.paymentStatus ?? o.paymentStatus } : o));
       }
     };
     return () => { evtSrc.close(); setConnected(false); };
@@ -185,6 +185,20 @@ export default function CustomerOrdersPage() {
       method: "PATCH",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${tokenRef.current}` },
       body: JSON.stringify({ status }),
+    });
+    if (r.ok) {
+      const updated = await r.json();
+      setOrders(prev => prev.map(o => o.id === orderId ? updated : o));
+    }
+    setUpdating(null);
+  }
+
+  async function updatePaymentStatus(orderId: number, paymentStatus: string) {
+    setUpdating(orderId);
+    const r = await fetch(`${BASE}/api/tenant/customer-orders/${orderId}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${tokenRef.current}` },
+      body: JSON.stringify({ paymentStatus }),
     });
     if (r.ok) {
       const updated = await r.json();
@@ -277,11 +291,20 @@ export default function CustomerOrdersPage() {
                       </div>
                       {order.customerPhone && <div className="text-xs text-muted-foreground">{order.customerPhone}</div>}
                     </div>
-                    <div className="text-right flex-shrink-0">
+                    <div className="text-right flex-shrink-0 flex flex-col items-end gap-1">
                       <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${cfg.cls}`}>
                         <Icon size={10} />{cfg.label}
                       </span>
-                      <div className="text-xs text-muted-foreground mt-1">{timeAgo(order.createdAt)}</div>
+                      {order.paymentStatus === "paid" ? (
+                        <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400 border border-green-200 dark:border-green-900">
+                          ✓ Sudah Bayar
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400 border border-rose-200 dark:border-rose-900 animate-pulse">
+                          ⏳ Belum Bayar
+                        </span>
+                      )}
+                      <div className="text-xs text-muted-foreground mt-0.5">{timeAgo(order.createdAt)}</div>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground flex-wrap">
@@ -299,28 +322,39 @@ export default function CustomerOrdersPage() {
                   </div>
                 </div>
 
-                {/* Items */}
-                <div className="px-4 py-3 space-y-2">
-                  {order.items?.map((item: any) => (
-                    <div key={item.id} className="flex flex-col text-sm border-b border-border/10 pb-1.5 last:border-b-0 last:pb-0">
-                      <div className="flex justify-between">
-                        <span className="text-foreground font-medium">{item.productName} <span className="text-muted-foreground text-xs font-normal">×{item.quantity}</span></span>
-                        <span className="font-semibold text-foreground">{formatRp(item.subtotal)}</span>
+                {/* Items Container */}
+                <div className="px-4 py-3 space-y-3 border-b border-border/30">
+                  {/* Items Grid with Images */}
+                  <div className="grid grid-cols-2 gap-2">
+                    {order.items?.map((item: any) => (
+                      <div key={item.id} className="bg-muted/30 rounded-xl overflow-hidden border border-border/40 p-2 flex flex-col justify-between">
+                        <div className="relative aspect-video w-full rounded-lg overflow-hidden bg-muted flex items-center justify-center">
+                          {item.imageUrl ? (
+                            <img src={item.imageUrl} alt={item.productName} className="w-full h-full object-cover" />
+                          ) : (
+                            <span className="text-2xl text-muted-foreground/30">🍽️</span>
+                          )}
+                          <span className="absolute top-1 left-1 bg-background/90 text-foreground text-[10px] font-extrabold px-1.5 py-0.5 rounded border shadow-sm">
+                            {item.quantity}x
+                          </span>
+                        </div>
+                        <div className="mt-1.5 text-xs font-bold text-foreground line-clamp-1">
+                          {item.productName}
+                        </div>
+                        {item.variantSelection && (
+                          <span className="text-[9px] text-muted-foreground mt-0.5 line-clamp-1">{item.variantSelection}</span>
+                        )}
+                        {item.notes && (
+                          <span className="text-[9px] text-amber-605 italic mt-0.5 line-clamp-1">Catatan: {item.notes}</span>
+                        )}
+                        <div className="mt-1 text-[11px] font-bold text-primary">
+                          {formatRp(item.subtotal)}
+                        </div>
                       </div>
-                      {item.variantSelection && (
-                        <span className="text-[10px] text-muted-foreground mt-0.5 font-medium bg-muted/40 px-1.5 py-0.5 rounded w-fit inline-block">
-                          {item.variantSelection}
-                        </span>
-                      )}
-                      {item.notes && (
-                        <span className="text-xs text-amber-600 dark:text-amber-500 italic mt-0.5">
-                          Catatan: {item.notes}
-                        </span>
-                      )}
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                   {order.deliveryAddress && (
-                    <div className="mt-2 text-xs text-muted-foreground bg-muted/30 rounded-lg p-2 flex items-center justify-between gap-2 border">
+                    <div className="text-xs text-muted-foreground bg-muted/30 rounded-lg p-2 flex items-center justify-between gap-2 border">
                       <div className="min-w-0 flex-1">
                         <span className="font-semibold text-foreground">Alamat Pengiriman:</span>
                         <div className="truncate">📍 {order.deliveryAddress}</div>
@@ -339,22 +373,22 @@ export default function CustomerOrdersPage() {
                     const rewardInfo = getRewardInfo(order.notes, order.isClaimReward, Number(order.discount), Number(order.subtotal));
                     const displayNotes = rewardInfo ? rewardInfo.cleanNotes : order.notes;
                     return displayNotes && (
-                      <div className="mt-1 text-xs text-muted-foreground italic">"{displayNotes}"</div>
+                      <div className="text-xs text-muted-foreground italic px-1">"{displayNotes}"</div>
                     );
                   })()}
                 </div>
 
                 {/* Total */}
                 <div className="px-4 pb-3 border-t border-border/50 pt-2.5">
-                  {order.isClaimReward && Number(order.discount) > 0 && (
+                  {(Number(order.discount) > 0 || Number(order.tax) > 0 || Number(order.deliveryFee) > 0 || Number(order.serviceCharge || 0) > 0) && (
                     <div className="space-y-1 pb-2 border-b border-dashed mb-2 text-xs text-muted-foreground">
                       <div className="flex justify-between">
                         <span>Subtotal</span>
                         <span className="font-semibold text-foreground">{formatRp(Number(order.subtotal))}</span>
                       </div>
-                      {(() => {
+                      {Number(order.discount) > 0 && (() => {
                         const rewardInfo = getRewardInfo(order.notes, order.isClaimReward, Number(order.discount), Number(order.subtotal));
-                        const label = rewardInfo ? rewardInfo.rowLabel : "Diskon Poin (10%)";
+                        const label = rewardInfo ? rewardInfo.rowLabel : "Diskon Poin";
                         return (
                           <div className="flex justify-between text-amber-600 font-bold">
                             <span>{label}</span>
@@ -362,6 +396,12 @@ export default function CustomerOrdersPage() {
                           </div>
                         );
                       })()}
+                      {Number(order.serviceCharge || 0) > 0 && (
+                        <div className="flex justify-between">
+                          <span>Biaya Servis</span>
+                          <span className="font-semibold text-foreground">{formatRp(Number(order.serviceCharge))}</span>
+                        </div>
+                      )}
                       {Number(order.tax) > 0 && (
                         <div className="flex justify-between">
                           <span>Pajak</span>
@@ -415,6 +455,13 @@ export default function CustomerOrdersPage() {
                       disabled={updating === order.id}
                       className="w-full py-2 rounded-xl text-xs font-semibold bg-gray-800 text-white hover:bg-gray-900 transition-colors disabled:opacity-60">
                       {updating === order.id ? "..." : "✓ Selesai"}
+                    </button>
+                  )}
+                  {order.paymentStatus !== "paid" && (
+                    <button onClick={() => updatePaymentStatus(order.id, "paid")}
+                      disabled={updating === order.id}
+                      className="w-full mt-2 py-2 rounded-xl text-xs font-semibold bg-green-50 text-green-700 hover:bg-green-100 border border-green-200 dark:bg-green-950/20 dark:text-green-400 dark:border-green-800 transition-colors disabled:opacity-60 flex items-center justify-center gap-1.5">
+                      {updating === order.id ? "..." : "💵 Tandai Lunas (Paid)"}
                     </button>
                   )}
                 </div>

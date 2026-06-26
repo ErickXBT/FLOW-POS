@@ -5,6 +5,7 @@
  * Flow POS SaaS API
  * OpenAPI spec version: 0.1.0
  */
+import type { CategoryBreakdown } from './categoryBreakdown';
 import type { PaymentMethodBreakdown } from './paymentMethodBreakdown';
 import type { TopProduct } from './topProduct';
 
@@ -15,4 +16,5 @@ export interface SalesReport {
   averageOrderValue: number;
   topProducts?: TopProduct[];
   byPaymentMethod?: PaymentMethodBreakdown[];
+  byCategory?: CategoryBreakdown[];
 }

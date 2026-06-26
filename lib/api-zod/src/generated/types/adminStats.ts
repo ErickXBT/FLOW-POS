@@ -11,6 +11,7 @@ export interface AdminStats {
   totalTenants: number;
   activeTenants: number;
   suspendedTenants: number;
+  frozenTenants: number;
   trialUsers: number;
   expiredSubscriptions: number;
   monthlyRevenue: number;

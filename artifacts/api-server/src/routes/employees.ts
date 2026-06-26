@@ -1,7 +1,8 @@
 import { Router, type IRouter } from "express";
-import { eq, and, ilike } from "drizzle-orm";
+import { eq, and, ilike, desc, isNull, gte, lte } from "drizzle-orm";
 import * as crypto from "crypto";
-import { db, employeesTable, usersTable } from "@workspace/db";
+import { db, employeesTable, usersTable, employeeShiftsTable, employeeAttendanceTable } from "@workspace/db";
+import { uploadAttendancePhoto } from "../lib/storage";
 import {
   ListEmployeesQueryParams,
   CreateEmployeeBody,
@@ -189,6 +190,365 @@ router.post("/employees/:id/invite", async (req, res): Promise<void> => {
   });
 
   res.json({ success: true, employee: fmt(updated), userId });
+});
+
+// ── Shifts management ────────────────────────────────────────────────────────
+router.get("/employee-shifts", async (req, res): Promise<void> => {
+  const claims = requireTenant(req, res);
+  if (!claims) return;
+  const shifts = await db.select().from(employeeShiftsTable).where(eq(employeeShiftsTable.tenantId, claims.tenantId!));
+  res.json(shifts.map(fmt));
+});
+
+router.post("/employee-shifts", async (req, res): Promise<void> => {
+  const claims = requireManagerOrOwner(req, res);
+  if (!claims) return;
+
+  const { name, startTime, endTime } = req.body;
+  if (!name || !startTime || !endTime) {
+    res.status(400).json({ error: "Nama, jam masuk, dan jam keluar wajib diisi" });
+    return;
+  }
+
+  const [shift] = await db.insert(employeeShiftsTable).values({
+    tenantId: claims.tenantId!,
+    name,
+    startTime,
+    endTime,
+  }).returning();
+
+  res.status(201).json(fmt(shift));
+});
+
+router.patch("/employee-shifts/:id", async (req, res): Promise<void> => {
+  const claims = requireManagerOrOwner(req, res);
+  if (!claims) return;
+
+  const shiftId = Number(req.params.id);
+  const { name, startTime, endTime } = req.body;
+
+  const [shift] = await db.update(employeeShiftsTable)
+    .set({
+      ...(name !== undefined && { name }),
+      ...(startTime !== undefined && { startTime }),
+      ...(endTime !== undefined && { endTime }),
+      updatedAt: new Date(),
+    })
+    .where(and(eq(employeeShiftsTable.id, shiftId), eq(employeeShiftsTable.tenantId, claims.tenantId!)))
+    .returning();
+
+  if (!shift) {
+    res.status(404).json({ error: "Shift tidak ditemukan" });
+    return;
+  }
+
+  res.json(fmt(shift));
+});
+
+router.delete("/employee-shifts/:id", async (req, res): Promise<void> => {
+  const claims = requireManagerOrOwner(req, res);
+  if (!claims) return;
+
+  const shiftId = Number(req.params.id);
+  const [deleted] = await db.delete(employeeShiftsTable)
+    .where(and(eq(employeeShiftsTable.id, shiftId), eq(employeeShiftsTable.tenantId, claims.tenantId!)))
+    .returning();
+
+  if (!deleted) {
+    res.status(404).json({ error: "Shift tidak ditemukan" });
+    return;
+  }
+
+  res.sendStatus(204);
+});
+
+// ── Attendance endpoints ─────────────────────────────────────────────────────
+function calculateCheckInStatus(checkInDate: Date, shift: any): string {
+  if (!shift) return "Luar Shift";
+  const [shiftHour, shiftMin] = shift.startTime.split(":").map(Number);
+  
+  // Adjust to local time check (since node server might run in UTC, let's look at local clock)
+  // Usually the server runs with user local time or we can extract hours/minutes directly
+  const hours = checkInDate.getHours();
+  const minutes = checkInDate.getMinutes();
+  
+  const checkInMinutes = hours * 60 + minutes;
+  const shiftMinutes = shiftHour * 60 + shiftMin;
+  
+  const diff = checkInMinutes - shiftMinutes;
+  
+  if (diff > 15) { // 15-minute late tolerance
+    return "Terlambat";
+  }
+  return "Tepat Waktu";
+}
+
+function calculateCheckOutStatus(checkOutDate: Date, shift: any): string {
+  if (!shift) return "Tepat Waktu";
+  const [shiftHour, shiftMin] = shift.endTime.split(":").map(Number);
+  
+  const hours = checkOutDate.getHours();
+  const minutes = checkOutDate.getMinutes();
+  
+  const checkOutMinutes = hours * 60 + minutes;
+  const shiftMinutes = shiftHour * 60 + shiftMin;
+  
+  const diff = shiftMinutes - checkOutMinutes; // minutes left early
+  
+  if (diff > 15) { // 15-minute early tolerance
+    return "Pulang Cepat";
+  }
+  return "Tepat Waktu";
+}
+
+router.get("/employee-attendance", async (req, res): Promise<void> => {
+  const claims = requireTenant(req, res);
+  if (!claims) return;
+
+  const employeeId = req.query.employeeId ? Number(req.query.employeeId) : undefined;
+  const branchId = req.query.branchId ? Number(req.query.branchId) : undefined;
+  const startDate = req.query.startDate ? new Date(req.query.startDate as string) : undefined;
+  const endDate = req.query.endDate ? new Date(req.query.endDate as string) : undefined;
+
+  const conditions = [eq(employeeAttendanceTable.tenantId, claims.tenantId!)];
+  if (employeeId) conditions.push(eq(employeeAttendanceTable.employeeId, employeeId));
+  if (branchId) conditions.push(eq(employeeAttendanceTable.branchId, branchId));
+  if (startDate) conditions.push(gte(employeeAttendanceTable.checkInTime, startDate));
+  if (endDate) conditions.push(lte(employeeAttendanceTable.checkInTime, endDate));
+
+  const logs = await db.select({
+    id: employeeAttendanceTable.id,
+    tenantId: employeeAttendanceTable.tenantId,
+    employeeId: employeeAttendanceTable.employeeId,
+    employeeName: employeesTable.name,
+    branchId: employeeAttendanceTable.branchId,
+    employeeShiftId: employeeAttendanceTable.employeeShiftId,
+    shiftName: employeeShiftsTable.name,
+    checkInTime: employeeAttendanceTable.checkInTime,
+    checkOutTime: employeeAttendanceTable.checkOutTime,
+    checkInPhoto: employeeAttendanceTable.checkInPhoto,
+    checkOutPhoto: employeeAttendanceTable.checkOutPhoto,
+    checkInStatus: employeeAttendanceTable.checkInStatus,
+    checkOutStatus: employeeAttendanceTable.checkOutStatus,
+    checkInNotes: employeeAttendanceTable.checkInNotes,
+    checkOutNotes: employeeAttendanceTable.checkOutNotes,
+    createdAt: employeeAttendanceTable.createdAt,
+  })
+  .from(employeeAttendanceTable)
+  .innerJoin(employeesTable, eq(employeeAttendanceTable.employeeId, employeesTable.id))
+  .leftJoin(employeeShiftsTable, eq(employeeAttendanceTable.employeeShiftId, employeeShiftsTable.id))
+  .where(and(...conditions))
+  .orderBy(desc(employeeAttendanceTable.checkInTime));
+
+  res.json(logs.map(fmt));
+});
+
+router.get("/employee-attendance/active", async (req, res): Promise<void> => {
+  const claims = requireTenant(req, res);
+  if (!claims) return;
+
+  const employeeId = Number(req.query.employeeId);
+  if (Number.isNaN(employeeId)) {
+    res.status(400).json({ error: "Invalid employeeId" });
+    return;
+  }
+
+  const [activeLog] = await db.select({
+    id: employeeAttendanceTable.id,
+    tenantId: employeeAttendanceTable.tenantId,
+    employeeId: employeeAttendanceTable.employeeId,
+    employeeName: employeesTable.name,
+    branchId: employeeAttendanceTable.branchId,
+    employeeShiftId: employeeAttendanceTable.employeeShiftId,
+    shiftName: employeeShiftsTable.name,
+    checkInTime: employeeAttendanceTable.checkInTime,
+    checkOutTime: employeeAttendanceTable.checkOutTime,
+    checkInPhoto: employeeAttendanceTable.checkInPhoto,
+    checkOutPhoto: employeeAttendanceTable.checkOutPhoto,
+    checkInStatus: employeeAttendanceTable.checkInStatus,
+    checkOutStatus: employeeAttendanceTable.checkOutStatus,
+    checkInNotes: employeeAttendanceTable.checkInNotes,
+    checkOutNotes: employeeAttendanceTable.checkOutNotes,
+    createdAt: employeeAttendanceTable.createdAt,
+  })
+  .from(employeeAttendanceTable)
+  .innerJoin(employeesTable, eq(employeeAttendanceTable.employeeId, employeesTable.id))
+  .leftJoin(employeeShiftsTable, eq(employeeAttendanceTable.employeeShiftId, employeeShiftsTable.id))
+  .where(and(
+    eq(employeeAttendanceTable.tenantId, claims.tenantId!),
+    eq(employeeAttendanceTable.employeeId, employeeId),
+    isNull(employeeAttendanceTable.checkOutTime)
+  ))
+  .limit(1);
+
+  if (!activeLog) {
+    res.status(404).json({ error: "No active attendance session found" });
+    return;
+  }
+
+  res.json(fmt(activeLog));
+});
+
+router.post("/employee-attendance/check-in", async (req, res): Promise<void> => {
+  const claims = requireTenant(req, res);
+  if (!claims) return;
+
+  const { employeeId, branchId, employeeShiftId, photo, notes } = req.body;
+  if (!employeeId || !photo) {
+    res.status(400).json({ error: "Karyawan dan Foto wajib disertakan" });
+    return;
+  }
+
+  const existingActive = await db.select().from(employeeAttendanceTable).where(and(
+    eq(employeeAttendanceTable.tenantId, claims.tenantId!),
+    eq(employeeAttendanceTable.employeeId, employeeId),
+    isNull(employeeAttendanceTable.checkOutTime)
+  )).limit(1);
+
+  if (existingActive.length > 0) {
+    res.status(400).json({ error: "Karyawan sudah melakukan absen masuk" });
+    return;
+  }
+
+  const [emp] = await db.select().from(employeesTable).where(and(
+    eq(employeesTable.id, employeeId),
+    eq(employeesTable.tenantId, claims.tenantId!)
+  )).limit(1);
+
+  if (!emp) {
+    res.status(404).json({ error: "Karyawan tidak ditemukan" });
+    return;
+  }
+
+  const finalBranchId = branchId || emp.branchId;
+  const finalShiftId = employeeShiftId || emp.employeeShiftId;
+
+  let shift: any = null;
+  if (finalShiftId) {
+    [shift] = await db.select().from(employeeShiftsTable).where(eq(employeeShiftsTable.id, finalShiftId)).limit(1);
+  }
+
+  let photoUrl = "";
+  try {
+    photoUrl = await uploadAttendancePhoto(photo, employeeId, claims.tenantId!);
+  } catch (err: any) {
+    res.status(400).json({ error: `Gagal memproses foto: ${err.message}` });
+    return;
+  }
+
+  const checkInTime = new Date();
+  const checkInStatus = calculateCheckInStatus(checkInTime, shift);
+
+  const [log] = await db.insert(employeeAttendanceTable).values({
+    tenantId: claims.tenantId!,
+    employeeId,
+    branchId: finalBranchId,
+    employeeShiftId: finalShiftId,
+    checkInTime,
+    checkInPhoto: photoUrl,
+    checkInStatus,
+    checkInNotes: notes || null,
+  }).returning();
+
+  const [fullLog] = await db.select({
+    id: employeeAttendanceTable.id,
+    tenantId: employeeAttendanceTable.tenantId,
+    employeeId: employeeAttendanceTable.employeeId,
+    employeeName: employeesTable.name,
+    branchId: employeeAttendanceTable.branchId,
+    employeeShiftId: employeeAttendanceTable.employeeShiftId,
+    shiftName: employeeShiftsTable.name,
+    checkInTime: employeeAttendanceTable.checkInTime,
+    checkOutTime: employeeAttendanceTable.checkOutTime,
+    checkInPhoto: employeeAttendanceTable.checkInPhoto,
+    checkOutPhoto: employeeAttendanceTable.checkOutPhoto,
+    checkInStatus: employeeAttendanceTable.checkInStatus,
+    checkOutStatus: employeeAttendanceTable.checkOutStatus,
+    checkInNotes: employeeAttendanceTable.checkInNotes,
+    checkOutNotes: employeeAttendanceTable.checkOutNotes,
+    createdAt: employeeAttendanceTable.createdAt,
+  })
+  .from(employeeAttendanceTable)
+  .innerJoin(employeesTable, eq(employeeAttendanceTable.employeeId, employeesTable.id))
+  .leftJoin(employeeShiftsTable, eq(employeeAttendanceTable.employeeShiftId, employeeShiftsTable.id))
+  .where(eq(employeeAttendanceTable.id, log.id))
+  .limit(1);
+
+  res.status(201).json(fmt(fullLog));
+});
+
+router.post("/employee-attendance/check-out", async (req, res): Promise<void> => {
+  const claims = requireTenant(req, res);
+  if (!claims) return;
+
+  const { employeeId, photo, notes } = req.body;
+  if (!employeeId || !photo) {
+    res.status(400).json({ error: "Karyawan dan Foto wajib disertakan" });
+    return;
+  }
+
+  const [activeSession] = await db.select().from(employeeAttendanceTable).where(and(
+    eq(employeeAttendanceTable.tenantId, claims.tenantId!),
+    eq(employeeAttendanceTable.employeeId, employeeId),
+    isNull(employeeAttendanceTable.checkOutTime)
+  )).limit(1);
+
+  if (!activeSession) {
+    res.status(400).json({ error: "Karyawan belum melakukan absen masuk" });
+    return;
+  }
+
+  let photoUrl = "";
+  try {
+    photoUrl = await uploadAttendancePhoto(photo, employeeId, claims.tenantId!);
+  } catch (err: any) {
+    res.status(400).json({ error: `Gagal memproses foto: ${err.message}` });
+    return;
+  }
+
+  let shift: any = null;
+  if (activeSession.employeeShiftId) {
+    [shift] = await db.select().from(employeeShiftsTable).where(eq(employeeShiftsTable.id, activeSession.employeeShiftId)).limit(1);
+  }
+
+  const checkOutTime = new Date();
+  const checkOutStatus = calculateCheckOutStatus(checkOutTime, shift);
+
+  await db.update(employeeAttendanceTable)
+    .set({
+      checkOutTime,
+      checkOutPhoto: photoUrl,
+      checkOutStatus,
+      checkOutNotes: notes || null,
+      updatedAt: new Date(),
+    })
+    .where(eq(employeeAttendanceTable.id, activeSession.id));
+
+  const [fullLog] = await db.select({
+    id: employeeAttendanceTable.id,
+    tenantId: employeeAttendanceTable.tenantId,
+    employeeId: employeeAttendanceTable.employeeId,
+    employeeName: employeesTable.name,
+    branchId: employeeAttendanceTable.branchId,
+    employeeShiftId: employeeAttendanceTable.employeeShiftId,
+    shiftName: employeeShiftsTable.name,
+    checkInTime: employeeAttendanceTable.checkInTime,
+    checkOutTime: employeeAttendanceTable.checkOutTime,
+    checkInPhoto: employeeAttendanceTable.checkInPhoto,
+    checkOutPhoto: employeeAttendanceTable.checkOutPhoto,
+    checkInStatus: employeeAttendanceTable.checkInStatus,
+    checkOutStatus: employeeAttendanceTable.checkOutStatus,
+    checkInNotes: employeeAttendanceTable.checkInNotes,
+    checkOutNotes: employeeAttendanceTable.checkOutNotes,
+    createdAt: employeeAttendanceTable.createdAt,
+  })
+  .from(employeeAttendanceTable)
+  .innerJoin(employeesTable, eq(employeeAttendanceTable.employeeId, employeesTable.id))
+  .leftJoin(employeeShiftsTable, eq(employeeAttendanceTable.employeeShiftId, employeeShiftsTable.id))
+  .where(eq(employeeAttendanceTable.id, activeSession.id))
+  .limit(1);
+
+  res.json(fmt(fullLog));
 });
 
 export default router;

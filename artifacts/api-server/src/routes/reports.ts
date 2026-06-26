@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, gte, lte, count, sql, desc } from "drizzle-orm";
-import { db, ordersTable, orderItemsTable, productsTable, customersTable, employeesTable, branchesTable, publicMenuProductsTable, expensesTable } from "@workspace/db";
+import { db, ordersTable, orderItemsTable, productsTable, categoriesTable, customersTable, employeesTable, branchesTable, publicMenuProductsTable, expensesTable } from "@workspace/db";
 import { GetSalesReportQueryParams, GetSalesChartDataQueryParams } from "@workspace/api-zod";
 import { extractToken, getRequestedBranchId } from "./auth";
 
@@ -258,6 +258,21 @@ router.get("/reports/sales", async (req, res): Promise<void> => {
     total: sql<number>`COALESCE(SUM(CAST(total AS DECIMAL)), 0)`,
   }).from(ordersTable).where(where).groupBy(ordersTable.paymentMethod);
 
+  // By category
+  const categoryRows = await db.select({
+    categoryId: categoriesTable.id,
+    name: categoriesTable.name,
+    totalSold: sql<number>`COALESCE(SUM(CAST(${orderItemsTable.quantity} AS INTEGER)), 0)`,
+    revenue: sql<number>`COALESCE(SUM(CAST(${orderItemsTable.subtotal} AS DECIMAL)), 0)`,
+  })
+    .from(orderItemsTable)
+    .innerJoin(ordersTable, eq(orderItemsTable.orderId, ordersTable.id))
+    .leftJoin(productsTable, eq(orderItemsTable.productId, productsTable.id))
+    .leftJoin(categoriesTable, eq(productsTable.categoryId, categoriesTable.id))
+    .where(where)
+    .groupBy(categoriesTable.id, categoriesTable.name)
+    .orderBy(desc(sql`COALESCE(SUM(CAST(${orderItemsTable.subtotal} AS DECIMAL)), 0)`));
+
   res.json({
     totalRevenue: Number(agg.totalRevenue) || 0,
     totalOrders: agg.totalOrders,
@@ -274,6 +289,12 @@ router.get("/reports/sales", async (req, res): Promise<void> => {
       method: r.method,
       count: r.count,
       total: Number(r.total),
+    })),
+    byCategory: categoryRows.map(r => ({
+      categoryId: r.categoryId ?? null,
+      name: r.name ?? "Tanpa Kategori",
+      totalSold: Number(r.totalSold),
+      revenue: Number(r.revenue),
     })),
   });
 });

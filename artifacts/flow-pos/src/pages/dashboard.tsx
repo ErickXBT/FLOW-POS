@@ -1246,6 +1246,14 @@ function OwnerDashboard() {
             </select>
           </div>
 
+          {/* Riwayat Struk Button */}
+          <Link href="/riwayat-cetak-struk">
+            <a className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border border-border hover:bg-muted text-muted-foreground shadow-sm bg-background">
+              <FileText size={12} className="text-amber-500" />
+              <span>Riwayat Struk</span>
+            </a>
+          </Link>
+
           {/* Simulation Toggle */}
           {isDemo && (
             <button
@@ -1661,6 +1669,19 @@ function OwnerDashboard() {
                 <p className="text-xs text-muted-foreground">Bandingkan penjualan, staf, dan stok antar outlet cabang.</p>
               </div>
 
+              {/* Quick Stock Transfer Action */}
+              <div className="bg-card border border-card-border rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row gap-3 items-center justify-between">
+                <div>
+                  <h4 className="font-bold text-sm text-foreground">Pemindahan & Alokasi Stok</h4>
+                  <p className="text-xs text-muted-foreground">Distribusikan barang dari Rumah Produksi ke Cabang, atau antar Cabang secara instan.</p>
+                </div>
+                <Link href="/ambil-stok">
+                  <a className="w-full sm:w-auto px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all shadow-sm text-center">
+                    📦 Ambil / Salurkan Stok
+                  </a>
+                </Link>
+              </div>
+
               <div className="grid lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 bg-card border border-card-border rounded-2xl p-5 shadow-sm space-y-4">
                   <h4 className="font-bold text-xs text-foreground">Perbandingan Omzet Cabang (Bulan Ini)</h4>
@@ -1877,6 +1898,25 @@ function OwnerDashboard() {
           {/* Tab 5: Financial Analytics */}
           {activeTab === "finance" && (
             <div className="space-y-6 animate-fade-in">
+              {/* Quick Cash Tools */}
+              <div className="bg-card border border-card-border rounded-2xl p-4 shadow-sm flex flex-col sm:flex-row gap-3 items-center justify-between">
+                <div>
+                  <h4 className="font-bold text-sm text-foreground">Alat Manajemen Kas Tenant</h4>
+                  <p className="text-xs text-muted-foreground">Monitor rekap bulanan laci kasir dan riwayat pergerakan uang fisik outlet.</p>
+                </div>
+                <div className="flex gap-3 w-full sm:w-auto">
+                  <Link href="/rekap-kas">
+                    <a className="flex-1 text-center px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold rounded-xl transition-all shadow-sm">
+                      📊 Rekap Kas Bulanan
+                    </a>
+                  </Link>
+                  <Link href="/mutasi-kas">
+                    <a className="flex-1 text-center px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold rounded-xl transition-all shadow-sm">
+                      🔄 Mutasi Kas Outlet
+                    </a>
+                  </Link>
+                </div>
+              </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="bg-card border border-card-border rounded-xl p-4 shadow-sm">
                   <span className="text-muted-foreground text-[10px] font-semibold uppercase">Omzet Kotor (Gross)</span>

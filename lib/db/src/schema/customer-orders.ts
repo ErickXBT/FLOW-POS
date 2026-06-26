@@ -98,8 +98,10 @@ export const customerOrdersTable = pgTable("customer_orders", {
   subtotal: numeric("subtotal", { precision: 15, scale: 2 }).notNull().default("0"),
   discount: numeric("discount", { precision: 15, scale: 2 }).notNull().default("0"),
   tax: numeric("tax", { precision: 15, scale: 2 }).notNull().default("0"),
+  serviceCharge: numeric("service_charge", { precision: 15, scale: 2 }).notNull().default("0"),
   total: numeric("total", { precision: 15, scale: 2 }).notNull().default("0"),
   status: text("status").notNull().default("pending"), // pending, confirmed, preparing, ready, on_delivery, completed, cancelled
+  paymentStatus: text("payment_status").notNull().default("unpaid"), // unpaid, paid
   notes: text("notes"),
   employeeId: integer("employee_id"),
   employeeName: text("employee_name"),

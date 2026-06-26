@@ -9,6 +9,7 @@ export const ordersTable = pgTable("orders", {
   subtotal: numeric("subtotal", { precision: 15, scale: 2 }).notNull().default("0"),
   discount: numeric("discount", { precision: 15, scale: 2 }).notNull().default("0"),
   tax: numeric("tax", { precision: 15, scale: 2 }).notNull().default("0"),
+  serviceCharge: numeric("service_charge", { precision: 15, scale: 2 }).notNull().default("0"),
   total: numeric("total", { precision: 15, scale: 2 }).notNull().default("0"),
   status: text("status").notNull().default("completed"), // pending, completed, cancelled, refunded
   paymentMethod: text("payment_method").notNull(), // cash, qris, bank_transfer, ewallet, credit_card

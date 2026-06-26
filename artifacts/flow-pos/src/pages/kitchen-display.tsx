@@ -87,7 +87,7 @@ export default function KitchenDisplayPage() {
         }
       } else if (data.type === "status_update") {
         setOrders(prev => {
-          const updated = prev.map(o => o.id === data.orderId ? { ...o, status: data.status } : o);
+          const updated = prev.map(o => o.id === data.orderId ? { ...o, status: data.status, paymentStatus: data.paymentStatus ?? o.paymentStatus } : o);
           return updated.filter(o => ["pending", "confirmed", "preparing"].includes(o.status));
         });
       }
@@ -320,9 +320,14 @@ function KitchenOrderCard({ order, updating, onConfirm, onPrepare, onReady, onCa
               </span>
             )}
           </div>
-          <div className="text-xs text-gray-400 flex items-center gap-2">
+          <div className="text-xs text-gray-400 flex items-center gap-2 flex-wrap">
             <span>{TYPE_ICON[order.orderType]} {TYPE_LABEL[order.orderType]}</span>
             {order.tableNumber && <span className="bg-gray-700 px-1.5 py-0.5 rounded text-gray-300">{formatTableNumber(order.tableNumber, isFashion)}</span>}
+            {order.paymentStatus === "paid" ? (
+              <span className="bg-green-950/60 text-green-400 border border-green-900/60 px-1.5 py-0.5 rounded text-[10px] font-bold">✓ Lunas</span>
+            ) : (
+              <span className="bg-red-950/60 text-red-400 border border-red-900/60 px-1.5 py-0.5 rounded text-[10px] font-bold animate-pulse">⏳ Belum Bayar</span>
+            )}
           </div>
         </div>
         <div className="flex-shrink-0 flex flex-col items-end">
@@ -336,20 +341,34 @@ function KitchenOrderCard({ order, updating, onConfirm, onPrepare, onReady, onCa
       </div>
 
       {/* Items */}
-      <div className="px-3 py-2.5 space-y-1.5 border-b border-gray-800">
-        {order.items?.map((item: any) => (
-          <div key={item.id} className="flex flex-col text-sm border-b border-gray-800/40 pb-1 last:border-b-0 last:pb-0">
-            <div className="flex justify-between">
-              <span className="text-white font-medium">{item.quantity}× {item.productName}</span>
+      <div className="px-3 py-2.5 border-b border-gray-800">
+        <div className="grid grid-cols-2 gap-2">
+          {order.items?.map((item: any) => (
+            <div key={item.id} className="bg-gray-850 rounded-xl overflow-hidden border border-gray-800/80 p-2 flex flex-col justify-between" style={{ backgroundColor: "#141b2d" }}>
+              <div className="relative aspect-video w-full rounded-lg overflow-hidden bg-gray-900 flex items-center justify-center">
+                {item.imageUrl ? (
+                  <img src={item.imageUrl} alt={item.productName} className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-2xl text-gray-700">🍽️</span>
+                )}
+                <span className="absolute top-1 left-1 bg-gray-950/80 text-white text-[10px] font-extrabold px-1.5 py-0.5 rounded border border-gray-800 shadow-sm">
+                  {item.quantity}x
+                </span>
+              </div>
+              <div className="mt-1.5 text-xs font-bold text-white line-clamp-1">
+                {item.productName}
+              </div>
+              {item.variantSelection && (
+                <span className="text-[9px] text-gray-400 mt-0.5 line-clamp-1">{item.variantSelection}</span>
+              )}
+              {item.notes && (
+                <span className="text-[9px] text-amber-400 italic mt-0.5 line-clamp-1">Catatan: {item.notes}</span>
+              )}
             </div>
-            {item.variantSelection && (
-              <span className="text-[10px] text-gray-400 mt-0.5">{item.variantSelection}</span>
-            )}
-            {item.notes && <span className="text-xs text-amber-400 italic mt-0.5">Catatan: {item.notes}</span>}
-          </div>
-        ))}
+          ))}
+        </div>
         {order.notes && (
-          <div className="mt-1 text-xs text-amber-300 bg-amber-900/20 rounded px-2 py-1 border border-amber-800/40">
+          <div className="mt-2 text-xs text-amber-300 bg-amber-900/20 rounded px-2 py-1 border border-amber-800/40">
             📝 {order.notes}
           </div>
         )}

@@ -41,6 +41,8 @@ export default function QrManagerPage() {
     enableCash: true, enableQris: true, enableBankTransfer: false, enableEwallet: false,
     deliveryFeeNear: 0, deliveryFeeFar: 5000,
     showVariants: true, showToppings: true,
+    showDeliveryInfo: true,
+    estimatedDeliveryTime: "25-35 menit",
   });
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
@@ -98,6 +100,9 @@ export default function QrManagerPage() {
       setBusinessType(t.businessType || "fnb");
       setSettings(s => ({
         ...s,
+        enableDineIn: t.enableDineIn ?? true,
+        enableTakeAway: t.enableTakeAway ?? true,
+        enableDelivery: t.enableDelivery ?? false,
         enableCash: t.enableCash ?? true,
         enableQris: t.enableQris ?? true,
         enableBankTransfer: t.enableBankTransfer ?? false,
@@ -106,6 +111,8 @@ export default function QrManagerPage() {
         deliveryFeeFar: t.deliveryFeeFar !== undefined ? Number(t.deliveryFeeFar) : 5000,
         showVariants: t.showVariants ?? true,
         showToppings: t.showToppings ?? true,
+        showDeliveryInfo: t.showDeliveryInfo ?? true,
+        estimatedDeliveryTime: t.estimatedDeliveryTime ?? "25-35 menit",
       }));
     }
     setLoading(false);
@@ -360,6 +367,38 @@ export default function QrManagerPage() {
                       />
                     </div>
                   </div>
+                  
+                  <hr className="border-border my-2" />
+                  
+                  <div className="text-xs font-bold text-foreground mt-2">Tampilan Menu Customer</div>
+                  
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setSettings(s => ({ ...s, showDeliveryInfo: !(s as any).showDeliveryInfo }))}
+                      className={`w-9 h-5 rounded-full transition-colors relative focus:outline-none flex-shrink-0 ${(settings as any).showDeliveryInfo ? "bg-primary" : "bg-zinc-300"}`}
+                    >
+                      <span
+                        className={`absolute top-[2px] left-[2px] w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${(settings as any).showDeliveryInfo ? "translate-x-4" : "translate-x-0"}`}
+                      />
+                    </button>
+                    <span className="text-xs font-medium text-foreground font-sans">
+                      Tampilkan Status Pengiriman &amp; Durasi
+                    </span>
+                  </div>
+
+                  {(settings as any).showDeliveryInfo && (
+                    <div className="animate-slide-up">
+                      <label className="block text-[10px] font-medium text-muted-foreground mb-1">Estimasi Durasi Pengiriman</label>
+                      <input
+                        type="text"
+                        value={(settings as any).estimatedDeliveryTime || ""}
+                        onChange={e => setSettings(s => ({ ...s, estimatedDeliveryTime: e.target.value }))}
+                        className="w-full px-3 py-2 border border-input rounded-xl bg-background text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
+                        placeholder="Contoh: 25-35 menit"
+                      />
+                    </div>
+                  )}
                 </div>
               )}
             </div>

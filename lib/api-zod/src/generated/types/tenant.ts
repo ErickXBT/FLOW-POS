@@ -42,6 +42,8 @@ export interface Tenant {
   enableCustomerLogin?: boolean;
   enableTax?: boolean;
   taxPercentage?: number;
+  enableServiceCharge?: boolean;
+  serviceChargePercentage?: number;
   pointSystemConfig?: TenantPointSystemConfig;
   /** @nullable */
   defaultCashierName?: string | null;
@@ -51,5 +53,13 @@ export interface Tenant {
   qrisId?: string | null;
   /** @nullable */
   qrisImageUrl?: string | null;
+  showDeliveryInfo?: boolean;
+  /** @nullable */
+  estimatedDeliveryTime?: string | null;
+  enableOpsHours?: boolean;
+  /** @nullable */
+  opsOpeningTime?: string | null;
+  /** @nullable */
+  opsClosingTime?: string | null;
   createdAt: string;
 }

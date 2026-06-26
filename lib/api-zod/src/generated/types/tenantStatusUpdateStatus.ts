@@ -12,4 +12,5 @@ export type TenantStatusUpdateStatus = typeof TenantStatusUpdateStatus[keyof typ
 export const TenantStatusUpdateStatus = {
   active: 'active',
   suspended: 'suspended',
+  frozen: 'frozen',
 } as const;

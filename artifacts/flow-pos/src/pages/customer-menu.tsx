@@ -25,6 +25,11 @@ interface TenantInfo {
   taxPercentage?: number;
   qrisId?: string | null;
   qrisImageUrl?: string | null;
+  showDeliveryInfo?: boolean;
+  estimatedDeliveryTime?: string | null;
+  enableOpsHours?: boolean;
+  opsOpeningTime?: string | null;
+  opsClosingTime?: string | null;
 }
 
 interface BranchInfo {
@@ -768,6 +773,29 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
   const [branch, setBranch] = useState<BranchInfo | null>(null);
   const [menu, setMenu] = useState<PublicMenuInfo | null>(null);
 
+  const isStoreOpen = useMemo(() => {
+    if (!tenant) return true;
+    if (!tenant.enableOpsHours) return true;
+    if (!tenant.opsOpeningTime || !tenant.opsClosingTime) return true;
+
+    const now = new Date();
+    const currentHours = now.getHours();
+    const currentMinutes = now.getMinutes();
+    const currentTotal = currentHours * 60 + currentMinutes;
+
+    const [openH, openM] = tenant.opsOpeningTime.split(":").map(Number);
+    const openTotal = openH * 60 + openM;
+
+    const [closeH, closeM] = tenant.opsClosingTime.split(":").map(Number);
+    const closeTotal = closeH * 60 + closeM;
+
+    if (openTotal <= closeTotal) {
+      return currentTotal >= openTotal && currentTotal <= closeTotal;
+    } else {
+      return currentTotal >= openTotal || currentTotal <= closeTotal;
+    }
+  }, [tenant]);
+
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [activeCat, setActiveCat] = useState<number | null>(null);
@@ -962,6 +990,18 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
       }
     }
     return p.promoPrice ?? p.price;
+  };
+
+  const getPointDiscountLabel = () => {
+    if (!customer?.activeReward) return "10% POIN";
+    if (customer.activeReward === "grand_reward") {
+      return "GRAND REWARD";
+    }
+    const match = customer.activeReward.match(/^discount_(\d+)$/);
+    if (match) {
+      return `${match[1]}% POIN`;
+    }
+    return "10% POIN";
   };
 
   const [authChecking, setAuthChecking] = useState(true);
@@ -1638,6 +1678,8 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
 
   const enableTax = tenant?.enableTax ?? false;
   const taxPct = enableTax ? Number(tenant?.taxPercentage ?? 10) : 0;
+  const enableServiceCharge = (tenant as any)?.enableServiceCharge ?? false;
+  const serviceChargePct = enableServiceCharge ? Number((tenant as any)?.serviceChargePercentage ?? 10) : 0;
   const pointDiscountAmount = (() => {
     if (!hasPointDiscount) return 0;
     if (customer?.activeReward === "grand_reward") {
@@ -1654,8 +1696,9 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
     return Math.round(cartTotal * discountPercent);
   })();
   const subtotalAfterDiscount = Math.max(0, cartTotal - pointDiscountAmount);
-  const taxAmount = subtotalAfterDiscount * (taxPct / 100);
-  const cartTotalWithTax = subtotalAfterDiscount + taxAmount;
+  const serviceChargeAmount = subtotalAfterDiscount * (serviceChargePct / 100);
+  const taxAmount = (subtotalAfterDiscount + serviceChargeAmount) * (taxPct / 100);
+  const cartTotalWithTax = subtotalAfterDiscount + serviceChargeAmount + taxAmount;
 
   const filteredProducts = products.filter(p => {
     const matchCat = !activeCat || p.publicMenuCategoryId === activeCat;
@@ -2122,9 +2165,21 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
               )}
             </div>
             <div className="flex flex-col items-end gap-2 flex-shrink-0">
-              <span className="text-[10px] font-bold bg-green-50 text-green-600 px-3 py-1 rounded-full border border-green-200 uppercase tracking-wide flex items-center gap-1">
-                <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" /> Buka
-              </span>
+              {tenant.enableOpsHours ? (
+                isStoreOpen ? (
+                  <span className="text-[10px] font-bold bg-green-50 text-green-600 px-3 py-1 rounded-full border border-green-200 uppercase tracking-wide flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" /> Buka ({tenant.opsOpeningTime} - {tenant.opsClosingTime})
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-bold bg-red-50 text-red-600 px-3 py-1 rounded-full border border-red-200 uppercase tracking-wide flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" /> Tutup ({tenant.opsOpeningTime} - {tenant.opsClosingTime})
+                  </span>
+                )
+              ) : (
+                <span className="text-[10px] font-bold bg-green-50 text-green-600 px-3 py-1 rounded-full border border-green-200 uppercase tracking-wide flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" /> Buka
+                </span>
+              )}
               {tenant.enableCustomerLogin && customer && (
                 <button
                   onClick={() => setHistoryOpen(true)}
@@ -2137,11 +2192,13 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-bold text-gray-700 bg-gray-50 p-3 rounded-2xl">
-            <span className="flex items-center gap-1"><Truck size={13} style={{ color: primary }} /> {(menu.enableDelivery || tenant.enableDelivery) ? "Menerima Pengantaran" : "Hanya Ambil Sendiri"}</span>
-            <span className="text-gray-300 hidden sm:inline">|</span>
-            <span className="flex items-center gap-1"><Clock size={13} style={{ color: primary }} /> {menu.estimatedDeliveryTime || "30 mnt"} ETA</span>
-          </div>
+          {tenant.showDeliveryInfo !== false && (
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-bold text-gray-700 bg-gray-50 p-3 rounded-2xl">
+              <span className="flex items-center gap-1"><Truck size={13} style={{ color: primary }} /> {(menu.enableDelivery || tenant.enableDelivery) ? "Menerima Pengantaran" : "Hanya Ambil Sendiri"}</span>
+              <span className="text-gray-300 hidden sm:inline">|</span>
+              <span className="flex items-center gap-1"><Clock size={13} style={{ color: primary }} /> {tenant.estimatedDeliveryTime || menu.estimatedDeliveryTime || "30 mnt"}</span>
+            </div>
+          )}
         </div>
       </div>
 
@@ -2216,7 +2273,7 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
                     </div>
                     {hasPointDiscount && (
                       <span className="inline-block text-[8px] font-black bg-amber-100 text-amber-850 px-1.5 py-0.5 rounded border border-amber-200 w-max leading-none">
-                        10% POIN
+                        {getPointDiscountLabel()}
                       </span>
                     )}
                   </div>
@@ -2303,7 +2360,7 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
                             <span className="text-[9px] text-gray-300 line-through leading-none">{formatRp(p.price)}</span>
                             {hasPointDiscount && (
                               <span className="inline-block text-[8px] font-black bg-amber-100 text-amber-800 px-1 py-0.5 rounded border border-amber-200 w-max leading-none mt-1">
-                                10% POIN
+                                {getPointDiscountLabel()}
                               </span>
                             )}
                           </>
@@ -2577,6 +2634,9 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
                     <span>-{formatRp(pointDiscountAmount)}</span>
                   </div>
                 )}
+                {enableServiceCharge && (
+                  <div className="flex justify-between"><span>Biaya Servis ({serviceChargePct}%)</span><span className="font-bold text-gray-900">{formatRp(serviceChargeAmount)}</span></div>
+                )}
                 {enableTax && (
                   <div className="flex justify-between"><span>Pajak ({taxPct}%)</span><span className="font-bold text-gray-900">{formatRp(taxAmount)}</span></div>
                 )}
@@ -2584,12 +2644,19 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
               <div className="flex justify-between font-black text-sm pt-2 border-t text-gray-900">
                 <span>Total Estimasi</span><span style={{ color: primary }}>{formatRp(cartTotalWithTax)}</span>
               </div>
-              <button
-                onClick={() => { setCartOpen(false); setStep("order-type"); }}
-                className="w-full py-4 rounded-3xl text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-primary/20 hover:opacity-95"
-                style={{ backgroundColor: primary }}>
-                Lanjut Pilih Jenis Pesanan <ChevronRight size={16} />
-              </button>
+              {!isStoreOpen ? (
+                <div className="bg-red-50 text-red-600 border border-red-200 rounded-2xl p-4 text-xs font-semibold space-y-1">
+                  <div className="font-bold flex items-center gap-1.5"><Info size={14} /> Toko Sedang Tutup</div>
+                  <div>Pemesanan online tidak tersedia di luar jam operasional. Silakan pesan kembali pada jam operasional: {tenant.opsOpeningTime} - {tenant.opsClosingTime}.</div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => { setCartOpen(false); setStep("order-type"); }}
+                  className="w-full py-4 rounded-3xl text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-primary/20 hover:opacity-95"
+                  style={{ backgroundColor: primary }}>
+                  Lanjut Pilih Jenis Pesanan <ChevronRight size={16} />
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -2823,17 +2890,26 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
                   )}
                 </div>
                 
-                <button
-                  onClick={handleSubmitOrder}
-                  disabled={submitting}
-                  className="flex-1 py-4 rounded-3xl text-white font-bold text-xs flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg shadow-primary/25"
-                  style={{ backgroundColor: primary }}>
-                  {submitting ? (
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    <>Konfirmasi & Kirim Pesanan</>
-                  )}
-                </button>
+                {!isStoreOpen ? (
+                  <button
+                    disabled
+                    className="flex-1 py-4 rounded-3xl bg-red-100 text-red-500 border border-red-200 font-bold text-xs flex items-center justify-center gap-2 select-none cursor-not-allowed"
+                  >
+                    Toko Sedang Tutup
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleSubmitOrder}
+                    disabled={submitting}
+                    className="flex-1 py-4 rounded-3xl text-white font-bold text-xs flex items-center justify-center gap-2 disabled:opacity-60 shadow-lg shadow-primary/25"
+                    style={{ backgroundColor: primary }}>
+                    {submitting ? (
+                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <>Konfirmasi & Kirim Pesanan</>
+                    )}
+                  </button>
+                )}
               </div>
             </div>
           </div>

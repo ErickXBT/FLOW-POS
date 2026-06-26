@@ -3,6 +3,7 @@ import { eq, and, ilike, count, sql, desc } from "drizzle-orm";
 import { db, productsTable, categoriesTable, orderItemsTable, ordersTable, employeesTable, publicMenuProductsTable, publicMenusTable, publicMenuCategoriesTable, tenantsTable } from "@workspace/db";
 import fs from "fs";
 import path from "path";
+import { uploadProductImage } from "../lib/storage";
 
 import {
   ListProductsQueryParams,
@@ -412,7 +413,7 @@ router.delete("/products/:id", async (req, res): Promise<void> => {
 
 router.post("/products/upload", async (req, res): Promise<void> => {
   const claims = requireTenant(req, res);
-  if (!claims) return;
+  if (!claims || !claims.tenantId) return;
 
   const { name, base64 } = req.body;
   if (!name || !base64) {
@@ -421,25 +422,7 @@ router.post("/products/upload", async (req, res): Promise<void> => {
   }
 
   try {
-    const matches = base64.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-    if (!matches || matches.length !== 3) {
-      res.status(400).json({ error: "Format base64 gambar tidak valid" });
-      return;
-    }
-
-    const fileBuffer = Buffer.from(matches[2], "base64");
-    const extension = path.extname(name) || ".png";
-    const fileName = `${claims.tenantId}_${Date.now()}_${Math.floor(Math.random() * 1000)}${extension}`;
-    
-    const uploadDir = path.join(process.cwd(), "uploads");
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-
-    const filePath = path.join(uploadDir, fileName);
-    await fs.promises.writeFile(filePath, fileBuffer);
-
-    const imageUrl = `/api/uploads/${fileName}`;
+    const imageUrl = await uploadProductImage(base64, name, claims.tenantId);
     res.status(200).json({ imageUrl });
   } catch (error: any) {
     res.status(500).json({ error: error.message || "Gagal mengunggah gambar" });

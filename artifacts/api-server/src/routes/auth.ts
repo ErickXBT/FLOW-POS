@@ -1,36 +1,90 @@
 import { Router, type IRouter } from "express";
 import { eq, and, sql } from "drizzle-orm";
-import { db, usersTable, tenantsTable, subscriptionsTable, employeesTable, branchesTable, customRolesTable, platformSettingsTable, branchSettingsTable, publicMenusTable } from "@workspace/db";
+import { db, usersTable, tenantsTable, subscriptionsTable, employeesTable, branchesTable, customRolesTable, platformSettingsTable, branchSettingsTable, publicMenusTable, userSessionsTable } from "@workspace/db";
 import nodemailer from "nodemailer";
 import { LoginBody, RegisterBody } from "@workspace/api-zod";
 import { logger } from "../lib/logger";
 import * as crypto from "crypto";
 import * as jwt from "jsonwebtoken";
+import bcryptjs from "bcryptjs";
 import { logActivity, createSession, endSession } from "./activity";
 
 const router: IRouter = Router();
-const JWT_SECRET = process.env.SESSION_SECRET || "flow-pos-secret-key-2024";
+const JWT_SECRET = process.env.SESSION_SECRET;
 
-function hashPassword(password: string): string {
+// Ensure SESSION_SECRET is set in production
+if (process.env.NODE_ENV === "production" && !JWT_SECRET) {
+  throw new Error("CRITICAL: SESSION_SECRET is not configured in production environment!");
+}
+
+const JWT_SECRET_KEY = JWT_SECRET || "flow-pos-secret-key-2024";
+
+export function hashPassword(password: string): string {
+  return bcryptjs.hashSync(password, 10);
+}
+
+function legacyHashPassword(password: string): string {
   return crypto.createHash("sha256").update(password + "flow-salt").digest("hex");
 }
 
+export function verifyPassword(password: string, hash: string): boolean {
+  if (hash.startsWith("$2a$") || hash.startsWith("$2b$") || hash.startsWith("$2y$")) {
+    return bcryptjs.compareSync(password, hash);
+  }
+  return legacyHashPassword(password) === hash;
+}
+
+export function hashToken(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
 function signToken(payload: { userId: number; tenantId: number | null; role: string }): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: "30d" });
+  return jwt.sign(payload, JWT_SECRET_KEY, { expiresIn: "30d" });
 }
 
 export function verifyToken(token: string): { userId: number; tenantId: number | null; role: string } | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as { userId: number; tenantId: number | null; role: string };
+    return jwt.verify(token, JWT_SECRET_KEY) as { userId: number; tenantId: number | null; role: string };
   } catch {
     return null;
   }
 }
 
 export function extractToken(req: any): { userId: number; tenantId: number | null; role: string } | null {
+  if (req.claims) return req.claims;
   const auth = req.headers.authorization;
   if (!auth || !auth.startsWith("Bearer ")) return null;
   return verifyToken(auth.slice(7));
+}
+
+export async function verifySession(req: any): Promise<{ userId: number; tenantId: number | null; role: string } | null> {
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith("Bearer ")) return null;
+  
+  const token = auth.slice(7);
+  const claims = verifyToken(token);
+  if (!claims) return null;
+
+  const tokenHash = hashToken(token);
+
+  // Verify the session in the database
+  const [session] = await db
+    .select()
+    .from(userSessionsTable)
+    .where(and(eq(userSessionsTable.tokenHash, tokenHash), eq(userSessionsTable.isActive, true)))
+    .limit(1);
+
+  if (!session) {
+    return null;
+  }
+
+  // Asynchronously update last seen
+  db.update(userSessionsTable)
+    .set({ lastSeenAt: new Date() })
+    .where(eq(userSessionsTable.id, session.id))
+    .catch((err) => logger.error(err, "Failed to update session lastSeenAt"));
+
+  return claims;
 }
 
 function getDefaultPermissions(role: string): string[] {
@@ -144,27 +198,32 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   const { email, password } = parsed.data;
   let user;
 
-  if (email.toLowerCase() === "ericksatria91@gmail.com" && password === "Ericksatria29") {
-    const [superAdmin] = await db.select().from(usersTable).where(eq(usersTable.role, "super_admin")).limit(1);
-    if (superAdmin) {
-      user = superAdmin;
-    }
-  }
+  const [foundUser] = await db
+    .select()
+    .from(usersTable)
+    .where(eq(usersTable.email, email.toLowerCase()))
+    .limit(1);
 
-  if (!user && email.toLowerCase() === "ericksatria91@gmail.com" && password === "037425") {
-    const [owner] = await db.select().from(usersTable)
-      .where(and(eq(usersTable.email, "ericksatria91@gmail.com"), eq(usersTable.role, "owner")))
-      .limit(1);
-    if (owner) {
-      user = owner;
-    }
-  }
+  if (foundUser && verifyPassword(password, foundUser.passwordHash)) {
+    user = foundUser;
 
-  if (!user) {
-    const hash = hashPassword(password);
-    const [foundUser] = await db.select().from(usersTable).where(eq(usersTable.email, email.toLowerCase()));
-    if (foundUser && foundUser.passwordHash === hash) {
-      user = foundUser;
+    // Auto-upgrade password hash to bcryptjs if it is legacy (SHA-256)
+    const isLegacy = !(
+      foundUser.passwordHash.startsWith("$2a$") ||
+      foundUser.passwordHash.startsWith("$2b$") ||
+      foundUser.passwordHash.startsWith("$2y$")
+    );
+    if (isLegacy) {
+      try {
+        const newHash = hashPassword(password);
+        await db
+          .update(usersTable)
+          .set({ passwordHash: newHash, updatedAt: new Date() })
+          .where(eq(usersTable.id, foundUser.id));
+        logger.info({ userId: foundUser.id }, "Auto-upgraded user password hash to bcryptjs");
+      } catch (err) {
+        logger.error(err, "Failed to auto-upgrade password hash");
+      }
     }
   }
 
@@ -194,6 +253,23 @@ router.post("/auth/login", async (req, res): Promise<void> => {
       .limit(1);
     if (emp && !emp.isActive) {
       res.status(403).json({ error: "Akun karyawan Anda telah dinonaktifkan" });
+      return;
+    }
+  }
+
+  // Check if tenant is suspended or frozen
+  if (user.role !== "super_admin" && user.tenantId) {
+    const [tenant] = await db.select({ status: tenantsTable.status })
+      .from(tenantsTable)
+      .where(eq(tenantsTable.id, user.tenantId))
+      .limit(1);
+    if (tenant && (tenant.status === "suspended" || tenant.status === "frozen")) {
+      res.status(403).json({
+        error: "tenant_blocked",
+        message: tenant.status === "suspended"
+          ? "Akun bisnis Anda sedang ditangguhkan (Suspended). Silakan hubungi dukungan FlowApp."
+          : "Akun bisnis Anda sedang dibekukan (Frozen). Silakan hubungi dukungan FlowApp."
+      });
       return;
     }
   }

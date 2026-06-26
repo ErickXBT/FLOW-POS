@@ -73,7 +73,7 @@ export default function RegisterPage({ onLogin }: { onLogin: (token: string, use
         <div className="text-center mb-8">
           <img src={flowLogo} alt="Flow" className="h-10 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-foreground">Buat akun baru</h1>
-          <p className="text-muted-foreground text-sm mt-1">Mulai uji coba gratis 14 hari</p>
+          <p className="text-muted-foreground text-sm mt-1">Mulai uji coba gratis 7 hari</p>
         </div>
 
         {/* Steps */}
@@ -217,7 +217,7 @@ export default function RegisterPage({ onLogin }: { onLogin: (token: string, use
                   },
                   {
                     id: "starter",
-                    name: "Paket FlowApp UMKM",
+                    name: "FlowApp UMKM",
                     priceLabel: billingCycle === "monthly" ? "Rp169.000" : "Rp143.650",
                     periodLabel: "/bulan",
                     totalLabel: billingCycle === "yearly" ? "Total Rp1.723.800/tahun (Hemat 15%)" : "",
@@ -343,7 +343,7 @@ function PaymentModal({
   loading: boolean;
 }) {
   const isStarter = plan === "starter";
-  const packageName = isStarter ? "Paket FlowApp UMKM" : "FlowApp Multi";
+  const packageName = isStarter ? "FlowApp UMKM" : "FlowApp Multi";
   
   // Pricing logic
   const monthlyPrice = isStarter ? 169000 : 299000;

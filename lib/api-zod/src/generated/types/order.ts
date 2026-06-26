@@ -15,6 +15,7 @@ export interface Order {
   subtotal?: number;
   discount?: number;
   tax?: number;
+  serviceCharge?: number;
   total: number;
   status: OrderStatus;
   paymentMethod: OrderPaymentMethod;

@@ -121,6 +121,7 @@ function formatOrder(o: any, items: any[] = []) {
     subtotal: Number(o.subtotal),
     discount: Number(o.discount),
     tax: Number(o.tax),
+    serviceCharge: Number(o.serviceCharge || 0),
     total: Number(o.total),
     createdAt: o.createdAt instanceof Date ? o.createdAt.toISOString() : o.createdAt,
     updatedAt: o.updatedAt instanceof Date ? o.updatedAt.toISOString() : o.updatedAt,
@@ -346,12 +347,14 @@ router.post("/orders", async (req, res): Promise<void> => {
   const estimatedTime = req.body.estimatedTime || req.body.data?.estimatedTime || calculatedPrepTime;
   const priority = req.body.priority || req.body.data?.priority || "normal";
   const shiftId = req.body.shiftId ? Number(req.body.shiftId) : (req.body.data?.shiftId ? Number(req.body.data.shiftId) : null);
+  const serviceCharge = body.data.serviceCharge ?? req.body.serviceCharge ?? req.body.data?.serviceCharge ?? 0;
 
   const [order] = await db.insert(ordersTable).values({
     orderNumber: orderNum,
     subtotal: String(subtotal),
     discount: String(discount),
     tax: String(tax),
+    serviceCharge: String(serviceCharge),
     total: String(total),
     status: "completed",
     paymentMethod: body.data.paymentMethod,
@@ -383,6 +386,10 @@ router.post("/orders", async (req, res): Promise<void> => {
   try {
     const rawData = req.body.data || req.body;
     const { orderType, customerPhone, tableNumber, deliveryAddress, customerName: posCustomerName } = rawData;
+    
+    const isDeliveryCash = (orderType === "delivery") && (body.data.paymentMethod === "cash");
+    const paymentStatus = isDeliveryCash ? "unpaid" : "paid";
+
     const [custOrder] = await db.insert(customerOrdersTable).values({
       orderNumber: orderNum,
       tenantId: claims.tenantId!,
@@ -399,8 +406,10 @@ router.post("/orders", async (req, res): Promise<void> => {
       subtotal: String(subtotal),
       discount: String(discount),
       tax: String(tax),
+      serviceCharge: String(serviceCharge),
       total: String(total),
       status: "pending", // POS orders start as pending (Antrian Baru)
+      paymentStatus,
       notes: orderNotesWithReward,
       employeeId,
       employeeName,
@@ -434,6 +443,7 @@ router.post("/orders", async (req, res): Promise<void> => {
         subtotal: Number(i.price * i.quantity),
         variantSelection: i.variantSelection ?? null,
         notes: i.notes ?? null,
+        imageUrl: productMap[i.productId]?.imageUrl ?? null,
       }));
 
       const formatted = {
@@ -445,6 +455,7 @@ router.post("/orders", async (req, res): Promise<void> => {
         deliveryFee: Number(custOrder.deliveryFee ?? 0),
         createdAt: custOrder.createdAt.toISOString(),
         items: itemsForBroadcast,
+        paymentStatus: custOrder.paymentStatus,
       };
 
       broadcastNewOrder(claims.tenantId!, formatted);

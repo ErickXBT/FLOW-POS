@@ -211,6 +211,63 @@ paths:
               schema:
                 $ref: "#/components/schemas/Tenant"
 
+  /admin/subscription-upgrades:
+    get:
+      operationId: listSubscriptionUpgradeRequests
+      tags: [admin]
+      summary: List all subscription upgrade requests
+      responses:
+        "200":
+          description: List of upgrade requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SubscriptionUpgradeRequest"
+
+  /admin/subscription-upgrades/{id}/approve:
+    post:
+      operationId: approveSubscriptionUpgradeRequest
+      tags: [admin]
+      summary: Approve subscription upgrade request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Request approved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionUpgradeRequest"
+        "404":
+          description: Request not found
+
+  /admin/subscription-upgrades/{id}/reject:
+    post:
+      operationId: rejectSubscriptionUpgradeRequest
+      tags: [admin]
+      summary: Reject subscription upgrade request
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Request rejected successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionUpgradeRequest"
+        "404":
+          description: Request not found
+
   # ── Tenant ──────────────────────────────────────────────────────────────
   /tenant:
     get:
@@ -254,6 +311,27 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Subscription"
+
+  /tenant/upgrade-request:
+    post:
+      operationId: createSubscriptionUpgradeRequest
+      tags: [tenant]
+      summary: Request a subscription package upgrade
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubscriptionUpgradeRequestInput"
+      responses:
+        "200":
+          description: Request created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscriptionUpgradeRequest"
+        "400":
+          description: Invalid input or active pending request already exists
 
   # ── Subscription Plans ───────────────────────────────────────────────────
   /subscriptions/plans:
@@ -750,6 +828,167 @@ paths:
       responses:
         "204":
           description: Deleted
+
+  /employee-shifts:
+    get:
+      operationId: listEmployeeShifts
+      tags: [employees]
+      summary: List employee shifts
+      responses:
+        "200":
+          description: Employee shifts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EmployeeShift"
+    post:
+      operationId: createEmployeeShift
+      tags: [employees]
+      summary: Create employee shift
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmployeeShiftInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeShift"
+
+  /employee-shifts/{id}:
+    patch:
+      operationId: updateEmployeeShift
+      tags: [employees]
+      summary: Update employee shift
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmployeeShiftInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeShift"
+    delete:
+      operationId: deleteEmployeeShift
+      tags: [employees]
+      summary: Delete employee shift
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /employee-attendance:
+    get:
+      operationId: listEmployeeAttendance
+      tags: [employees]
+      summary: List employee attendance logs
+      parameters:
+        - name: employeeId
+          in: query
+          schema:
+            type: integer
+        - name: branchId
+          in: query
+          schema:
+            type: integer
+        - name: startDate
+          in: query
+          schema:
+            type: string
+        - name: endDate
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Attendance logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/EmployeeAttendance"
+
+  /employee-attendance/active:
+    get:
+      operationId: getActiveAttendance
+      tags: [employees]
+      summary: Get active attendance for employee
+      parameters:
+        - name: employeeId
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Active attendance log
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeAttendance"
+        "404":
+          description: No active attendance session found
+
+  /employee-attendance/check-in:
+    post:
+      operationId: checkInEmployee
+      tags: [employees]
+      summary: Check in an employee
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckInEmployeeInput"
+      responses:
+        "201":
+          description: Checked in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeAttendance"
+
+  /employee-attendance/check-out:
+    post:
+      operationId: checkOutEmployee
+      tags: [employees]
+      summary: Check out an employee
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CheckOutEmployeeInput"
+      responses:
+        "200":
+          description: Checked out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmployeeAttendance"
 
   # ── Inventory ────────────────────────────────────────────────────────────
   /inventory:
@@ -1296,13 +1535,15 @@ components:
     # ── Admin ─────────────────────────────────────────────────────────────
     AdminStats:
       type: object
-      required: [totalTenants, activeTenants, suspendedTenants, trialUsers, expiredSubscriptions, monthlyRevenue, annualRevenue, totalOrders, totalCustomers, totalEmployees, totalBranches, totalTransactions, totalUsers]
+      required: [totalTenants, activeTenants, suspendedTenants, frozenTenants, trialUsers, expiredSubscriptions, monthlyRevenue, annualRevenue, totalOrders, totalCustomers, totalEmployees, totalBranches, totalTransactions, totalUsers]
       properties:
         totalTenants:
           type: integer
         activeTenants:
           type: integer
         suspendedTenants:
+          type: integer
+        frozenTenants:
           type: integer
         trialUsers:
           type: integer
@@ -1359,7 +1600,7 @@ components:
       properties:
         status:
           type: string
-          enum: [active, suspended]
+          enum: [active, suspended, frozen]
 
     # ── Tenant ────────────────────────────────────────────────────────────
     Tenant:
@@ -1377,7 +1618,7 @@ components:
           enum: [fnb, fashion, restaurant, cafe, salon, minimarket]
         status:
           type: string
-          enum: [active, suspended, trial, expired]
+          enum: [active, suspended, frozen, trial, expired]
         address:
           type: ["string", "null"]
         phone:
@@ -1412,6 +1653,10 @@ components:
           type: boolean
         taxPercentage:
           type: number
+        enableServiceCharge:
+          type: boolean
+        serviceChargePercentage:
+          type: number
         pointSystemConfig:
           type: object
           properties:
@@ -1428,6 +1673,16 @@ components:
         qrisId:
           type: ["string", "null"]
         qrisImageUrl:
+          type: ["string", "null"]
+        showDeliveryInfo:
+          type: boolean
+        estimatedDeliveryTime:
+          type: ["string", "null"]
+        enableOpsHours:
+          type: boolean
+        opsOpeningTime:
+          type: ["string", "null"]
+        opsClosingTime:
           type: ["string", "null"]
         createdAt:
           type: string
@@ -1475,6 +1730,20 @@ components:
           type: boolean
         taxPercentage:
           type: number
+        enableServiceCharge:
+          type: boolean
+        serviceChargePercentage:
+          type: number
+        showDeliveryInfo:
+          type: boolean
+        estimatedDeliveryTime:
+          type: string
+        enableOpsHours:
+          type: boolean
+        opsOpeningTime:
+          type: string
+        opsClosingTime:
+          type: string
         pointSystemConfig:
           type: object
           properties:
@@ -1504,6 +1773,8 @@ components:
           type: string
         price:
           type: number
+        pendingUpgradeRequest:
+          $ref: "#/components/schemas/SubscriptionUpgradeRequest"
 
     SubscriptionPlan:
       type: object
@@ -1716,6 +1987,8 @@ components:
           type: number
         tax:
           type: number
+        serviceCharge:
+          type: number
         total:
           type: number
         status:
@@ -1780,6 +2053,8 @@ components:
         discount:
           type: number
         tax:
+          type: number
+        serviceCharge:
           type: number
         total:
           type: number
@@ -1921,6 +2196,8 @@ components:
           type: ["integer", "null"]
         customRoleId:
           type: ["integer", "null"]
+        employeeShiftId:
+          type: ["integer", "null"]
         createdAt:
           type: string
 
@@ -1940,6 +2217,8 @@ components:
           type: ["integer", "null"]
         customRoleId:
           type: ["integer", "null"]
+        employeeShiftId:
+          type: ["integer", "null"]
 
     EmployeeUpdate:
       type: object
@@ -1957,6 +2236,8 @@ components:
         branchId:
           type: ["integer", "null"]
         customRoleId:
+          type: ["integer", "null"]
+        employeeShiftId:
           type: ["integer", "null"]
 
     # ── Inventory ─────────────────────────────────────────────────────────
@@ -2059,6 +2340,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/PaymentMethodBreakdown"
+        byCategory:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryBreakdown"
 
     PaymentMethodBreakdown:
       type: object
@@ -2069,6 +2354,19 @@ components:
         count:
           type: integer
         total:
+          type: number
+
+    CategoryBreakdown:
+      type: object
+      required: [categoryId, name, totalSold, revenue]
+      properties:
+        categoryId:
+          type: ["integer", "null"]
+        name:
+          type: string
+        totalSold:
+          type: integer
+        revenue:
           type: number
 
     SalesChartPoint:
@@ -2275,3 +2573,132 @@ components:
           type: ["string", "null"]
         createdAt:
           type: string
+
+    EmployeeShift:
+      type: object
+      required: [id, tenantId, name, startTime, endTime, createdAt]
+      properties:
+        id:
+          type: integer
+        tenantId:
+          type: integer
+        name:
+          type: string
+        startTime:
+          type: string
+        endTime:
+          type: string
+        createdAt:
+          type: string
+
+    EmployeeShiftInput:
+      type: object
+      required: [name, startTime, endTime]
+      properties:
+        name:
+          type: string
+        startTime:
+          type: string
+        endTime:
+          type: string
+
+    EmployeeAttendance:
+      type: object
+      required: [id, tenantId, employeeId, checkInTime, checkInPhoto, checkInStatus, createdAt]
+      properties:
+        id:
+          type: integer
+        tenantId:
+          type: integer
+        employeeId:
+          type: integer
+        employeeName:
+          type: ["string", "null"]
+        branchId:
+          type: ["integer", "null"]
+        branchName:
+          type: ["string", "null"]
+        employeeShiftId:
+          type: ["integer", "null"]
+        shiftName:
+          type: ["string", "null"]
+        checkInTime:
+          type: string
+        checkOutTime:
+          type: ["string", "null"]
+        checkInPhoto:
+          type: string
+        checkOutPhoto:
+          type: ["string", "null"]
+        checkInStatus:
+          type: string
+        checkOutStatus:
+          type: ["string", "null"]
+        checkInNotes:
+          type: ["string", "null"]
+        checkOutNotes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+
+    CheckInEmployeeInput:
+      type: object
+      required: [employeeId, photo]
+      properties:
+        employeeId:
+          type: integer
+        branchId:
+          type: integer
+        employeeShiftId:
+          type: integer
+        photo:
+          type: string
+        notes:
+          type: string
+
+    CheckOutEmployeeInput:
+      type: object
+      required: [employeeId, photo]
+      properties:
+        employeeId:
+          type: integer
+        photo:
+          type: string
+        notes:
+          type: string
+
+    SubscriptionUpgradeRequest:
+      type: object
+      required: [id, tenantId, requestedPlan, billingCycle, status, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        tenantId:
+          type: integer
+        tenantName:
+          type: string
+        requestedPlan:
+          type: string
+          enum: [starter, business, pro, enterprise]
+        billingCycle:
+          type: string
+          enum: [monthly, yearly]
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    SubscriptionUpgradeRequestInput:
+      type: object
+      required: [requestedPlan, billingCycle]
+      properties:
+        requestedPlan:
+          type: string
+          enum: [starter, business, pro, enterprise]
+        billingCycle:
+          type: string
+          enum: [monthly, yearly]
+

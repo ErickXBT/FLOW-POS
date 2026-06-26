@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, Eye, X, ClipboardList, Download, ArrowLeft, ArrowRight, Trash2 } from "lucide-react";
+import { Search, Eye, X, ClipboardList, Download, ArrowLeft, ArrowRight, Trash2, RefreshCw, FileText } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useActiveBranch } from "@/hooks/use-active-branch";
+import { useListEmployees } from "@workspace/api-client-react";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -307,11 +308,17 @@ function OrderDetail({ id, onClose, onVoidSuccess }: { id: number; onClose: () =
     };
 
     drawTotalRow("Subtotal", formatRp(Number(order.subtotal)));
-    if ((Number(order.deliveryFee) || 0) > 0) {
-      drawTotalRow("Delivery Fee", formatRp(Number(order.deliveryFee)));
-    }
     if ((Number(order.discount) || 0) > 0) {
       drawTotalRow("Diskon", `-${formatRp(Number(order.discount))}`);
+    }
+    if (Number(order.serviceCharge || 0) > 0) {
+      drawTotalRow("Biaya Servis", formatRp(Number(order.serviceCharge)));
+    }
+    if (Number(order.tax || 0) > 0) {
+      drawTotalRow("Pajak (PB1)", formatRp(Number(order.tax)));
+    }
+    if ((Number(order.deliveryFee) || 0) > 0) {
+      drawTotalRow("Delivery Fee", formatRp(Number(order.deliveryFee)));
     }
 
     // Horizontal Separator Line before TOTAL
@@ -502,16 +509,28 @@ function OrderDetail({ id, onClose, onVoidSuccess }: { id: number; onClose: () =
               <span>Subtotal</span>
               <span>{formatRp(Number(order.subtotal))}</span>
             </div>
-            {(Number(order.deliveryFee) || 0) > 0 && (
-              <div className="flex justify-between text-sm text-muted-foreground">
-                <span>Delivery Fee</span>
-                <span>{formatRp(Number(order.deliveryFee))}</span>
-              </div>
-            )}
             {(Number(order.discount) || 0) > 0 && (
               <div className="flex justify-between text-sm text-red-500 font-medium">
                 <span>Diskon</span>
                 <span>-{formatRp(Number(order.discount))}</span>
+              </div>
+            )}
+            {Number(order.serviceCharge || 0) > 0 && (
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>Biaya Servis</span>
+                <span>{formatRp(Number(order.serviceCharge))}</span>
+              </div>
+            )}
+            {Number(order.tax || 0) > 0 && (
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>Pajak (PB1)</span>
+                <span>{formatRp(Number(order.tax))}</span>
+              </div>
+            )}
+            {(Number(order.deliveryFee) || 0) > 0 && (
+              <div className="flex justify-between text-sm text-muted-foreground">
+                <span>Delivery Fee</span>
+                <span>{formatRp(Number(order.deliveryFee))}</span>
               </div>
             )}
             <div className="flex justify-between font-extrabold text-base text-foreground pt-2 border-t border-border">
@@ -596,9 +615,18 @@ function OrderDetail({ id, onClose, onVoidSuccess }: { id: number; onClose: () =
 }
 
 export default function OrdersPage() {
-  const { activeBranchId } = useActiveBranch();
+  const { activeBranchId, branches } = useActiveBranch();
+  const { data: employees } = useListEmployees();
+
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [branchIdFilter, setBranchIdFilter] = useState("");
+  const [cashierIdFilter, setCashierIdFilter] = useState("");
+  const [statusFilter, setStatusFilter] = useState(""); // Status Bayar
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState(""); // Metode Bayar
+  const [promoFilter, setPromoFilter] = useState(""); // Promo (semua, reward)
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+
   const [viewId, setViewId] = useState<number | null>(null);
   const [page, setPage] = useState(1);
   const [orders, setOrders] = useState<any[]>([]);
@@ -611,7 +639,16 @@ export default function OrdersPage() {
     let url = `${BASE}/api/tenant/customer-orders?page=${page}&limit=20`;
     if (statusFilter) url += `&status=${statusFilter}`;
     if (search.trim()) url += `&search=${encodeURIComponent(search.trim())}`;
-    if (activeBranchId) url += `&branchId=${activeBranchId}`;
+    
+    const targetBranch = branchIdFilter || activeBranchId || "";
+    if (targetBranch) url += `&branchId=${targetBranch}`;
+
+    if (cashierIdFilter) url += `&employeeId=${cashierIdFilter}`;
+    if (paymentMethodFilter) url += `&paymentMethod=${paymentMethodFilter}`;
+    if (promoFilter === "reward") url += `&isClaimReward=true`;
+    if (promoFilter === "non_reward") url += `&isClaimReward=false`;
+    if (startDate) url += `&startDate=${startDate}`;
+    if (endDate) url += `&endDate=${endDate}`;
     
     try {
       const res = await fetch(url, {
@@ -629,12 +666,37 @@ export default function OrdersPage() {
   };
 
   useEffect(() => {
-    // Debounce search a bit
     const handler = setTimeout(() => {
       fetchOrders();
     }, 250);
     return () => clearTimeout(handler);
-  }, [page, statusFilter, search, activeBranchId]);
+  }, [page, statusFilter, search, branchIdFilter, cashierIdFilter, paymentMethodFilter, promoFilter, startDate, endDate, activeBranchId]);
+
+  const handleReset = () => {
+    setSearch("");
+    setBranchIdFilter("");
+    setCashierIdFilter("");
+    setStatusFilter("");
+    setPaymentMethodFilter("");
+    setPromoFilter("");
+    setStartDate("");
+    setEndDate("");
+    setPage(1);
+  };
+
+  const handleQuickRange = (range: string) => {
+    const today = new Date().toISOString().split("T")[0];
+    if (range === "today") {
+      setStartDate(today);
+      setEndDate(today);
+    } else if (range === "7days") {
+      const past = new Date();
+      past.setDate(past.getDate() - 7);
+      setStartDate(past.toISOString().split("T")[0]);
+      setEndDate(today);
+    }
+    setPage(1);
+  };
 
   return (
     <div className="p-6">
@@ -646,33 +708,190 @@ export default function OrdersPage() {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-3 mb-5">
-        <div className="relative flex-1 max-w-sm">
-          <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <input
-            value={search}
-            onChange={e => {
-              setSearch(e.target.value);
-              setPage(1);
-            }}
-            placeholder="Search by customer name or table..."
-            className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-input bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-          />
+      {/* Filters Panel */}
+      <div className="bg-card border border-card-border rounded-2xl p-5 shadow-sm space-y-4 mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3.5">
+          {/* Cari Nota */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-muted-foreground uppercase">Cari Nota</label>
+            <div className="relative">
+              <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={search}
+                onChange={e => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                placeholder="Nomor Nota..."
+                className="w-full pl-8 pr-3 py-2 border border-input bg-background rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+            </div>
+          </div>
+
+          {/* Outlet */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-muted-foreground uppercase">Outlet</label>
+            <select
+              value={branchIdFilter}
+              onChange={e => {
+                setBranchIdFilter(e.target.value);
+                setPage(1);
+              }}
+              className="w-full px-3 py-2 border border-input bg-background rounded-xl text-xs focus:outline-none text-foreground"
+            >
+              <option value="">Semua Outlet</option>
+              {(branches || []).map((b: any) => (
+                <option key={b.id} value={b.id}>{b.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Kasir */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-muted-foreground uppercase">Kasir</label>
+            <select
+              value={cashierIdFilter}
+              onChange={e => {
+                setCashierIdFilter(e.target.value);
+                setPage(1);
+              }}
+              className="w-full px-3 py-2 border border-input bg-background rounded-xl text-xs focus:outline-none text-foreground"
+            >
+              <option value="">Semua Kasir</option>
+              {(employees || []).filter((emp: any) => emp.role === "cashier" || emp.role === "owner" || emp.role === "manager").map((emp: any) => (
+                <option key={emp.id} value={emp.id}>{emp.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Status Bayar */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-muted-foreground uppercase">Status Bayar</label>
+            <select
+              value={statusFilter}
+              onChange={e => {
+                setStatusFilter(e.target.value);
+                setPage(1);
+              }}
+              className="w-full px-3 py-2 border border-input bg-background rounded-xl text-xs focus:outline-none text-foreground"
+            >
+              <option value="">Semua Status</option>
+              <option value="completed">Selesai (Lunas)</option>
+              <option value="pending">Menunggu</option>
+              <option value="preparing">Diproses</option>
+              <option value="ready">Siap</option>
+              <option value="on_delivery">Dikirim</option>
+              <option value="cancelled">Dibatalkan</option>
+              <option value="refunded">Refund</option>
+              <option value="void">Void</option>
+            </select>
+          </div>
+
+          {/* Metode Bayar */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-muted-foreground uppercase">Metode Bayar</label>
+            <select
+              value={paymentMethodFilter}
+              onChange={e => {
+                setPaymentMethodFilter(e.target.value);
+                setPage(1);
+              }}
+              className="w-full px-3 py-2 border border-input bg-background rounded-xl text-xs focus:outline-none text-foreground"
+            >
+              <option value="">Semua Metode</option>
+              <option value="cash">Cash / Tunai</option>
+              <option value="qris">QRIS</option>
+              <option value="bank_transfer">Transfer Bank</option>
+              <option value="ewallet">e-Wallet</option>
+            </select>
+          </div>
         </div>
-        <select
-          value={statusFilter}
-          onChange={e => {
-            setStatusFilter(e.target.value);
-            setPage(1);
-          }}
-          className="px-4 py-2.5 rounded-xl border border-input bg-card text-sm focus:outline-none focus:ring-2 focus:ring-ring font-medium text-foreground cursor-pointer"
-        >
-          <option value="">All Statuses</option>
-          {Object.entries(STATUS_MAP).map(([v, { label }]) => (
-            <option key={v} value={v}>{label}</option>
-          ))}
-        </select>
+
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 pt-1">
+          {/* Rentang Tanggal */}
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-muted-foreground uppercase block">Rentang Tanggal</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={e => {
+                    setStartDate(e.target.value);
+                    setPage(1);
+                  }}
+                  className="px-2.5 py-1.5 border border-input bg-background rounded-xl text-xs focus:outline-none text-foreground"
+                />
+                <span className="text-xs text-muted-foreground">s/d</span>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={e => {
+                    setEndDate(e.target.value);
+                    setPage(1);
+                  }}
+                  className="px-2.5 py-1.5 border border-input bg-background rounded-xl text-xs focus:outline-none text-foreground"
+                />
+              </div>
+            </div>
+
+            {/* Quick selectors */}
+            <div className="flex items-center gap-1.5 mb-[1px]">
+              <button
+                type="button"
+                onClick={() => handleQuickRange("today")}
+                className="px-3 py-1.5 border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground text-[10px] font-bold rounded-xl transition-all shadow-xs"
+              >
+                Hari Ini
+              </button>
+              <button
+                type="button"
+                onClick={() => handleQuickRange("7days")}
+                className="px-3 py-1.5 border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground text-[10px] font-bold rounded-xl transition-all shadow-xs"
+              >
+                7 Hari
+              </button>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Promo Selector */}
+            <div className="space-y-1 min-w-[130px]">
+              <label className="text-[10px] font-bold text-muted-foreground uppercase block">Promo</label>
+              <select
+                value={promoFilter}
+                onChange={e => {
+                  setPromoFilter(e.target.value);
+                  setPage(1);
+                }}
+                className="w-full px-3 py-1.5 border border-input bg-background rounded-xl text-xs focus:outline-none text-foreground"
+              >
+                <option value="">Semua Transaksi</option>
+                <option value="reward">Klaim Reward POIN</option>
+                <option value="non_reward">Biasa (Non-Reward)</option>
+              </select>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex gap-2 mb-[1px]">
+              <button
+                type="button"
+                onClick={handleReset}
+                className="px-3.5 py-1.5 border border-border bg-background hover:bg-muted text-foreground text-xs font-bold rounded-xl transition-all shadow-xs"
+              >
+                Reset
+              </button>
+              <button
+                type="button"
+                onClick={fetchOrders}
+                className="p-1.5 border border-border bg-background hover:bg-muted text-muted-foreground hover:text-foreground rounded-xl transition-all shadow-xs flex items-center justify-center cursor-pointer"
+                title="Muat Ulang Data"
+              >
+                <RefreshCw size={14} className={loading ? "animate-spin text-primary" : "text-foreground"} />
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Orders Table */}

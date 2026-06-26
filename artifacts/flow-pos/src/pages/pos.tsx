@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { useListProducts, useListCategories, useCreateOrder, getListOrdersQueryKey, useGetTenant, useListEmployees } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Banknote, Smartphone, QrCode, X, Check, Package, Sparkles, Gift, Percent } from "lucide-react";
+import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Banknote, Smartphone, QrCode, X, Check, Package, Sparkles, Gift, Percent, Printer } from "lucide-react";
 import { useActiveBranch } from "@/hooks/use-active-branch";
+import { Link } from "wouter";
 
 const PAYMENT_METHODS = [
   { value: "cash", label: "Tunai", icon: <Banknote size={18} /> },
@@ -52,6 +53,8 @@ export default function POSPage() {
   const [shiftNotes, setShiftNotes] = useState("");
   const [showShiftModal, setShowShiftModal] = useState(false);
   const [showEndShiftModal, setShowEndShiftModal] = useState(false);
+  const [showEodReportModal, setShowEodReportModal] = useState(false);
+  const [eodReportData, setEodReportData] = useState<any>(null);
   const [selectedEmpId, setSelectedEmpId] = useState("");
   const [customCashierName, setCustomCashierName] = useState("");
   const [isPriority, setIsPriority] = useState(false);
@@ -170,6 +173,7 @@ export default function POSPage() {
         return;
       }
 
+      const data = await res.json();
       localStorage.removeItem("flow_shift_active");
       localStorage.removeItem("flow_active_cashier_name");
       localStorage.removeItem("flow_active_cashier_id");
@@ -181,7 +185,9 @@ export default function POSPage() {
       setActualCash("");
       setShiftNotes("");
       setShowEndShiftModal(false);
-      alert("Shift kasir berhasil diakhiri dan laporan disimpan!");
+      
+      setEodReportData(data);
+      setShowEodReportModal(true);
     } catch (err) {
       console.error("Failed to end shift:", err);
       alert("Gagal menghubungi server untuk mengakhiri shift");
@@ -242,14 +248,20 @@ export default function POSPage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [discount, setDiscount] = useState(0);
   const [taxPct, setTaxPct] = useState(0);
+  const [serviceChargePct, setServiceChargePct] = useState(0);
 
-  // Load tax settings from tenant
+  // Load tax and service charge settings from tenant
   useEffect(() => {
     if (tenant) {
       if ((tenant as any).enableTax) {
         setTaxPct(Number((tenant as any).taxPercentage ?? 10));
       } else {
         setTaxPct(0);
+      }
+      if ((tenant as any).enableServiceCharge) {
+        setServiceChargePct(Number((tenant as any).serviceChargePercentage ?? 10));
+      } else {
+        setServiceChargePct(0);
       }
     }
   }, [tenant]);
@@ -307,8 +319,9 @@ export default function POSPage() {
   }, [promoBanners, products]);
 
   const subtotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
-  const taxAmount = (subtotal - discount) * (taxPct / 100);
-  const total = subtotal - discount + taxAmount;
+  const serviceChargeAmount = (subtotal - discount) * (serviceChargePct / 100);
+  const taxAmount = (subtotal - discount + serviceChargeAmount) * (taxPct / 100);
+  const total = subtotal - discount + serviceChargeAmount + taxAmount;
 
   // Recalculate discount if coupon is applied
   useEffect(() => {
@@ -456,6 +469,7 @@ export default function POSPage() {
         subtotal,
         discount,
         tax: taxAmount,
+        serviceCharge: serviceChargeAmount,
         total,
         // Pass custom fields inside request body (casted to any since not in OpenAPI schema)
         ...({
@@ -668,6 +682,12 @@ export default function POSPage() {
         <div className="px-4 py-4 border-b border-border flex items-center gap-2">
           <ShoppingCart size={18} className="text-primary" />
           <span className="font-semibold text-foreground">Keranjang</span>
+          <Link href="/printer-settings">
+            <a className="flex items-center gap-1 text-[11px] text-muted-foreground hover:text-primary transition-all bg-muted/60 dark:bg-slate-800/60 hover:bg-primary/10 px-2 py-1 rounded-lg ml-1 font-medium cursor-pointer border border-border/50">
+              <Printer size={12} className="text-primary/70" />
+              <span>Printer Struk</span>
+            </a>
+          </Link>
           <span className="ml-auto text-sm text-muted-foreground">{cart.length} item</span>
           {cart.length > 0 && (
             <button onClick={() => setCart([])} className="text-muted-foreground hover:text-destructive transition-colors ml-1">
@@ -793,6 +813,12 @@ export default function POSPage() {
                 className="w-24 text-right px-2 py-0.5 border border-input rounded text-xs bg-background"
               />
             </div>
+            {serviceChargePct > 0 && (
+              <div className="flex items-center justify-between text-muted-foreground">
+                <span>Biaya Servis ({serviceChargePct}%)</span>
+                <span>{formatRp(serviceChargeAmount)}</span>
+              </div>
+            )}
             {taxPct > 0 && (
               <div className="flex items-center justify-between text-muted-foreground">
                 <span>Pajak ({taxPct}%)</span>
@@ -1362,6 +1388,126 @@ export default function POSPage() {
                 className="flex-1 py-2 bg-destructive text-destructive-foreground font-bold text-xs rounded-xl hover:opacity-90 active:scale-95 transition-all shadow"
               >
                 Tutup Shift & Simpan Laporan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* EOD Report Modal */}
+      {showEodReportModal && eodReportData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="bg-card border border-card-border rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col animate-scale-up">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-muted/20">
+              <h3 className="font-bold text-sm text-foreground flex items-center gap-2">
+                📈 Laporan Harian Cashier (EOD)
+              </h3>
+              <button
+                onClick={() => setShowEodReportModal(false)}
+                className="p-1 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            
+            <div className="p-5 space-y-4 max-h-[80vh] overflow-y-auto">
+              <div className="text-center py-2">
+                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-2">
+                  <Sparkles className="text-primary" size={24} />
+                </div>
+                <h4 className="font-bold text-base text-foreground">Shift Selesai & Laporan Disimpan</h4>
+                <p className="text-xs text-muted-foreground mt-0.5">Berikut ringkasan performa penjualan Anda selama shift ini.</p>
+              </div>
+
+              {/* Detail Shift */}
+              <div className="bg-muted/10 border border-border/40 rounded-xl p-3.5 space-y-2 text-xs">
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Nama Kasir:</span>
+                  <span className="font-bold text-foreground">{eodReportData.cashierName}</span>
+                </div>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Buka Shift:</span>
+                  <span className="font-semibold text-foreground">
+                    {eodReportData.openedAt ? new Date(eodReportData.openedAt).toLocaleString("id-ID", { dateStyle: "short", timeStyle: "short" }) : "-"}
+                  </span>
+                </div>
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Tutup Shift:</span>
+                  <span className="font-semibold text-foreground">
+                    {eodReportData.closedAt ? new Date(eodReportData.closedAt).toLocaleString("id-ID", { dateStyle: "short", timeStyle: "short" }) : "-"}
+                  </span>
+                </div>
+              </div>
+
+              {/* Ringkasan Keuangan Shift */}
+              <div className="space-y-2">
+                <h5 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Audit Kas Drawer</h5>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="bg-muted/20 p-2.5 rounded-lg border border-border/50">
+                    <span className="text-muted-foreground block text-[10px]">Kas Awal</span>
+                    <span className="font-bold text-foreground text-sm">{formatRp(Number(eodReportData.openingCash || 0))}</span>
+                  </div>
+                  <div className="bg-muted/20 p-2.5 rounded-lg border border-border/50">
+                    <span className="text-muted-foreground block text-[10px]">Kas Diharapkan (Sistem)</span>
+                    <span className="font-bold text-foreground text-sm">{formatRp(Number(eodReportData.expectedCash || 0))}</span>
+                  </div>
+                  <div className="bg-muted/20 p-2.5 rounded-lg border border-border/50">
+                    <span className="text-muted-foreground block text-[10px]">Kas Fisik Aktual</span>
+                    <span className="font-bold text-primary text-sm">{formatRp(Number(eodReportData.actualCash || 0))}</span>
+                  </div>
+                  {(() => {
+                    const diff = Number(eodReportData.discrepancy || 0);
+                    return (
+                      <div className={`p-2.5 rounded-lg border ${
+                        diff === 0 
+                          ? "bg-green-500/5 border-green-500/20 text-green-700 dark:text-green-400" 
+                          : diff > 0 
+                            ? "bg-blue-500/5 border-blue-500/20 text-blue-700 dark:text-blue-400" 
+                            : "bg-destructive/5 border-destructive/20 text-destructive"
+                      }`}>
+                        <span className="block text-[10px]">Selisih Kas</span>
+                        <span className="font-bold text-sm">{diff === 0 ? "Pas" : diff > 0 ? `+${formatRp(diff)}` : formatRp(diff)}</span>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              {/* Performa Shift */}
+              <div className="space-y-2 pt-1">
+                <h5 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Statistik Penjualan (EOD)</h5>
+                <div className="bg-muted/10 border border-border/40 rounded-xl divide-y divide-border/40 text-xs">
+                  <div className="flex justify-between p-3">
+                    <span className="text-muted-foreground">Total Omset Penjualan (Revenue)</span>
+                    <span className="font-bold text-foreground text-sm text-green-600 dark:text-green-400">{formatRp(Number(eodReportData.totalRevenue || 0))}</span>
+                  </div>
+                  <div className="flex justify-between p-3">
+                    <span className="text-muted-foreground">Rata-rata Belanja (AOV)</span>
+                    <span className="font-semibold text-foreground">{formatRp(Number(eodReportData.avgOrderValue || 0))}</span>
+                  </div>
+                  <div className="flex justify-between p-3">
+                    <span className="text-muted-foreground">Jam Terlaris / Paling Ramai</span>
+                    <span className="font-bold text-primary flex items-center gap-1">
+                      🔥 {eodReportData.busiestHour || "-"}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {eodReportData.notes && (
+                <div className="bg-amber-500/5 border border-amber-500/10 rounded-xl p-3 text-xs text-amber-600">
+                  <span className="font-bold block mb-0.5">Catatan Kasir:</span>
+                  <p className="italic">"{eodReportData.notes}"</p>
+                </div>
+              )}
+            </div>
+
+            <div className="p-4 border-t border-border bg-muted/10">
+              <button
+                onClick={() => setShowEodReportModal(false)}
+                className="w-full py-2.5 bg-primary text-primary-foreground font-bold text-xs rounded-xl hover:opacity-90 active:scale-95 transition-all shadow"
+              >
+                Selesai
               </button>
             </div>
           </div>

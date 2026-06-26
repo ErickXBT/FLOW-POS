@@ -4,7 +4,8 @@ import {
   LayoutDashboard, ShoppingCart, Package, Tag, ClipboardList,
   Users, UserCheck, BarChart3, Warehouse, Settings,
   Shield, LogOut, Menu, X, Sun, Moon, Smartphone,
-  ChefHat, Truck, Activity, MapPin, ShieldCheck, QrCode, ShoppingBag, Sparkles
+  ChefHat, Truck, Activity, MapPin, ShieldCheck, QrCode, ShoppingBag, Sparkles,
+  Receipt, Coins, History, ArrowLeftRight, Printer
 } from "lucide-react";
 import flowLogo from "@assets/FLOW_LOGO_1780799864457.png";
 import type { AuthUser } from "@/hooks/use-auth";
@@ -261,6 +262,16 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
     if (hasPermission(user, "manage_settings")) {
       navItems.push({ href: "/settings", label: "Pengaturan", icon: <Settings size={18} /> });
     }
+    if (user.role === "owner" || user.role === "manager" || user.role === "cashier" || hasPermission(user, "manage_settings")) {
+      navItems.push({ href: "/printer-settings", label: "Pengaturan Printer", icon: <Printer size={18} className="text-blue-400" /> });
+    }
+    // Tenant Owner & Manager cash & stock transfer tools
+    if (user.role === "owner" || user.role === "manager") {
+      navItems.push({ href: "/rekap-kas", label: "Rekap Kas Bulanan", icon: <Coins size={18} className="text-emerald-500" /> });
+      navItems.push({ href: "/mutasi-kas", label: "Mutasi Kas", icon: <ArrowLeftRight size={18} className="text-blue-500" /> });
+      navItems.push({ href: "/riwayat-cetak-struk", label: "Riwayat Cetak Struk", icon: <Receipt size={18} className="text-amber-500" /> });
+      navItems.push({ href: "/ambil-stok", label: "Ambil/Saluran Stok", icon: <Warehouse size={18} className="text-indigo-500" /> });
+    }
   }
 
   // Kitchen/Delivery staff get full-screen layout (no sidebar)
@@ -320,6 +331,108 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
       </div>
     </div>
   );
+
+  const now = new Date();
+  const plan = tenant?.subscriptionPlan || "trial";
+  const expiresAt = tenant?.subscriptionExpiresAt ? new Date(tenant.subscriptionExpiresAt) : null;
+  const isTrialExpired = user.role !== "super_admin" && plan === "trial" && expiresAt && expiresAt < now;
+
+  if (isTrialExpired) {
+    const isOwner = user.role === "owner";
+    return (
+      <div className="min-h-screen bg-slate-900 text-slate-100 flex items-center justify-center p-4 font-sans relative overflow-hidden">
+        {/* Subtle grid pattern background */}
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#1f2937_1px,transparent_1px),linear-gradient(to_bottom,#1f2937_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_0%,#000_70%,transparent_100%)] opacity-30"></div>
+        
+        {/* Decorative glowing blobs */}
+        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] bg-primary/20 rounded-full blur-[120px] pointer-events-none"></div>
+
+        <div className="w-full max-w-lg bg-slate-950/80 backdrop-blur-xl border border-slate-800 rounded-3xl p-8 shadow-2xl relative z-10 space-y-6 text-center animate-scale-up">
+          {/* Logo & Lock Icon */}
+          <div className="space-y-4">
+            <img src={flowLogo} alt="Flow" className="h-10 mx-auto brightness-0 invert" />
+            <div className="w-16 h-16 bg-red-500/10 text-red-500 rounded-2xl flex items-center justify-center mx-auto text-3xl border border-red-500/20 shadow-inner">
+              🔒
+            </div>
+          </div>
+
+          {/* Heading */}
+          <div className="space-y-2">
+            <h2 className="text-xl font-extrabold text-white tracking-tight">Masa Uji Coba Gratis Anda Telah Berakhir</h2>
+            <p className="text-xs text-slate-400 leading-relaxed max-w-sm mx-auto">
+              Paket Uji Coba Gratis 7 Hari untuk bisnis <span className="font-semibold text-white">"{tenant?.name || "Anda"}"</span> telah habis masa berlakunya.
+            </p>
+          </div>
+
+          {isOwner ? (
+            /* Upgrade instructions for owner */
+            <div className="space-y-5 text-left">
+              <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5 space-y-3.5 shadow-inner">
+                <div className="text-[10px] font-bold text-primary uppercase tracking-wider">Langkah Upgrade ke FlowApp UMKM:</div>
+                <div className="space-y-1 text-xs text-slate-300">
+                  <p>1. Transfer biaya langganan sebesar <span className="font-bold text-white">Rp 169.000 / bulan</span> ke rekening BCA di bawah.</p>
+                  <p>2. Klik tombol konfirmasi WhatsApp untuk mengirimkan bukti transfer kepada Admin.</p>
+                  <p>3. Admin akan segera mengaktifkan akun Anda.</p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Rekening Transfer Resmi</div>
+                <div className="border border-slate-800 rounded-2xl p-4 bg-slate-950/40 space-y-3">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-400">Bank</span>
+                    <span className="font-bold text-white">BCA</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-400">No. Rekening</span>
+                    <span className="font-mono font-bold text-primary select-all">0374739634</span>
+                  </div>
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-400">Atas Nama</span>
+                    <span className="font-bold text-white">Andri Jumawal Satria</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-2 flex flex-col gap-3">
+                <a
+                  href={`https://wa.me/6281297874671?text=Halo%20Admin%20FlowApp,%20saya%20ingin%20upgrade%20ke%20FlowApp%20UMKM%20untuk%20bisnis%20saya%20${encodeURIComponent(tenant?.name || "")}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full py-3 bg-primary text-primary-foreground font-semibold text-xs rounded-xl hover:opacity-90 active:scale-95 transition-all text-center flex items-center justify-center gap-2 shadow-lg shadow-primary/20 animate-pulse hover:animate-none"
+                >
+                  💬 Konfirmasi Pembayaran (WhatsApp)
+                </a>
+                
+                <button
+                  onClick={onLogout}
+                  className="w-full py-2.5 bg-transparent border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-900 font-semibold text-xs rounded-xl transition-all"
+                >
+                  Keluar Akun
+                </button>
+              </div>
+            </div>
+          ) : (
+            /* Message for employee/staff */
+            <div className="space-y-5">
+              <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5 text-xs text-slate-300 leading-relaxed">
+                Silakan hubungi pemilik bisnis (Owner) untuk melakukan upgrade ke paket <span className="font-bold text-white">FlowApp UMKM</span> agar Anda dapat menggunakan aplikasi kasir dan mengakses dashboard kembali.
+              </div>
+
+              <div className="pt-2">
+                <button
+                  onClick={onLogout}
+                  className="w-full py-3 bg-transparent border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-900 font-semibold text-xs rounded-xl transition-all"
+                >
+                  Keluar Akun
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">

@@ -74,6 +74,7 @@ export const GetAdminStatsResponse = zod.object({
   "totalTenants": zod.number(),
   "activeTenants": zod.number(),
   "suspendedTenants": zod.number(),
+  "frozenTenants": zod.number(),
   "trialUsers": zod.number(),
   "expiredSubscriptions": zod.number(),
   "monthlyRevenue": zod.number(),
@@ -107,7 +108,7 @@ export const ListAdminTenantsResponse = zod.object({
   "name": zod.string(),
   "slug": zod.string().nullish(),
   "businessType": zod.enum(['fnb', 'fashion', 'restaurant', 'cafe', 'salon', 'minimarket']),
-  "status": zod.enum(['active', 'suspended', 'trial', 'expired']),
+  "status": zod.enum(['active', 'suspended', 'frozen', 'trial', 'expired']),
   "address": zod.string().nullish(),
   "phone": zod.string().nullish(),
   "email": zod.string().nullish(),
@@ -125,6 +126,8 @@ export const ListAdminTenantsResponse = zod.object({
   "enableCustomerLogin": zod.boolean().optional(),
   "enableTax": zod.boolean().optional(),
   "taxPercentage": zod.number().optional(),
+  "enableServiceCharge": zod.boolean().optional(),
+  "serviceChargePercentage": zod.number().optional(),
   "pointSystemConfig": zod.object({
   "pointsPerItem": zod.number().optional(),
   "minClaimPoints": zod.number().optional(),
@@ -134,6 +137,11 @@ export const ListAdminTenantsResponse = zod.object({
   "receiptFooter": zod.string().nullish(),
   "qrisId": zod.string().nullish(),
   "qrisImageUrl": zod.string().nullish(),
+  "showDeliveryInfo": zod.boolean().optional(),
+  "estimatedDeliveryTime": zod.string().nullish(),
+  "enableOpsHours": zod.boolean().optional(),
+  "opsOpeningTime": zod.string().nullish(),
+  "opsClosingTime": zod.string().nullish(),
   "createdAt": zod.string()
 })),
   "total": zod.number(),
@@ -154,7 +162,7 @@ export const GetAdminTenantResponse = zod.object({
   "name": zod.string(),
   "slug": zod.string().nullish(),
   "businessType": zod.enum(['fnb', 'fashion', 'restaurant', 'cafe', 'salon', 'minimarket']),
-  "status": zod.enum(['active', 'suspended', 'trial', 'expired']),
+  "status": zod.enum(['active', 'suspended', 'frozen', 'trial', 'expired']),
   "address": zod.string().nullish(),
   "phone": zod.string().nullish(),
   "email": zod.string().nullish(),
@@ -172,6 +180,8 @@ export const GetAdminTenantResponse = zod.object({
   "enableCustomerLogin": zod.boolean().optional(),
   "enableTax": zod.boolean().optional(),
   "taxPercentage": zod.number().optional(),
+  "enableServiceCharge": zod.boolean().optional(),
+  "serviceChargePercentage": zod.number().optional(),
   "pointSystemConfig": zod.object({
   "pointsPerItem": zod.number().optional(),
   "minClaimPoints": zod.number().optional(),
@@ -181,6 +191,11 @@ export const GetAdminTenantResponse = zod.object({
   "receiptFooter": zod.string().nullish(),
   "qrisId": zod.string().nullish(),
   "qrisImageUrl": zod.string().nullish(),
+  "showDeliveryInfo": zod.boolean().optional(),
+  "estimatedDeliveryTime": zod.string().nullish(),
+  "enableOpsHours": zod.boolean().optional(),
+  "opsOpeningTime": zod.string().nullish(),
+  "opsClosingTime": zod.string().nullish(),
   "createdAt": zod.string()
 })
 
@@ -201,7 +216,7 @@ export const UpdateTenantStatusParams = zod.object({
 })
 
 export const UpdateTenantStatusBody = zod.object({
-  "status": zod.enum(['active', 'suspended'])
+  "status": zod.enum(['active', 'suspended', 'frozen'])
 })
 
 export const UpdateTenantStatusResponse = zod.object({
@@ -209,7 +224,7 @@ export const UpdateTenantStatusResponse = zod.object({
   "name": zod.string(),
   "slug": zod.string().nullish(),
   "businessType": zod.enum(['fnb', 'fashion', 'restaurant', 'cafe', 'salon', 'minimarket']),
-  "status": zod.enum(['active', 'suspended', 'trial', 'expired']),
+  "status": zod.enum(['active', 'suspended', 'frozen', 'trial', 'expired']),
   "address": zod.string().nullish(),
   "phone": zod.string().nullish(),
   "email": zod.string().nullish(),
@@ -227,6 +242,8 @@ export const UpdateTenantStatusResponse = zod.object({
   "enableCustomerLogin": zod.boolean().optional(),
   "enableTax": zod.boolean().optional(),
   "taxPercentage": zod.number().optional(),
+  "enableServiceCharge": zod.boolean().optional(),
+  "serviceChargePercentage": zod.number().optional(),
   "pointSystemConfig": zod.object({
   "pointsPerItem": zod.number().optional(),
   "minClaimPoints": zod.number().optional(),
@@ -236,7 +253,66 @@ export const UpdateTenantStatusResponse = zod.object({
   "receiptFooter": zod.string().nullish(),
   "qrisId": zod.string().nullish(),
   "qrisImageUrl": zod.string().nullish(),
+  "showDeliveryInfo": zod.boolean().optional(),
+  "estimatedDeliveryTime": zod.string().nullish(),
+  "enableOpsHours": zod.boolean().optional(),
+  "opsOpeningTime": zod.string().nullish(),
+  "opsClosingTime": zod.string().nullish(),
   "createdAt": zod.string()
+})
+
+
+/**
+ * @summary List all subscription upgrade requests
+ */
+export const ListSubscriptionUpgradeRequestsResponseItem = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "tenantName": zod.string().optional(),
+  "requestedPlan": zod.enum(['starter', 'business', 'pro', 'enterprise']),
+  "billingCycle": zod.enum(['monthly', 'yearly']),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+export const ListSubscriptionUpgradeRequestsResponse = zod.array(ListSubscriptionUpgradeRequestsResponseItem)
+
+
+/**
+ * @summary Approve subscription upgrade request
+ */
+export const ApproveSubscriptionUpgradeRequestParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const ApproveSubscriptionUpgradeRequestResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "tenantName": zod.string().optional(),
+  "requestedPlan": zod.enum(['starter', 'business', 'pro', 'enterprise']),
+  "billingCycle": zod.enum(['monthly', 'yearly']),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Reject subscription upgrade request
+ */
+export const RejectSubscriptionUpgradeRequestParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const RejectSubscriptionUpgradeRequestResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "tenantName": zod.string().optional(),
+  "requestedPlan": zod.enum(['starter', 'business', 'pro', 'enterprise']),
+  "billingCycle": zod.enum(['monthly', 'yearly']),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
 })
 
 
@@ -248,7 +324,7 @@ export const GetTenantResponse = zod.object({
   "name": zod.string(),
   "slug": zod.string().nullish(),
   "businessType": zod.enum(['fnb', 'fashion', 'restaurant', 'cafe', 'salon', 'minimarket']),
-  "status": zod.enum(['active', 'suspended', 'trial', 'expired']),
+  "status": zod.enum(['active', 'suspended', 'frozen', 'trial', 'expired']),
   "address": zod.string().nullish(),
   "phone": zod.string().nullish(),
   "email": zod.string().nullish(),
@@ -266,6 +342,8 @@ export const GetTenantResponse = zod.object({
   "enableCustomerLogin": zod.boolean().optional(),
   "enableTax": zod.boolean().optional(),
   "taxPercentage": zod.number().optional(),
+  "enableServiceCharge": zod.boolean().optional(),
+  "serviceChargePercentage": zod.number().optional(),
   "pointSystemConfig": zod.object({
   "pointsPerItem": zod.number().optional(),
   "minClaimPoints": zod.number().optional(),
@@ -275,6 +353,11 @@ export const GetTenantResponse = zod.object({
   "receiptFooter": zod.string().nullish(),
   "qrisId": zod.string().nullish(),
   "qrisImageUrl": zod.string().nullish(),
+  "showDeliveryInfo": zod.boolean().optional(),
+  "estimatedDeliveryTime": zod.string().nullish(),
+  "enableOpsHours": zod.boolean().optional(),
+  "opsOpeningTime": zod.string().nullish(),
+  "opsClosingTime": zod.string().nullish(),
   "createdAt": zod.string()
 })
 
@@ -303,6 +386,13 @@ export const UpdateTenantBody = zod.object({
   "enableCustomerLogin": zod.boolean().optional(),
   "enableTax": zod.boolean().optional(),
   "taxPercentage": zod.number().optional(),
+  "enableServiceCharge": zod.boolean().optional(),
+  "serviceChargePercentage": zod.number().optional(),
+  "showDeliveryInfo": zod.boolean().optional(),
+  "estimatedDeliveryTime": zod.string().optional(),
+  "enableOpsHours": zod.boolean().optional(),
+  "opsOpeningTime": zod.string().optional(),
+  "opsClosingTime": zod.string().optional(),
   "pointSystemConfig": zod.object({
   "pointsPerItem": zod.number().optional(),
   "minClaimPoints": zod.number().optional(),
@@ -315,7 +405,7 @@ export const UpdateTenantResponse = zod.object({
   "name": zod.string(),
   "slug": zod.string().nullish(),
   "businessType": zod.enum(['fnb', 'fashion', 'restaurant', 'cafe', 'salon', 'minimarket']),
-  "status": zod.enum(['active', 'suspended', 'trial', 'expired']),
+  "status": zod.enum(['active', 'suspended', 'frozen', 'trial', 'expired']),
   "address": zod.string().nullish(),
   "phone": zod.string().nullish(),
   "email": zod.string().nullish(),
@@ -333,6 +423,8 @@ export const UpdateTenantResponse = zod.object({
   "enableCustomerLogin": zod.boolean().optional(),
   "enableTax": zod.boolean().optional(),
   "taxPercentage": zod.number().optional(),
+  "enableServiceCharge": zod.boolean().optional(),
+  "serviceChargePercentage": zod.number().optional(),
   "pointSystemConfig": zod.object({
   "pointsPerItem": zod.number().optional(),
   "minClaimPoints": zod.number().optional(),
@@ -342,6 +434,11 @@ export const UpdateTenantResponse = zod.object({
   "receiptFooter": zod.string().nullish(),
   "qrisId": zod.string().nullish(),
   "qrisImageUrl": zod.string().nullish(),
+  "showDeliveryInfo": zod.boolean().optional(),
+  "estimatedDeliveryTime": zod.string().nullish(),
+  "enableOpsHours": zod.boolean().optional(),
+  "opsOpeningTime": zod.string().nullish(),
+  "opsClosingTime": zod.string().nullish(),
   "createdAt": zod.string()
 })
 
@@ -355,7 +452,37 @@ export const GetTenantSubscriptionResponse = zod.object({
   "status": zod.enum(['active', 'expired', 'cancelled']),
   "expiresAt": zod.string(),
   "startedAt": zod.string().optional(),
-  "price": zod.number().optional()
+  "price": zod.number().optional(),
+  "pendingUpgradeRequest": zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "tenantName": zod.string().optional(),
+  "requestedPlan": zod.enum(['starter', 'business', 'pro', 'enterprise']),
+  "billingCycle": zod.enum(['monthly', 'yearly']),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+}).optional()
+})
+
+
+/**
+ * @summary Request a subscription package upgrade
+ */
+export const CreateSubscriptionUpgradeRequestBody = zod.object({
+  "requestedPlan": zod.enum(['starter', 'business', 'pro', 'enterprise']),
+  "billingCycle": zod.enum(['monthly', 'yearly'])
+})
+
+export const CreateSubscriptionUpgradeRequestResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "tenantName": zod.string().optional(),
+  "requestedPlan": zod.enum(['starter', 'business', 'pro', 'enterprise']),
+  "billingCycle": zod.enum(['monthly', 'yearly']),
+  "status": zod.enum(['pending', 'approved', 'rejected']),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
 })
 
 
@@ -595,6 +722,7 @@ export const ListOrdersResponse = zod.object({
   "subtotal": zod.number().optional(),
   "discount": zod.number().optional(),
   "tax": zod.number().optional(),
+  "serviceCharge": zod.number().optional(),
   "total": zod.number(),
   "status": zod.enum(['pending', 'completed', 'cancelled', 'refunded']),
   "paymentMethod": zod.enum(['cash', 'qris', 'bank_transfer', 'ewallet', 'credit_card']),
@@ -637,6 +765,7 @@ export const CreateOrderBody = zod.object({
   "subtotal": zod.number().optional(),
   "discount": zod.number().optional(),
   "tax": zod.number().optional(),
+  "serviceCharge": zod.number().optional(),
   "total": zod.number(),
   "notes": zod.string().optional(),
   "customerId": zod.number().optional(),
@@ -659,6 +788,7 @@ export const GetRecentOrdersResponseItem = zod.object({
   "subtotal": zod.number().optional(),
   "discount": zod.number().optional(),
   "tax": zod.number().optional(),
+  "serviceCharge": zod.number().optional(),
   "total": zod.number(),
   "status": zod.enum(['pending', 'completed', 'cancelled', 'refunded']),
   "paymentMethod": zod.enum(['cash', 'qris', 'bank_transfer', 'ewallet', 'credit_card']),
@@ -696,6 +826,7 @@ export const GetOrderResponse = zod.object({
   "subtotal": zod.number().optional(),
   "discount": zod.number().optional(),
   "tax": zod.number().optional(),
+  "serviceCharge": zod.number().optional(),
   "total": zod.number(),
   "status": zod.enum(['pending', 'completed', 'cancelled', 'refunded']),
   "paymentMethod": zod.enum(['cash', 'qris', 'bank_transfer', 'ewallet', 'credit_card']),
@@ -736,6 +867,7 @@ export const UpdateOrderStatusResponse = zod.object({
   "subtotal": zod.number().optional(),
   "discount": zod.number().optional(),
   "tax": zod.number().optional(),
+  "serviceCharge": zod.number().optional(),
   "total": zod.number(),
   "status": zod.enum(['pending', 'completed', 'cancelled', 'refunded']),
   "paymentMethod": zod.enum(['cash', 'qris', 'bank_transfer', 'ewallet', 'credit_card']),
@@ -881,6 +1013,7 @@ export const ListEmployeesResponseItem = zod.object({
   "tenantId": zod.number(),
   "branchId": zod.number().nullish(),
   "customRoleId": zod.number().nullish(),
+  "employeeShiftId": zod.number().nullish(),
   "createdAt": zod.string()
 })
 export const ListEmployeesResponse = zod.array(ListEmployeesResponseItem)
@@ -895,7 +1028,8 @@ export const CreateEmployeeBody = zod.object({
   "phone": zod.string().optional(),
   "role": zod.string(),
   "branchId": zod.number().nullish(),
-  "customRoleId": zod.number().nullish()
+  "customRoleId": zod.number().nullish(),
+  "employeeShiftId": zod.number().nullish()
 })
 
 
@@ -913,7 +1047,8 @@ export const UpdateEmployeeBody = zod.object({
   "role": zod.string().optional(),
   "isActive": zod.boolean().optional(),
   "branchId": zod.number().nullish(),
-  "customRoleId": zod.number().nullish()
+  "customRoleId": zod.number().nullish(),
+  "employeeShiftId": zod.number().nullish()
 })
 
 export const UpdateEmployeeResponse = zod.object({
@@ -926,6 +1061,7 @@ export const UpdateEmployeeResponse = zod.object({
   "tenantId": zod.number(),
   "branchId": zod.number().nullish(),
   "customRoleId": zod.number().nullish(),
+  "employeeShiftId": zod.number().nullish(),
   "createdAt": zod.string()
 })
 
@@ -935,6 +1071,163 @@ export const UpdateEmployeeResponse = zod.object({
  */
 export const DeleteEmployeeParams = zod.object({
   "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary List employee shifts
+ */
+export const ListEmployeeShiftsResponseItem = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "name": zod.string(),
+  "startTime": zod.string(),
+  "endTime": zod.string(),
+  "createdAt": zod.string()
+})
+export const ListEmployeeShiftsResponse = zod.array(ListEmployeeShiftsResponseItem)
+
+
+/**
+ * @summary Create employee shift
+ */
+export const CreateEmployeeShiftBody = zod.object({
+  "name": zod.string(),
+  "startTime": zod.string(),
+  "endTime": zod.string()
+})
+
+
+/**
+ * @summary Update employee shift
+ */
+export const UpdateEmployeeShiftParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateEmployeeShiftBody = zod.object({
+  "name": zod.string(),
+  "startTime": zod.string(),
+  "endTime": zod.string()
+})
+
+export const UpdateEmployeeShiftResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "name": zod.string(),
+  "startTime": zod.string(),
+  "endTime": zod.string(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Delete employee shift
+ */
+export const DeleteEmployeeShiftParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary List employee attendance logs
+ */
+export const ListEmployeeAttendanceQueryParams = zod.object({
+  "employeeId": zod.coerce.number().optional(),
+  "branchId": zod.coerce.number().optional(),
+  "startDate": zod.coerce.string().optional(),
+  "endDate": zod.coerce.string().optional()
+})
+
+export const ListEmployeeAttendanceResponseItem = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "employeeId": zod.number(),
+  "employeeName": zod.string().nullish(),
+  "branchId": zod.number().nullish(),
+  "branchName": zod.string().nullish(),
+  "employeeShiftId": zod.number().nullish(),
+  "shiftName": zod.string().nullish(),
+  "checkInTime": zod.string(),
+  "checkOutTime": zod.string().nullish(),
+  "checkInPhoto": zod.string(),
+  "checkOutPhoto": zod.string().nullish(),
+  "checkInStatus": zod.string(),
+  "checkOutStatus": zod.string().nullish(),
+  "checkInNotes": zod.string().nullish(),
+  "checkOutNotes": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+export const ListEmployeeAttendanceResponse = zod.array(ListEmployeeAttendanceResponseItem)
+
+
+/**
+ * @summary Get active attendance for employee
+ */
+export const GetActiveAttendanceQueryParams = zod.object({
+  "employeeId": zod.coerce.number()
+})
+
+export const GetActiveAttendanceResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "employeeId": zod.number(),
+  "employeeName": zod.string().nullish(),
+  "branchId": zod.number().nullish(),
+  "branchName": zod.string().nullish(),
+  "employeeShiftId": zod.number().nullish(),
+  "shiftName": zod.string().nullish(),
+  "checkInTime": zod.string(),
+  "checkOutTime": zod.string().nullish(),
+  "checkInPhoto": zod.string(),
+  "checkOutPhoto": zod.string().nullish(),
+  "checkInStatus": zod.string(),
+  "checkOutStatus": zod.string().nullish(),
+  "checkInNotes": zod.string().nullish(),
+  "checkOutNotes": zod.string().nullish(),
+  "createdAt": zod.string()
+})
+
+
+/**
+ * @summary Check in an employee
+ */
+export const CheckInEmployeeBody = zod.object({
+  "employeeId": zod.number(),
+  "branchId": zod.number().optional(),
+  "employeeShiftId": zod.number().optional(),
+  "photo": zod.string(),
+  "notes": zod.string().optional()
+})
+
+
+/**
+ * @summary Check out an employee
+ */
+export const CheckOutEmployeeBody = zod.object({
+  "employeeId": zod.number(),
+  "photo": zod.string(),
+  "notes": zod.string().optional()
+})
+
+export const CheckOutEmployeeResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "employeeId": zod.number(),
+  "employeeName": zod.string().nullish(),
+  "branchId": zod.number().nullish(),
+  "branchName": zod.string().nullish(),
+  "employeeShiftId": zod.number().nullish(),
+  "shiftName": zod.string().nullish(),
+  "checkInTime": zod.string(),
+  "checkOutTime": zod.string().nullish(),
+  "checkInPhoto": zod.string(),
+  "checkOutPhoto": zod.string().nullish(),
+  "checkInStatus": zod.string(),
+  "checkOutStatus": zod.string().nullish(),
+  "checkInNotes": zod.string().nullish(),
+  "checkOutNotes": zod.string().nullish(),
+  "createdAt": zod.string()
 })
 
 
@@ -1037,6 +1330,12 @@ export const GetSalesReportResponse = zod.object({
   "method": zod.string(),
   "count": zod.number(),
   "total": zod.number()
+})).optional(),
+  "byCategory": zod.array(zod.object({
+  "categoryId": zod.number().nullable(),
+  "name": zod.string(),
+  "totalSold": zod.number(),
+  "revenue": zod.number()
 })).optional()
 })
 

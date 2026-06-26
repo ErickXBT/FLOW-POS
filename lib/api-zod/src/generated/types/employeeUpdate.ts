@@ -16,4 +16,6 @@ export interface EmployeeUpdate {
   branchId?: number | null;
   /** @nullable */
   customRoleId?: number | null;
+  /** @nullable */
+  employeeShiftId?: number | null;
 }

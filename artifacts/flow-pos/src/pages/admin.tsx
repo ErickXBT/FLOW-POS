@@ -14,9 +14,13 @@ import {
   getListTicketRepliesQueryKey,
   useGetAdminSettings,
   useUpdateAdminSettings,
-  useGetSecurityLogs
+  useGetSecurityLogs,
+  useListSubscriptionUpgradeRequests,
+  useApproveSubscriptionUpgradeRequest,
+  useRejectSubscriptionUpgradeRequest,
+  getListSubscriptionUpgradeRequestsQueryKey
 } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useIsFetching } from "@tanstack/react-query";
 import { useAuth } from "@/hooks/use-auth";
 import {
   Shield,
@@ -41,7 +45,9 @@ import {
   Server,
   Key,
   DollarSign,
-  X
+  X,
+  CreditCard,
+  ArrowUpCircle
 } from "lucide-react";
 
 function formatRp(v: any) {
@@ -55,6 +61,7 @@ const STATUS_MAP: Record<string, { label: string; cls: string }> = {
   active: { label: "Aktif", cls: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400" },
   trial: { label: "Trial", cls: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400" },
   suspended: { label: "Ditangguhkan", cls: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400" },
+  frozen: { label: "Dibekukan", cls: "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-400" },
   expired: { label: "Kadaluarsa", cls: "bg-muted text-muted-foreground" },
 };
 
@@ -79,6 +86,7 @@ const BUSINESS_TYPE_LABELS: Record<string, string> = {
 const TABS = [
   { id: "overview", label: "Ringkasan", icon: Server },
   { id: "tenants", label: "Tenant & Bisnis", icon: Building2 },
+  { id: "upgrades", label: "Persetujuan Upgrade", icon: CreditCard },
   { id: "announcements", label: "Pengumuman", icon: Megaphone },
   { id: "tickets", label: "Tiket Dukungan", icon: MessageSquare },
   { id: "security", label: "Keamanan", icon: Lock },
@@ -94,6 +102,7 @@ export default function AdminPage() {
   const [editingSubscriptionTenant, setEditingSubscriptionTenant] = useState<any>(null);
 
   const qc = useQueryClient();
+  const isFetching = useIsFetching();
   const { data: stats, refetch: refetchStats } = useGetAdminStats();
   const { data: tenantsData, isLoading: isLoadingTenants, refetch: refetchTenants } = useListAdminTenants({
     search: search || undefined,
@@ -151,12 +160,11 @@ export default function AdminPage() {
         <div className="flex gap-2">
           <button
             onClick={() => {
-              refetchStats();
-              refetchTenants();
+              qc.invalidateQueries();
             }}
             className="flex items-center gap-2 px-4 py-2 border border-border rounded-xl text-sm font-medium hover:bg-muted transition-all text-foreground"
           >
-            <RefreshCw size={15} /> Aktualkan Data
+            <RefreshCw size={15} className={isFetching > 0 ? "animate-spin" : ""} /> Aktualkan Data
           </button>
         </div>
       </div>
@@ -204,6 +212,7 @@ export default function AdminPage() {
               isLoading={isLoadingTenants}
             />
           )}
+          {activeTab === "upgrades" && <SubscriptionUpgradesTab />}
           {activeTab === "announcements" && <AnnouncementsTab />}
           {activeTab === "tickets" && <TicketsTab />}
           {activeTab === "security" && <SecurityTab />}
@@ -248,7 +257,7 @@ function OverviewTab({ stats, tenants }: { stats: any; tenants: any[] }) {
       {/* Metrics harmonious grid */}
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         {[
-          { label: "Total Tenant", value: s.totalTenants, icon: <Building2 size={16} />, detail: `${s.activeTenants} aktif, ${s.suspendedTenants} suspend` },
+          { label: "Total Tenant", value: s.totalTenants, icon: <Building2 size={16} />, detail: `${s.activeTenants} aktif, ${s.suspendedTenants} suspend, ${s.frozenTenants || 0} beku` },
           { label: "Pengguna Trial", value: s.trialUsers, icon: <Users size={16} />, detail: "Dalam masa uji coba" },
           { label: "Pemasukan Bulanan (MRR)", value: formatRp(s.monthlyRevenue), icon: <DollarSign size={16} />, detail: "Estimasi pendapatan aktif" },
           { label: "Pemasukan Tahunan (ARR)", value: formatRp(s.annualRevenue), icon: <TrendingUp size={16} />, detail: "Proyeksi 12 bulan" },
@@ -270,17 +279,17 @@ function OverviewTab({ stats, tenants }: { stats: any; tenants: any[] }) {
 
       {/* Resource & AI Row */}
       <div className="grid md:grid-cols-3 gap-6">
-        {/* System Server Resources Load (Mock UI Widget) */}
+        {/* System Server Resources Load (Global) */}
         <div className="bg-card border border-card-border rounded-xl p-5 shadow-sm space-y-4 md:col-span-1">
           <div className="font-semibold text-foreground text-sm flex items-center gap-2">
             <Cpu size={16} className="text-primary" /> Penggunaan Server (Global)
           </div>
           <div className="space-y-3">
             {[
-              { label: "CPU Load", val: 18, color: "bg-blue-600" },
-              { label: "Memory (RAM)", val: 42, color: "bg-indigo-600" },
-              { label: "Storage (Database)", val: 24, color: "bg-green-600" },
-              { label: "API Rate limits", val: 8, color: "bg-amber-600" }
+              { label: "CPU Load", val: s.systemStatus?.cpuLoad ?? 18, color: "bg-blue-600" },
+              { label: "Memory (RAM)", val: s.systemStatus?.memoryUsage ?? 42, color: "bg-indigo-600" },
+              { label: "Storage (Database)", val: s.systemStatus?.storageUsage ?? 24, color: "bg-green-600" },
+              { label: "API Rate limits", val: s.systemStatus?.rateLimits ?? 8, color: "bg-amber-600" }
             ].map(r => (
               <div key={r.label} className="space-y-1">
                 <div className="flex justify-between text-xs font-medium">
@@ -301,10 +310,17 @@ function OverviewTab({ stats, tenants }: { stats: any; tenants: any[] }) {
             <span className="text-lg">✨</span> Rekomendasi Pertumbuhan AI (SaaS Insights)
           </div>
           <div className="text-sm text-muted-foreground leading-relaxed">
-            Sistem mendeteksi peningkatan sebesar <strong className="text-foreground">12.5%</strong> pada pendaftaran tenant baru minggu ini. Rata-rata retensi pengguna trial yang melakukan konversi ke plan PRO meningkat setelah mengaktifkan modul QR Menu.
+            {s.aiInsights?.growthText || (
+              <>
+                Sistem mendeteksi peningkatan sebesar <strong className="text-foreground">12.5%</strong> pada pendaftaran tenant baru minggu ini. Rata-rata retensi pengguna trial yang melakukan konversi ke plan PRO meningkat setelah mengaktifkan modul QR Menu.
+              </>
+            )}
           </div>
           <div className="bg-primary/5 border border-primary/10 rounded-lg p-3 text-xs text-primary font-medium flex items-center gap-2">
-            <AlertTriangle size={14} /> Tips: Siapkan kupon promo upgrade ke plan PRO menyambut libur akhir tahun untuk memaksimalkan MRR.
+            <AlertTriangle size={14} /> 
+            <span>
+              {s.aiInsights?.tipText || "Tips: Siapkan kupon promo upgrade ke plan PRO menyambut libur akhir tahun untuk memaksimalkan MRR."}
+            </span>
           </div>
         </div>
       </div>
@@ -337,9 +353,40 @@ function OverviewTab({ stats, tenants }: { stats: any; tenants: any[] }) {
 
 function ManageSubscriptionModal({ tenant, onClose, onSave }: any) {
   const [plan, setPlan] = useState(tenant.subscriptionPlan || "trial");
-  const [days, setDays] = useState(30);
+  
+  // Calculate initial remaining days or default based on plan
+  const getInitialDays = () => {
+    if (!tenant.subscriptionExpiresAt) return 30;
+    const diffTime = new Date(tenant.subscriptionExpiresAt).getTime() - new Date().getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays > 0 ? diffDays : 30;
+  };
+  
+  const initialDays = getInitialDays();
+  const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">(
+    initialDays >= 360 ? "yearly" : "monthly"
+  );
+  const [days, setDays] = useState(initialDays);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const handlePlanChange = (selectedPlan: string) => {
+    setPlan(selectedPlan);
+    if (selectedPlan === "trial") {
+      setDays(7);
+    } else if (selectedPlan === "enterprise") {
+      setDays(365);
+    } else {
+      setDays(billingCycle === "yearly" ? 365 : 30);
+    }
+  };
+
+  const handleBillingCycleChange = (cycle: "monthly" | "yearly") => {
+    setBillingCycle(cycle);
+    if (plan !== "trial" && plan !== "enterprise") {
+      setDays(cycle === "yearly" ? 365 : 30);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -383,17 +430,62 @@ function ManageSubscriptionModal({ tenant, onClose, onSave }: any) {
             <div className="text-xs font-bold text-foreground bg-muted/30 border border-border p-2.5 rounded-xl">{tenant.name}</div>
           </div>
 
+          {plan !== "trial" && plan !== "enterprise" && (
+            <div>
+              <label className="block text-[10px] font-semibold text-muted-foreground uppercase mb-1">Siklus Tagihan *</label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleBillingCycleChange("monthly")}
+                  className={`flex-1 py-2 border rounded-xl text-xs font-semibold cursor-pointer transition-all ${
+                    billingCycle === "monthly"
+                      ? "border-primary bg-primary/5 text-primary"
+                      : "border-border hover:bg-muted text-muted-foreground bg-transparent"
+                  }`}
+                >
+                  Bulanan
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleBillingCycleChange("yearly")}
+                  className={`flex-1 py-2 border rounded-xl text-xs font-semibold cursor-pointer transition-all flex items-center justify-center gap-1.5 ${
+                    billingCycle === "yearly"
+                      ? "border-primary bg-primary/5 text-primary"
+                      : "border-border hover:bg-muted text-muted-foreground bg-transparent"
+                  }`}
+                >
+                  Tahunan
+                  <span className="px-1.5 py-0.5 rounded-full bg-green-500 text-white text-[9px] font-extrabold uppercase">
+                    Hemat 15%
+                  </span>
+                </button>
+              </div>
+            </div>
+          )}
+
           <div>
             <label className="block text-[10px] font-semibold text-muted-foreground uppercase mb-1">Paket Langganan *</label>
             <select
               value={plan}
-              onChange={e => setPlan(e.target.value)}
+              onChange={e => handlePlanChange(e.target.value)}
               className="w-full px-3 py-2 border border-input rounded-xl bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
             >
               <option value="trial">Trial (Maks 1 Outlet - 7 Hari Gratis)</option>
-              <option value="starter">FlowApp UMKM (Maks 1 Outlet - Rp169.000/bln)</option>
-              <option value="business">FlowApp Multi (Maks 3 Outlet - Rp299.000/bln)</option>
-              <option value="pro">FlowApp Pro (Maks 5 Outlet - Rp749k/bln)</option>
+              <option value="starter">
+                {billingCycle === "yearly"
+                  ? "FlowApp UMKM (Maks 1 Outlet - Rp1.723.800/thn)"
+                  : "FlowApp UMKM (Maks 1 Outlet - Rp169.000/bln)"}
+              </option>
+              <option value="business">
+                {billingCycle === "yearly"
+                  ? "FlowApp Multi (Maks 3 Outlet - Rp3.049.800/thn)"
+                  : "FlowApp Multi (Maks 3 Outlet - Rp299.000/bln)"}
+              </option>
+              <option value="pro">
+                {billingCycle === "yearly"
+                  ? "FlowApp Pro (Maks 5 Outlet - Rp6.741.000/thn)"
+                  : "FlowApp Pro (Maks 5 Outlet - Rp749.000/bln)"}
+              </option>
               <option value="enterprise">FlowApp Enterprise (Maks Unlimited - Hubungi Sales)</option>
             </select>
           </div>
@@ -422,6 +514,120 @@ function ManageSubscriptionModal({ tenant, onClose, onSave }: any) {
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+// ── Subscription Upgrades Tab ────────────────────────────────────────────────
+function SubscriptionUpgradesTab() {
+  const qc = useQueryClient();
+  const { data: requests, isLoading } = useListSubscriptionUpgradeRequests();
+  const approveMutation = useApproveSubscriptionUpgradeRequest();
+  const rejectMutation = useRejectSubscriptionUpgradeRequest();
+  
+  const handleApprove = async (id: number) => {
+    if (!confirm("Apakah Anda yakin ingin menyetujui permintaan upgrade ini?")) return;
+    try {
+      await approveMutation.mutateAsync({ id });
+      qc.invalidateQueries({ queryKey: getListSubscriptionUpgradeRequestsQueryKey() });
+      qc.invalidateQueries({ queryKey: getListAdminTenantsQueryKey() });
+      alert("Upgrade berhasil disetujui!");
+    } catch (err: any) {
+      alert(err.response?.data?.error || err.message || "Gagal menyetujui upgrade");
+    }
+  };
+
+  const handleReject = async (id: number) => {
+    if (!confirm("Apakah Anda yakin ingin menolak permintaan upgrade ini?")) return;
+    try {
+      await rejectMutation.mutateAsync({ id });
+      qc.invalidateQueries({ queryKey: getListSubscriptionUpgradeRequestsQueryKey() });
+      alert("Upgrade berhasil ditolak!");
+    } catch (err: any) {
+      alert(err.response?.data?.error || err.message || "Gagal menolak upgrade");
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center py-12">
+        <RefreshCw className="animate-spin text-primary" size={24} />
+      </div>
+    );
+  }
+
+  const pendingRequests = (requests || []).filter(r => r.status === "pending");
+
+  return (
+    <div className="bg-card border border-card-border rounded-2xl p-6 shadow-sm space-y-6">
+      <div>
+        <h2 className="text-base font-bold text-foreground flex items-center gap-2">
+          <ArrowUpCircle className="text-primary animate-pulse" size={20} /> Persetujuan Upgrade Langganan
+        </h2>
+        <p className="text-xs text-muted-foreground mt-1">Daftar pengajuan upgrade paket langganan dari pemilik tenant yang memerlukan persetujuan.</p>
+      </div>
+
+      {pendingRequests.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-12 bg-muted/10 border border-dashed border-border rounded-xl">
+          <CheckCircle className="text-muted-foreground/40 mb-3" size={36} />
+          <p className="text-xs text-muted-foreground font-semibold">Tidak ada permintaan upgrade pending saat ini</p>
+        </div>
+      ) : (
+        <div className="border border-border rounded-xl overflow-hidden">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="bg-muted/30 text-muted-foreground border-b border-border">
+                <th className="p-3 font-semibold">Tenant</th>
+                <th className="p-3 font-semibold">Paket yang Diminta</th>
+                <th className="p-3 font-semibold">Siklus Tagihan</th>
+                <th className="p-3 font-semibold">Tanggal Pengajuan</th>
+                <th className="p-3 font-semibold text-right">Aksi</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {pendingRequests.map((req) => (
+                <tr key={req.id} className="hover:bg-muted/10 transition-colors">
+                  <td className="p-3">
+                    <div className="font-semibold text-foreground">{req.tenantName}</div>
+                    <div className="text-[10px] text-muted-foreground mt-0.5">ID: {req.tenantId}</div>
+                  </td>
+                  <td className="p-3">
+                    <span className="px-2 py-0.5 rounded-full font-semibold capitalize bg-primary/10 text-primary">
+                      {req.requestedPlan}
+                    </span>
+                  </td>
+                  <td className="p-3 capitalize font-medium">{req.billingCycle === "yearly" ? "Tahunan" : "Bulanan"}</td>
+                  <td className="p-3 text-muted-foreground">
+                    {new Date(req.createdAt).toLocaleDateString("id-ID", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit"
+                    })}
+                  </td>
+                  <td className="p-3 text-right space-x-2">
+                    <button
+                      onClick={() => handleReject(req.id)}
+                      disabled={approveMutation.isPending || rejectMutation.isPending}
+                      className="px-2.5 py-1.5 bg-red-100 dark:bg-red-950/20 text-red-700 dark:text-red-400 rounded-lg font-semibold hover:opacity-80 disabled:opacity-50 transition-opacity cursor-pointer text-[10px]"
+                    >
+                      Tolak
+                    </button>
+                    <button
+                      onClick={() => handleApprove(req.id)}
+                      disabled={approveMutation.isPending || rejectMutation.isPending}
+                      className="px-2.5 py-1.5 bg-green-600 text-white rounded-lg font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity cursor-pointer text-[10px]"
+                    >
+                      Setujui
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
@@ -534,23 +740,32 @@ function TenantsTab({
                           >
                             <Settings size={14} />
                           </button>
-                          {t.status !== "active" ? (
-                            <button
-                              onClick={() => handleStatus(t.id, "active")}
-                              title="Aktifkan Tenant"
-                              className="p-2 bg-green-50 text-green-600 hover:bg-green-600 hover:text-white dark:bg-green-950/20 dark:text-green-400 rounded-xl transition-all"
-                            >
-                              <CheckCircle size={14} />
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => handleStatus(t.id, "suspended")}
-                              title="Suspend Tenant"
-                              className="p-2 bg-amber-50 text-amber-600 hover:bg-amber-600 hover:text-white dark:bg-amber-950/20 dark:text-amber-400 rounded-xl transition-all"
-                            >
-                              <Ban size={14} />
-                            </button>
-                          )}
+                          {t.status === "suspended" || t.status === "frozen" || t.status === "expired" ? (
+                             <button
+                               onClick={() => handleStatus(t.id, "active")}
+                               title="Aktifkan Tenant"
+                               className="p-2 bg-green-50 text-green-600 hover:bg-green-600 hover:text-white dark:bg-green-950/20 dark:text-green-400 rounded-xl transition-all"
+                             >
+                               <CheckCircle size={14} />
+                             </button>
+                           ) : (
+                             <>
+                               <button
+                                 onClick={() => handleStatus(t.id, "suspended")}
+                                 title="Tangguhkan (Suspend) Tenant"
+                                 className="p-2 bg-amber-50 text-amber-600 hover:bg-amber-600 hover:text-white dark:bg-amber-950/20 dark:text-amber-400 rounded-xl transition-all"
+                               >
+                                 <Ban size={14} />
+                               </button>
+                               <button
+                                 onClick={() => handleStatus(t.id, "frozen")}
+                                 title="Bekukan (Freeze) Tenant"
+                                 className="p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white dark:bg-indigo-950/20 dark:text-indigo-400 rounded-xl transition-all"
+                               >
+                                 <Lock size={14} />
+                               </button>
+                             </>
+                           )}
                           <button
                             onClick={() => handleDelete(t.id, t.name)}
                             title="Hapus Tenant"
@@ -731,6 +946,24 @@ function TicketsTab() {
     }
   };
 
+  const handleUpdateTicketStatus = async (id: number, status: string) => {
+    try {
+      const token = localStorage.getItem("flow_token");
+      const res = await fetch(`/api/support/tickets/${id}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token || ""}`,
+        },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) throw new Error("Gagal memperbarui status tiket");
+      refetchTickets();
+    } catch (err: any) {
+      alert(err.message || "Terjadi kesalahan");
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
       {/* Tickets List */}
@@ -785,20 +1018,30 @@ function TicketsTab() {
         ) : (
           <div className="flex flex-col h-full flex-1">
             {/* Conversation Header */}
-            <div className="border-b border-border pb-3 mb-4 flex justify-between items-start">
+            <div className="border-b border-border pb-3 mb-4 flex justify-between items-center">
               <div>
                 <h4 className="font-bold text-foreground text-sm">{selectedTicket.title}</h4>
                 <div className="text-xs text-muted-foreground mt-0.5">
                   Tenant: <span className="font-semibold text-primary">{selectedTicket.tenantName}</span> &bull; Kategori: {selectedTicket.category}
                 </div>
               </div>
-              <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                selectedTicket.status === "resolved" ? "bg-green-100 text-green-700 dark:bg-green-950/20 dark:text-green-400" :
-                selectedTicket.status === "in_progress" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" :
-                "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
-              }`}>
-                {selectedTicket.status === "resolved" ? "Selesai" : selectedTicket.status === "in_progress" ? "Proses" : "Baru"}
-              </span>
+              <div className="flex items-center gap-2">
+                {selectedTicket.status !== "resolved" && (
+                  <button
+                    onClick={() => handleUpdateTicketStatus(selectedTicket.id, "resolved")}
+                    className="px-2.5 py-1 bg-green-600 hover:bg-green-700 text-white rounded-lg text-[10px] font-bold transition-all cursor-pointer"
+                  >
+                    Selesaikan Tiket
+                  </button>
+                )}
+                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                  selectedTicket.status === "resolved" ? "bg-green-100 text-green-700 dark:bg-green-950/20 dark:text-green-400" :
+                  selectedTicket.status === "in_progress" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" :
+                  "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                }`}>
+                  {selectedTicket.status === "resolved" ? "Selesai" : selectedTicket.status === "in_progress" ? "Proses" : "Baru"}
+                </span>
+              </div>
             </div>
 
             {/* Conversation Messages */}

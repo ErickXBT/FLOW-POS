@@ -7,6 +7,7 @@
  */
 import type { SubscriptionPlanProperty } from './subscriptionPlanProperty';
 import type { SubscriptionStatus } from './subscriptionStatus';
+import type { SubscriptionUpgradeRequest } from './subscriptionUpgradeRequest';
 
 export interface Subscription {
   id: number;
@@ -15,4 +16,5 @@ export interface Subscription {
   expiresAt: string;
   startedAt?: string;
   price?: number;
+  pendingUpgradeRequest?: SubscriptionUpgradeRequest;
 }

@@ -56,7 +56,7 @@ export default function ReportsPage() {
     }
   }, [reportTab, isOwnerOrAdmin]);
 
-  const r = report || { totalRevenue: 0, totalOrders: 0, totalItems: 0, averageOrderValue: 0, topProducts: [], byPaymentMethod: [] };
+  const r = report || { totalRevenue: 0, totalOrders: 0, totalItems: 0, averageOrderValue: 0, topProducts: [], byPaymentMethod: [], byCategory: [] };
 
   return (
     <div className="p-6 space-y-6 font-sans">
@@ -173,7 +173,7 @@ export default function ReportsPage() {
             </ResponsiveContainer>
           </div>
 
-          <div className="grid lg:grid-cols-2 gap-6">
+          <div className="grid lg:grid-cols-3 gap-6">
             {/* Top products */}
             <div className="bg-card border border-card-border rounded-2xl p-5 shadow-sm">
               <h2 className="font-bold text-sm text-foreground mb-4">Produk Terlaris</h2>
@@ -189,6 +189,36 @@ export default function ReportsPage() {
                     <Bar dataKey="revenue" fill="hsl(226, 90%, 55%)" radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
+              )}
+            </div>
+
+            {/* By product category */}
+            <div className="bg-card border border-card-border rounded-2xl p-5 shadow-sm">
+              <h2 className="font-bold text-sm text-foreground mb-4">Kategori Terlaris</h2>
+              {(r.byCategory ?? []).length === 0 ? (
+                <div className="text-center text-muted-foreground py-8 text-sm">Belum ada data</div>
+              ) : (
+                <div className="flex items-center gap-4">
+                  <PieChart width={160} height={160} className="flex-shrink-0">
+                    <Pie data={r.byCategory ?? []} cx={75} cy={75} innerRadius={40} outerRadius={70} dataKey="revenue" paddingAngle={3}>
+                      {(r.byCategory ?? []).map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                    </Pie>
+                  </PieChart>
+                  <div className="flex-1 space-y-2 max-h-[160px] overflow-y-auto pr-1">
+                    {(r.byCategory ?? []).map((cat, i) => (
+                      <div key={cat.categoryId ?? `cat-${i}`} className="flex items-center justify-between text-[11px]">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
+                          <span className="text-muted-foreground font-semibold truncate" title={cat.name}>{cat.name}</span>
+                        </div>
+                        <div className="text-right flex-shrink-0 ml-1.5">
+                          <span className="font-bold text-foreground block">{formatRp(cat.revenue)}</span>
+                          <span className="text-muted-foreground text-[9px] block font-medium">{cat.totalSold} pcs</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
 

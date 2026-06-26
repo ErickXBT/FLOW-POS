@@ -7,7 +7,7 @@ export const tenantsTable = pgTable("tenants", {
   name: text("name").notNull(),
   slug: text("slug").unique(),
   businessType: text("business_type").notNull(), // fnb, fashion, restaurant, cafe, salon, minimarket
-  status: text("status").notNull().default("trial"), // active, suspended, trial, expired
+  status: text("status").notNull().default("trial"), // active, suspended, frozen, trial, expired
   address: text("address"),
   phone: text("phone"),
   email: text("email"),
@@ -34,6 +34,8 @@ export const tenantsTable = pgTable("tenants", {
   enableCustomerLogin: boolean("enable_customer_login").notNull().default(false),
   enableTax: boolean("enable_tax").notNull().default(false),
   taxPercentage: numeric("tax_percentage", { precision: 5, scale: 2 }).notNull().default("10.00"),
+  enableServiceCharge: boolean("enable_service_charge").notNull().default(false),
+  serviceChargePercentage: numeric("service_charge_percentage", { precision: 5, scale: 2 }).notNull().default("10.00"),
   pointSystemConfig: jsonb("point_system_config").$type<{ pointsPerItem: number; minClaimPoints: number; rewardDescription: string }>().notNull().default({
     pointsPerItem: 10,
     minClaimPoints: 1000,
@@ -41,6 +43,11 @@ export const tenantsTable = pgTable("tenants", {
   }),
   qrisId: text("qris_id"),
   qrisImageUrl: text("qris_image_url"),
+  showDeliveryInfo: boolean("show_delivery_info").notNull().default(true),
+  estimatedDeliveryTime: text("estimated_delivery_time").default("25-35 menit"),
+  enableOpsHours: boolean("enable_ops_hours").notNull().default(false),
+  opsOpeningTime: text("ops_opening_time").default("10:00"),
+  opsClosingTime: text("ops_closing_time").default("22:00"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

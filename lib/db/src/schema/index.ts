@@ -18,3 +18,5 @@ export * from "./platform-settings";
 export * from "./shifts";
 export * from "./customer-retention";
 export * from "./expenses";
+export * from "./employee-shifts";
+export * from "./employee-attendance";

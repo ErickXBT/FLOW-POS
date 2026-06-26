@@ -41,29 +41,57 @@ router.get("/shifts/active", async (req, res): Promise<void> => {
   if (!activeShift) {
     res.json(null);
   } else {
-    // Also calculate current expected cash sales so far
-    const [cashSalesAgg] = await db
-      .select({
-        total: sql<number>`COALESCE(SUM(CAST(total AS DECIMAL)), 0)`
-      })
+    // Calculate current shift stats and expected cash sales so far
+    const activeOrders = await db
+      .select()
       .from(ordersTable)
       .where(
         and(
           eq(ordersTable.tenantId, claims.tenantId!),
           eq(ordersTable.branchId, branchId),
           eq(ordersTable.shiftId, activeShift.id),
-          eq(ordersTable.status, "completed"),
-          eq(ordersTable.paymentMethod, "cash")
+          eq(ordersTable.status, "completed")
         )
       );
 
-    const cashSales = Number(cashSalesAgg?.total ?? 0);
+    const totalRevenue = activeOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
+    const avgOrderValue = activeOrders.length > 0 ? totalRevenue / activeOrders.length : 0;
+
+    const hourCounts: Record<number, number> = {};
+    activeOrders.forEach(o => {
+      const date = new Date(o.createdAt);
+      const hour = date.getHours();
+      hourCounts[hour] = (hourCounts[hour] || 0) + 1;
+    });
+
+    let busiestHourStr = "-";
+    let maxCount = 0;
+    let busiestHour = -1;
+    for (const [hour, count] of Object.entries(hourCounts)) {
+      if (count > maxCount) {
+        maxCount = count;
+        busiestHour = Number(hour);
+      }
+    }
+    if (busiestHour !== -1) {
+      const startHour = String(busiestHour).padStart(2, "0");
+      const endHour = String((busiestHour + 1) % 24).padStart(2, "0");
+      busiestHourStr = `${startHour}:00 - ${endHour}:00`;
+    }
+
+    const cashSales = activeOrders
+      .filter(o => o.paymentMethod === "cash")
+      .reduce((sum, o) => sum + Number(o.total || 0), 0);
+
     const expectedCash = Number(activeShift.openingCash) + cashSales;
 
     res.json({
       ...activeShift,
       expectedCash,
-      cashSales
+      cashSales,
+      totalRevenue,
+      avgOrderValue,
+      busiestHour: busiestHourStr
     });
   }
 });
@@ -141,23 +169,48 @@ router.post("/shifts/end", async (req, res): Promise<void> => {
     return;
   }
 
-  // Calculate expected cash = openingCash + sum(cash completed orders)
-  const [cashSalesAgg] = await db
-    .select({
-      total: sql<number>`COALESCE(SUM(CAST(total AS DECIMAL)), 0)`
-    })
+  // Fetch completed orders to calculate shift EOD statistics and expected cash sales
+  const shiftOrders = await db
+    .select()
     .from(ordersTable)
     .where(
       and(
         eq(ordersTable.tenantId, claims.tenantId!),
         eq(ordersTable.branchId, shift.branchId),
         eq(ordersTable.shiftId, shift.id),
-        eq(ordersTable.status, "completed"),
-        eq(ordersTable.paymentMethod, "cash")
+        eq(ordersTable.status, "completed")
       )
     );
 
-  const cashSales = Number(cashSalesAgg?.total ?? 0);
+  const totalRevenue = shiftOrders.reduce((sum, o) => sum + Number(o.total || 0), 0);
+  const avgOrderValue = shiftOrders.length > 0 ? totalRevenue / shiftOrders.length : 0;
+
+  const hourCounts: Record<number, number> = {};
+  shiftOrders.forEach(o => {
+    const date = new Date(o.createdAt);
+    const hour = date.getHours();
+    hourCounts[hour] = (hourCounts[hour] || 0) + 1;
+  });
+
+  let busiestHourStr = "-";
+  let maxCount = 0;
+  let busiestHour = -1;
+  for (const [hour, count] of Object.entries(hourCounts)) {
+    if (count > maxCount) {
+      maxCount = count;
+      busiestHour = Number(hour);
+    }
+  }
+  if (busiestHour !== -1) {
+    const startHour = String(busiestHour).padStart(2, "0");
+    const endHour = String((busiestHour + 1) % 24).padStart(2, "0");
+    busiestHourStr = `${startHour}:00 - ${endHour}:00`;
+  }
+
+  const cashSales = shiftOrders
+    .filter(o => o.paymentMethod === "cash")
+    .reduce((sum, o) => sum + Number(o.total || 0), 0);
+
   const expectedCash = Number(shift.openingCash) + cashSales;
   const discrepancy = Number(actualCash || 0) - expectedCash;
 
@@ -168,6 +221,9 @@ router.post("/shifts/end", async (req, res): Promise<void> => {
       expectedCash: String(expectedCash),
       actualCash: String(actualCash || 0),
       discrepancy: String(discrepancy),
+      totalRevenue: String(totalRevenue),
+      avgOrderValue: String(avgOrderValue),
+      busiestHour: busiestHourStr,
       status: "closed",
       closedAt: new Date(),
       notes: notes || null
@@ -200,6 +256,9 @@ router.get("/shifts/reports", async (req, res): Promise<void> => {
       expectedCash: shiftsTable.expectedCash,
       actualCash: shiftsTable.actualCash,
       discrepancy: shiftsTable.discrepancy,
+      totalRevenue: shiftsTable.totalRevenue,
+      avgOrderValue: shiftsTable.avgOrderValue,
+      busiestHour: shiftsTable.busiestHour,
       status: shiftsTable.status,
       openedAt: shiftsTable.openedAt,
       closedAt: shiftsTable.closedAt,
@@ -218,6 +277,8 @@ router.get("/shifts/reports", async (req, res): Promise<void> => {
     expectedCash: r.expectedCash ? Number(r.expectedCash) : null,
     actualCash: r.actualCash ? Number(r.actualCash) : null,
     discrepancy: r.discrepancy ? Number(r.discrepancy) : null,
+    totalRevenue: r.totalRevenue ? Number(r.totalRevenue) : 0,
+    avgOrderValue: r.avgOrderValue ? Number(r.avgOrderValue) : 0,
   }));
 
   res.json(formatted);
@@ -264,6 +325,8 @@ router.get("/shifts/:id", async (req, res): Promise<void> => {
       expectedCash: shift.expectedCash ? Number(shift.expectedCash) : null,
       actualCash: shift.actualCash ? Number(shift.actualCash) : null,
       discrepancy: shift.discrepancy ? Number(shift.discrepancy) : null,
+      totalRevenue: shift.totalRevenue ? Number(shift.totalRevenue) : 0,
+      avgOrderValue: shift.avgOrderValue ? Number(shift.avgOrderValue) : 0,
     },
     orders: shiftOrders.map(o => ({
       ...o,
