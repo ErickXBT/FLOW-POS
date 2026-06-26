@@ -1425,6 +1425,10 @@ components:
           type: ["string", "null"]
         receiptFooter:
           type: ["string", "null"]
+        qrisId:
+          type: ["string", "null"]
+        qrisImageUrl:
+          type: ["string", "null"]
         createdAt:
           type: string
 
@@ -1450,6 +1454,10 @@ components:
         receiptFooter:
           type: string
         defaultCashierName:
+          type: string
+        qrisId:
+          type: string
+        qrisImageUrl:
           type: string
         enableDelivery:
           type: boolean

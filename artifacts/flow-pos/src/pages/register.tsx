@@ -200,7 +200,7 @@ export default function RegisterPage({ onLogin }: { onLogin: (token: string, use
                   >
                     Tahunan
                     <span className="px-1.5 py-0.5 rounded-full bg-green-500 text-white text-[9px] font-extrabold uppercase">
-                      Hemat 25%
+                      Hemat 15%
                     </span>
                   </button>
                 </div>
@@ -217,27 +217,27 @@ export default function RegisterPage({ onLogin }: { onLogin: (token: string, use
                   },
                   {
                     id: "starter",
-                    name: "Paket FlowApp Solo",
-                    priceLabel: billingCycle === "monthly" ? "Rp499.000" : "Rp374.250",
+                    name: "Paket FlowApp UMKM",
+                    priceLabel: billingCycle === "monthly" ? "Rp169.000" : "Rp143.650",
                     periodLabel: "/bulan",
-                    totalLabel: billingCycle === "yearly" ? "Total Rp4.491.000/tahun (Hemat 25%)" : "",
+                    totalLabel: billingCycle === "yearly" ? "Total Rp1.723.800/tahun (Hemat 15%)" : "",
                     features: ["1 outlet"],
+                    isPopular: true,
                   },
                   {
                     id: "business",
-                    name: "Flowapp Multi",
-                    priceLabel: billingCycle === "monthly" ? "Rp999.999" : "Rp749.999",
+                    name: "FlowApp Multi",
+                    priceLabel: billingCycle === "monthly" ? "Rp299.000" : "Rp254.150",
                     periodLabel: "/bulan",
-                    totalLabel: billingCycle === "yearly" ? "Total Rp8.999.991/tahun (Hemat 25%)" : "",
+                    totalLabel: billingCycle === "yearly" ? "Total Rp3.049.800/tahun (Hemat 15%)" : "",
                     features: ["Hingga 3 outlet"],
-                    isPopular: true,
                   },
                   {
                     id: "custom",
                     name: "FlowApp Enterprise",
                     priceLabel: "Hubungi Sales",
                     periodLabel: "",
-                    features: ["10+ outlet", "Hubungi sales"],
+                    features: ["5-10+ outlet", "Hubungi sales"],
                   },
                 ].map((planItem: any) => {
                   const selected = form.plan === planItem.id;
@@ -343,11 +343,11 @@ function PaymentModal({
   loading: boolean;
 }) {
   const isStarter = plan === "starter";
-  const packageName = isStarter ? "Paket FlowApp Solo" : "Flowapp Multi";
+  const packageName = isStarter ? "Paket FlowApp UMKM" : "FlowApp Multi";
   
   // Pricing logic
-  const monthlyPrice = isStarter ? 499000 : 999999;
-  const yearlyPrice = isStarter ? 4491000 : 8999991;
+  const monthlyPrice = isStarter ? 169000 : 299000;
+  const yearlyPrice = isStarter ? 1723800 : 3049800;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in font-sans">
@@ -369,7 +369,7 @@ function PaymentModal({
               {billingCycle === "monthly" ? (
                 <>Harga: <span className="font-semibold text-foreground">Rp {monthlyPrice.toLocaleString("id-ID")}/bulan</span></>
               ) : (
-                <>Harga: <span className="font-semibold text-foreground">Rp {yearlyPrice.toLocaleString("id-ID")}/tahun</span> <span className="text-green-600 font-semibold">(Hemat 25%)</span></>
+                <>Harga: <span className="font-semibold text-foreground">Rp {yearlyPrice.toLocaleString("id-ID")}/tahun</span> <span className="text-green-600 font-semibold">(Hemat 15%)</span></>
               )}
             </div>
           </div>

@@ -253,8 +253,8 @@ router.post("/auth/register", async (req, res): Promise<void> => {
 
   const planPrices: Record<string, { monthly: string; yearly: string }> = {
     trial: { monthly: "0", yearly: "0" },
-    starter: { monthly: "499000", yearly: "4491000" },
-    business: { monthly: "999999", yearly: "8999991" },
+    starter: { monthly: "169000", yearly: "1723800" },
+    business: { monthly: "299000", yearly: "3049800" },
     pro: { monthly: "749000", yearly: "6741000" },
     enterprise: { monthly: "0", yearly: "0" },
   };

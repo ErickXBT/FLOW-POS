@@ -15,6 +15,7 @@ import activityRouter from "./activity";
 import branchesRouter from "./branches";
 import rolesRouter from "./roles";
 import shiftsRouter from "./shifts";
+import expensesRouter from "./expenses";
 
 const router: IRouter = Router();
 
@@ -34,5 +35,6 @@ router.use(activityRouter);
 router.use(branchesRouter);
 router.use(rolesRouter);
 router.use(shiftsRouter);
+router.use(expensesRouter);
 
 export default router;

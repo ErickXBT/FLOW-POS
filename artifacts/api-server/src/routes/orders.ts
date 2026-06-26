@@ -374,6 +374,8 @@ router.post("/orders", async (req, res): Promise<void> => {
       quantity: i.quantity,
       price: String(i.price),
       subtotal: String(i.price * i.quantity),
+      variantSelection: i.variantSelection ?? null,
+      notes: i.notes ?? null,
     }))
   ).returning();
 

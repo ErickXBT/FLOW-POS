@@ -6,6 +6,7 @@ import {
   Package, Truck, Star, Search, ArrowLeft, QrCode, Sparkles,
   Map, DollarSign, CreditCard, Bell, Info, Download, ClipboardList, LogOut
 } from "lucide-react";
+import QRCode from "qrcode";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -22,6 +23,8 @@ interface TenantInfo {
   pointSystemConfig?: any;
   enableTax?: boolean;
   taxPercentage?: number;
+  qrisId?: string | null;
+  qrisImageUrl?: string | null;
 }
 
 interface BranchInfo {
@@ -131,6 +134,36 @@ const loadLeaflet = (cb: () => void) => {
   document.body.appendChild(script);
 };
 
+function QrisCanvas({ payload, primary }: { payload: string; primary: string }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    if (canvasRef.current && payload) {
+      QRCode.toCanvas(
+        canvasRef.current,
+        payload,
+        {
+          width: 192,
+          margin: 1,
+          color: {
+            dark: "#000000",
+            light: "#ffffff",
+          },
+        },
+        (error) => {
+          if (error) console.error("QR Code generation failed:", error);
+        }
+      );
+    }
+  }, [payload]);
+
+  return (
+    <div className="w-48 h-48 border rounded-2xl overflow-hidden bg-white p-2 flex items-center justify-center">
+      <canvas ref={canvasRef} className="w-full h-full object-contain" />
+    </div>
+  );
+}
+
 // ── Tracking View Component ──────────────────────────────────────────────────
 function TrackingView({
   orderId,
@@ -139,7 +172,9 @@ function TrackingView({
   onBack,
   isFashion,
   tenantName,
-  branchName
+  branchName,
+  qrisId,
+  qrisImageUrl
 }: {
   orderId: number;
   slug: string;
@@ -148,6 +183,8 @@ function TrackingView({
   isFashion: boolean;
   tenantName: string;
   branchName: string;
+  qrisId?: string | null;
+  qrisImageUrl?: string | null;
 }) {
   const [order, setOrder] = useState<any>(null);
   const [error, setError] = useState("");
@@ -539,6 +576,35 @@ function TrackingView({
                   <span className="italic text-gray-500">"{order.deliveryNotes}"</span>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* QRIS Payment Instruction Card */}
+        {order.paymentMethod === "qris" && order.status !== "completed" && order.status !== "cancelled" && (
+          <div className="bg-white rounded-3xl p-6 shadow-sm border flex flex-col items-center text-center space-y-4">
+            <div className="text-xs font-bold text-gray-400 uppercase tracking-wide flex items-center gap-1.5 justify-center">
+              <QrCode size={14} style={{ color: primary }} /> Pembayaran QRIS Mandiri
+            </div>
+            <div className="font-semibold text-xs text-gray-600">
+              Silakan pindai/scan kode QRIS di bawah ini untuk menyelesaikan pembayaran:
+            </div>
+            
+            {qrisImageUrl ? (
+              <div className="w-48 h-48 border rounded-2xl overflow-hidden bg-white p-2 flex items-center justify-center shadow-inner">
+                <img src={qrisImageUrl} alt="QRIS" className="w-full h-full object-contain" />
+              </div>
+            ) : qrisId ? (
+              <QrisCanvas payload={qrisId} primary={primary} />
+            ) : (
+              <div className="w-48 h-48 border rounded-2xl overflow-hidden bg-gray-50 flex flex-col items-center justify-center p-4 text-center">
+                <QrCode size={36} className="text-gray-300 mb-2" />
+                <span className="text-[10px] text-gray-400 font-semibold leading-tight">QRIS belum diset oleh penjual</span>
+              </div>
+            )}
+            
+            <div className="bg-amber-50 border border-amber-200 text-amber-800 text-[10px] rounded-2xl px-4 py-2.5 font-medium leading-relaxed">
+              Setelah pembayaran selesai dilakukan, silakan tunggu konfirmasi status pesanan di atas oleh kasir/penjual.
             </div>
           </div>
         )}
@@ -1946,6 +2012,8 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
         branchName={branch?.name || "Utama"}
         onBack={() => { setStep("menu"); setTrackingId(null); }}
         isFashion={isFashion}
+        qrisId={tenant?.qrisId}
+        qrisImageUrl={tenant?.qrisImageUrl}
       />
     );
   }

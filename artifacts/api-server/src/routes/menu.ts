@@ -194,6 +194,8 @@ router.get("/menu/:slug", async (req, res): Promise<void> => {
       enableTax: (tenant as any).enableTax ?? false,
       taxPercentage: tenant.taxPercentage !== undefined ? Number(tenant.taxPercentage) : 10,
       pointSystemConfig: (tenant as any).pointSystemConfig ?? null,
+      qrisId: (tenant as any).qrisId ?? null,
+      qrisImageUrl: (tenant as any).qrisImageUrl ?? null,
     },
     branch: branch ? {
       id: branch.id,

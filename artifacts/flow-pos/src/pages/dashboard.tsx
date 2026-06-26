@@ -11,6 +11,7 @@ import { Link } from "wouter";
 import { useAuth, hasPermission } from "@/hooks/use-auth";
 import { useActiveBranch } from "@/hooks/use-active-branch";
 import { Barcode128 } from "@/components/barcode128";
+import { useQueryClient } from "@tanstack/react-query";
 
 function StatCard({ label, value, sub, icon, trend }: { label: string; value: string; sub?: string; icon: React.ReactNode; trend?: number }) {
   return (
@@ -186,6 +187,7 @@ function ClipboardListIcon() {
 // ── Full Owner Dashboard ──────────────────────────────────────────────────────
 function OwnerDashboard() {
   const { activeBranchId, setActiveBranchId, branches } = useActiveBranch();
+  const queryClient = useQueryClient();
   const { data: stats } = useGetDashboardStats({ branchId: activeBranchId });
   const { data: recentOrders } = useGetRecentOrders({ limit: 10, branchId: activeBranchId });
   const { data: topProducts } = useGetTopProducts({ limit: 5, branchId: activeBranchId });
@@ -208,27 +210,35 @@ function OwnerDashboard() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [activityLogs, setActivityLogs] = useState<any[]>([]);
 
-  // Expenses State (Finance) with LocalStorage persistence
+  // Expenses State (Finance) backed by backend database API
   const [expenses, setExpenses] = useState<any[]>([]);
+  const [expensesLoading, setExpensesLoading] = useState(false);
 
-  useEffect(() => {
-    if (tenant?.id) {
-      try {
-        const stored = localStorage.getItem(`flow_expenses_${tenant.id}`);
-        if (stored) {
-          setExpenses(JSON.parse(stored));
-          return;
+  const fetchExpenses = async () => {
+    if (!tenant?.id) return;
+    setExpensesLoading(true);
+    try {
+      const token = localStorage.getItem("flow_token");
+      const url = activeBranchId ? `/api/expenses?branchId=${activeBranchId}` : "/api/expenses";
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token || ""}`
         }
-      } catch (err) {}
-      setExpenses([]);
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setExpenses(data);
+      }
+    } catch (err) {
+      console.error("Failed to fetch expenses:", err);
+    } finally {
+      setExpensesLoading(false);
     }
-  }, [tenant?.id]);
+  };
 
   useEffect(() => {
-    if (tenant?.id) {
-      localStorage.setItem(`flow_expenses_${tenant.id}`, JSON.stringify(expenses));
-    }
-  }, [expenses, tenant?.id]);
+    fetchExpenses();
+  }, [tenant?.id, activeBranchId]);
 
   const [newExpense, setNewExpense] = useState({ desc: "", category: "Operasional", amount: "" });
 
@@ -732,23 +742,44 @@ function OwnerDashboard() {
   }, [isFreshTenant, simulationActive, isDemo, isFashion, tenant?.id]);
 
   // Financial calculations
-  const totalExpenses = expenses.reduce((acc, exp) => acc + exp.amount, 0);
+  const totalExpenses = (stats as any)?.monthlyExpenses !== undefined ? Number((stats as any).monthlyExpenses) : expenses.reduce((acc, exp) => acc + exp.amount, 0);
   const estimatedGrossProfit = s.monthlyRevenue || 0;
-  const estimatedNetProfit = estimatedGrossProfit - totalExpenses;
+  const monthlyCogs = (stats as any)?.monthlyCogs !== undefined ? Number((stats as any).monthlyCogs) : 0;
+  const estimatedNetProfit = estimatedGrossProfit - monthlyCogs - totalExpenses;
 
   // Add Expense function
-  const handleAddExpense = (e: React.FormEvent) => {
+  const handleAddExpense = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newExpense.desc.trim() || !newExpense.amount) return;
-    const expObj = {
-      id: Date.now(),
-      desc: newExpense.desc,
-      category: newExpense.category,
-      amount: Number(newExpense.amount),
-      date: new Date().toISOString().split("T")[0]
-    };
-    setExpenses(prev => [expObj, ...prev]);
-    setNewExpense({ desc: "", category: "Operasional", amount: "" });
+    
+    try {
+      const token = localStorage.getItem("flow_token");
+      const res = await fetch("/api/expenses", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token || ""}`
+        },
+        body: JSON.stringify({
+          desc: newExpense.desc,
+          category: newExpense.category,
+          amount: Number(newExpense.amount),
+          branchId: activeBranchId || null
+        })
+      });
+
+      if (res.ok) {
+        setNewExpense({ desc: "", category: "Operasional", amount: "" });
+        await fetchExpenses();
+        queryClient.invalidateQueries({ queryKey: ["/api/reports/dashboard"] });
+      } else {
+        const data = await res.json();
+        alert(data.error || "Gagal mencatat pengeluaran");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Terjadi kesalahan saat menyimpan pengeluaran");
+    }
   };
 
   // Add Coupon function
@@ -1157,21 +1188,11 @@ function OwnerDashboard() {
     { label: "Jun", count: totalCust }
   ];
 
-  const w1_masuk = Math.round(estimatedGrossProfit * 0.2);
-  const w2_masuk = Math.round(estimatedGrossProfit * 0.3);
-  const w3_masuk = Math.round(estimatedGrossProfit * 0.25);
-  const w4_masuk = estimatedGrossProfit - (w1_masuk + w2_masuk + w3_masuk);
-
-  const w1_keluar = Math.round(totalExpenses * 0.3);
-  const w2_keluar = Math.round(totalExpenses * 0.2);
-  const w3_keluar = Math.round(totalExpenses * 0.2);
-  const w4_keluar = totalExpenses - (w1_keluar + w2_keluar + w3_keluar);
-
-  const cashFlowData = [
-    { label: "W1", masuk: w1_masuk, keluar: w1_keluar },
-    { label: "W2", masuk: w2_masuk, keluar: w2_keluar },
-    { label: "W3", masuk: w3_masuk, keluar: w3_keluar },
-    { label: "W4", masuk: w4_masuk, keluar: w4_keluar }
+  const cashFlowData = (stats as any)?.weeklyCashFlow || [
+    { label: "W1", masuk: 0, keluar: 0 },
+    { label: "W2", masuk: 0, keluar: 0 },
+    { label: "W3", masuk: 0, keluar: 0 },
+    { label: "W4", masuk: 0, keluar: 0 }
   ];
 
   const sortedBranches = [...branchComparison].sort((a, b) => b.sales - a.sales);
@@ -1863,19 +1884,19 @@ function OwnerDashboard() {
                   <p className="text-[9px] text-muted-foreground mt-1">Total pendapatan masuk</p>
                 </div>
                 <div className="bg-card border border-card-border rounded-xl p-4 shadow-sm">
-                  <span className="text-muted-foreground text-[10px] font-semibold uppercase">Pengeluaran (Expenses)</span>
+                  <span className="text-muted-foreground text-[10px] font-semibold uppercase">Harga Pokok Penjualan (HPP)</span>
+                  <div className="text-xl font-bold text-amber-600 mt-1">{formatRp(monthlyCogs)}</div>
+                  <p className="text-[9px] text-muted-foreground mt-1">Total modal pokok barang</p>
+                </div>
+                <div className="bg-card border border-card-border rounded-xl p-4 shadow-sm">
+                  <span className="text-muted-foreground text-[10px] font-semibold uppercase">Beban Operasional (Expenses)</span>
                   <div className="text-xl font-bold text-red-500 mt-1">{formatRp(totalExpenses)}</div>
-                  <p className="text-[9px] text-muted-foreground mt-1">Bahan baku & operasional</p>
+                  <p className="text-[9px] text-muted-foreground mt-1">Gaji, utilitas & biaya lainnya</p>
                 </div>
                 <div className="bg-card border border-card-border rounded-xl p-4 shadow-sm bg-primary/5 border-primary/20">
                   <span className="text-muted-foreground text-[10px] font-semibold uppercase">Laba Bersih (Net)</span>
                   <div className="text-xl font-bold text-primary mt-1">{formatRp(estimatedNetProfit)}</div>
-                  <p className="text-[9px] text-green-600 font-bold mt-1">Margin: {estimatedGrossProfit > 0 ? Math.round((estimatedNetProfit / estimatedGrossProfit) * 100) : 0}%</p>
-                </div>
-                <div className="bg-card border border-card-border rounded-xl p-4 shadow-sm">
-                  <span className="text-muted-foreground text-[10px] font-semibold uppercase">Pajak Dikumpulkan</span>
-                  <div className="text-xl font-bold text-foreground mt-1">{formatRp(estimatedGrossProfit * 0.11)}</div>
-                  <p className="text-[9px] text-muted-foreground mt-1">PPN 11% Terakumulasi</p>
+                  <p className="text-[9px] text-green-606 font-bold mt-1">Margin: {estimatedGrossProfit > 0 ? Math.round((estimatedNetProfit / estimatedGrossProfit) * 100) : 0}%</p>
                 </div>
               </div>
 
@@ -1981,13 +2002,32 @@ function OwnerDashboard() {
                       <div key={exp.id} className="bg-background border border-border p-3 rounded-xl flex justify-between items-center text-xs">
                         <div>
                           <span className="font-bold text-foreground">{exp.desc}</span>
-                          <div className="text-[10px] text-muted-foreground mt-0.5">{exp.category === "Bahan Baku" && isFashion ? "Inventori Baju" : exp.category} &bull; {exp.date}</div>
+                          <div className="text-[10px] text-muted-foreground mt-0.5">{exp.category === "Bahan Baku" && isFashion ? "Inventori Baju" : exp.category} &bull; {exp.createdAt ? exp.createdAt.split("T")[0] : exp.date}</div>
                         </div>
                         <div className="flex items-center gap-3">
                           <span className="font-bold text-red-500">{formatRp(exp.amount)}</span>
                           <button
-                            onClick={() => {
-                              setExpenses(prev => prev.filter(e => e.id !== exp.id));
+                            onClick={async () => {
+                              if (!confirm("Apakah Anda yakin ingin menghapus pengeluaran ini?")) return;
+                              try {
+                                const token = localStorage.getItem("flow_token");
+                                const res = await fetch(`/api/expenses/${exp.id}`, {
+                                  method: "DELETE",
+                                  headers: {
+                                    "Authorization": `Bearer ${token || ""}`
+                                  }
+                                });
+                                if (res.ok) {
+                                  await fetchExpenses();
+                                  queryClient.invalidateQueries({ queryKey: ["/api/reports/dashboard"] });
+                                } else {
+                                  const data = await res.json();
+                                  alert(data.error || "Gagal menghapus pengeluaran");
+                                }
+                              } catch (err) {
+                                console.error(err);
+                                alert("Terjadi kesalahan saat menghapus pengeluaran");
+                              }
                             }}
                             className="text-muted-foreground hover:text-red-500 transition-colors p-1"
                           >

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, gte, lte, count, sql, desc } from "drizzle-orm";
-import { db, ordersTable, orderItemsTable, productsTable, customersTable, employeesTable, branchesTable, publicMenuProductsTable } from "@workspace/db";
+import { db, ordersTable, orderItemsTable, productsTable, customersTable, employeesTable, branchesTable, publicMenuProductsTable, expensesTable } from "@workspace/db";
 import { GetSalesReportQueryParams, GetSalesChartDataQueryParams } from "@workspace/api-zod";
 import { extractToken, getRequestedBranchId } from "./auth";
 
@@ -110,6 +110,71 @@ router.get("/reports/dashboard", async (req, res): Promise<void> => {
     lowStockCount = inventory.filter(p => p.stock <= p.minStock).length;
   }
 
+  const baseExpenseConditions = [eq(expensesTable.tenantId, tid)];
+  if (branchId) {
+    baseExpenseConditions.push(eq(expensesTable.branchId, branchId));
+  }
+
+  const [monthlyExpensesAgg] = await db.select({
+    total: sql<number>`COALESCE(SUM(CAST(amount AS DECIMAL)), 0)`
+  })
+  .from(expensesTable)
+  .where(and(...baseExpenseConditions, gte(expensesTable.createdAt, monthStart)));
+  const monthlyExpenses = Number(monthlyExpensesAgg?.total ?? 0);
+
+  const [monthlyCogsAgg] = await db.select({
+    total: sql<number>`COALESCE(SUM(CAST(${orderItemsTable.quantity} AS DECIMAL) * COALESCE(CAST(${productsTable.costPrice} AS DECIMAL), 0)), 0)`
+  })
+  .from(orderItemsTable)
+  .innerJoin(ordersTable, eq(orderItemsTable.orderId, ordersTable.id))
+  .innerJoin(productsTable, eq(orderItemsTable.productId, productsTable.id))
+  .where(and(...baseOrderConditions, gte(ordersTable.createdAt, monthStart)));
+  const monthlyCogs = Number(monthlyCogsAgg?.total ?? 0);
+
+  const now = new Date();
+  const year = now.getFullYear();
+  const monthNum = now.getMonth();
+
+  const getWeekRange = (weekNum: number) => {
+    let from: Date;
+    let to: Date;
+    if (weekNum === 1) {
+      from = new Date(year, monthNum, 1, 0, 0, 0, 0);
+      to = new Date(year, monthNum, 7, 23, 59, 59, 999);
+    } else if (weekNum === 2) {
+      from = new Date(year, monthNum, 8, 0, 0, 0, 0);
+      to = new Date(year, monthNum, 14, 23, 59, 59, 999);
+    } else if (weekNum === 3) {
+      from = new Date(year, monthNum, 15, 0, 0, 0, 0);
+      to = new Date(year, monthNum, 21, 23, 59, 59, 999);
+    } else {
+      from = new Date(year, monthNum, 22, 0, 0, 0, 0);
+      to = new Date(year, monthNum + 1, 0, 23, 59, 59, 999);
+    }
+    return { from, to };
+  };
+
+  const weeklyCashFlow = await Promise.all([1, 2, 3, 4].map(async (weekNum) => {
+    const { from, to } = getWeekRange(weekNum);
+    const [revAgg] = await db.select({
+      total: sql<number>`COALESCE(SUM(CAST(total AS DECIMAL)), 0)`
+    })
+    .from(ordersTable)
+    .where(and(...baseOrderConditions, gte(ordersTable.createdAt, from), lte(ordersTable.createdAt, to)));
+
+    const [expAgg] = await db.select({
+      total: sql<number>`COALESCE(SUM(CAST(amount AS DECIMAL)), 0)`
+    })
+    .from(expensesTable)
+    .where(and(...baseExpenseConditions, gte(expensesTable.createdAt, from), lte(expensesTable.createdAt, to)));
+
+    return {
+      label: `W${weekNum}`,
+      masuk: Number(revAgg?.total ?? 0),
+      keluar: Number(expAgg?.total ?? 0),
+    };
+  }));
+
   const currentMonth = Number(monthRevenue.total) || 0;
   const prevMonth = Number(lastMonthRevenue.total) || 0;
   const growth = prevMonth > 0 ? ((currentMonth - prevMonth) / prevMonth) * 100 : 0;
@@ -119,10 +184,13 @@ router.get("/reports/dashboard", async (req, res): Promise<void> => {
     todayOrders: todayOrders.count,
     totalProducts: totalProductsCount,
     totalCustomers: totalCustomersCount,
-    lowStockCount,
+    lowStockCount: lowStockCount,
     monthlyRevenue: currentMonth,
     weeklyRevenue: Number(weekRevenue.total) || 0,
     revenueGrowth: Math.round(growth * 100) / 100,
+    monthlyExpenses,
+    monthlyCogs,
+    weeklyCashFlow,
   });
 });
 

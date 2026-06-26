@@ -17,3 +17,4 @@ export * from "./support-tickets";
 export * from "./platform-settings";
 export * from "./shifts";
 export * from "./customer-retention";
+export * from "./expenses";

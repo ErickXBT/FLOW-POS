@@ -39,6 +39,8 @@ export const tenantsTable = pgTable("tenants", {
     minClaimPoints: 1000,
     rewardDescription: "Diskon 10% setiap kelipatan 100 poin, Grand Reward pada 1000 Poin"
   }),
+  qrisId: text("qris_id"),
+  qrisImageUrl: text("qris_image_url"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

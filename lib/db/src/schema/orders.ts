@@ -37,6 +37,8 @@ export const orderItemsTable = pgTable("order_items", {
   quantity: integer("quantity").notNull(),
   price: numeric("price", { precision: 15, scale: 2 }).notNull(),
   subtotal: numeric("subtotal", { precision: 15, scale: 2 }).notNull(),
+  variantSelection: text("variant_selection"),
+  notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

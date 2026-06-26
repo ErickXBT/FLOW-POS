@@ -176,6 +176,10 @@ export interface Tenant {
   defaultCashierName?: string | null;
   /** @nullable */
   receiptFooter?: string | null;
+  /** @nullable */
+  qrisId?: string | null;
+  /** @nullable */
+  qrisImageUrl?: string | null;
   createdAt: string;
 }
 
@@ -215,6 +219,8 @@ export interface TenantUpdate {
   bio?: string;
   receiptFooter?: string;
   defaultCashierName?: string;
+  qrisId?: string;
+  qrisImageUrl?: string;
   enableDelivery?: boolean;
   deliveryFeeNear?: number;
   deliveryFeeFar?: number;

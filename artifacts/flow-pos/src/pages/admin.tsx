@@ -391,8 +391,8 @@ function ManageSubscriptionModal({ tenant, onClose, onSave }: any) {
               className="w-full px-3 py-2 border border-input rounded-xl bg-background text-xs text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20"
             >
               <option value="trial">Trial (Maks 1 Outlet - 7 Hari Gratis)</option>
-              <option value="starter">FlowApp Solo (Maks 1 Outlet - Rp499k/bln)</option>
-              <option value="business">FlowApp Multi (Maks 3 Outlet - Rp999.999/bln)</option>
+              <option value="starter">FlowApp UMKM (Maks 1 Outlet - Rp169.000/bln)</option>
+              <option value="business">FlowApp Multi (Maks 3 Outlet - Rp299.000/bln)</option>
               <option value="pro">FlowApp Pro (Maks 5 Outlet - Rp749k/bln)</option>
               <option value="enterprise">FlowApp Enterprise (Maks Unlimited - Hubungi Sales)</option>
             </select>

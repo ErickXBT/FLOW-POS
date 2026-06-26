@@ -178,16 +178,21 @@ export default function SettingsPage() {
     },
     enableTax: false,
     taxPercentage: 10,
+    qrisId: "",
+    qrisImageUrl: "",
   });
   
   const [saved, setSaved] = useState(false);
 
   const logoInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
+  const qrisInputRef = useRef<HTMLInputElement>(null);
   const [logoUploading, setLogoUploading] = useState(false);
   const [coverUploading, setCoverUploading] = useState(false);
+  const [qrisUploading, setQrisUploading] = useState(false);
   const [logoError, setLogoError] = useState("");
   const [coverError, setCoverError] = useState("");
+  const [qrisError, setQrisError] = useState("");
 
   useEffect(() => {
     if (tenant) {
@@ -215,29 +220,36 @@ export default function SettingsPage() {
         },
         enableTax: (tenant as any).enableTax ?? false,
         taxPercentage: (tenant as any).taxPercentage !== undefined ? Number((tenant as any).taxPercentage) : 10,
+        qrisId: (tenant as any).qrisId || "",
+        qrisImageUrl: (tenant as any).qrisImageUrl || "",
       });
     }
   }, [tenant]);
 
-  const handleFileUpload = async (file: File, type: "logo" | "cover") => {
+  const handleFileUpload = async (file: File, type: "logo" | "cover" | "qris") => {
     if (!file.type.startsWith("image/")) {
       if (type === "logo") setLogoError("File harus berupa gambar");
-      else setCoverError("File harus berupa gambar");
+      else if (type === "cover") setCoverError("File harus berupa gambar");
+      else setQrisError("File harus berupa gambar");
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
       if (type === "logo") setLogoError("Ukuran gambar maksimal 5MB");
-      else setCoverError("Ukuran gambar maksimal 5MB");
+      else if (type === "cover") setCoverError("Ukuran gambar maksimal 5MB");
+      else setQrisError("Ukuran gambar maksimal 5MB");
       return;
     }
 
     if (type === "logo") {
       setLogoUploading(true);
       setLogoError("");
-    } else {
+    } else if (type === "cover") {
       setCoverUploading(true);
       setCoverError("");
+    } else {
+      setQrisUploading(true);
+      setQrisError("");
     }
 
     try {
@@ -266,29 +278,37 @@ export default function SettingsPage() {
           const data = await res.json();
           if (type === "logo") {
             setForm(p => ({ ...p, logoUrl: data.imageUrl }));
-          } else {
+          } else if (type === "cover") {
             setForm(p => ({ ...p, coverUrl: data.imageUrl }));
+          } else {
+            setForm(p => ({ ...p, qrisImageUrl: data.imageUrl }));
           }
         } catch (err: any) {
           if (type === "logo") setLogoError(err.message || "Gagal mengunggah");
-          else setCoverError(err.message || "Gagal mengunggah");
+          else if (type === "cover") setCoverError(err.message || "Gagal mengunggah");
+          else setQrisError(err.message || "Gagal mengunggah");
         } finally {
           if (type === "logo") setLogoUploading(false);
-          else setCoverUploading(false);
+          else if (type === "cover") setCoverUploading(false);
+          else setQrisUploading(false);
         }
       };
       reader.onerror = () => {
         if (type === "logo") setLogoError("Gagal membaca file");
-        else setCoverError("Gagal membaca file");
+        else if (type === "cover") setCoverError("Gagal membaca file");
+        else setQrisError("Gagal membaca file");
         if (type === "logo") setLogoUploading(false);
-        else setCoverUploading(false);
+        else if (type === "cover") setCoverUploading(false);
+        else setQrisUploading(false);
       };
       reader.readAsDataURL(file);
     } catch (err) {
       if (type === "logo") setLogoError("Gagal memproses file");
-      else setCoverError("Gagal memproses file");
+      else if (type === "cover") setCoverError("Gagal memproses file");
+      else setQrisError("Gagal memproses file");
       if (type === "logo") setLogoUploading(false);
-      else setCoverUploading(false);
+      else if (type === "cover") setCoverUploading(false);
+      else setQrisUploading(false);
     }
   };
 
@@ -703,6 +723,88 @@ export default function SettingsPage() {
             </div>
           </div>
         )}
+
+        <div className="flex items-center gap-3 pt-2">
+          <button onClick={handleSave} disabled={updateTenant.isPending}
+            className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity">
+            <Save size={16} />
+            {updateTenant.isPending ? "Menyimpan..." : "Simpan Perubahan"}
+          </button>
+          {saved && <span className="text-green-600 dark:text-green-400 text-sm font-medium">✓ Tersimpan</span>}
+        </div>
+      </div>
+
+      {/* Pengaturan QRIS Mandiri */}
+      <div className="bg-card border border-card-border rounded-xl p-6 shadow-sm space-y-4">
+        <div className="flex items-center gap-2 font-semibold text-foreground mb-4">
+          <Building2 size={18} className="text-primary" /> Pengaturan QRIS Mandiri
+        </div>
+        <p className="text-xs text-muted-foreground leading-normal">
+          Konfigurasikan QRIS toko Anda agar pelanggan dapat memindai kode pembayaran langsung di menu digital E-Katalog saat checkout pesanan.
+        </p>
+
+        <div>
+          <label className="block text-xs font-semibold mb-1 text-foreground">Payload QRIS String (Format EMVCo / NMID)</label>
+          <input
+            type="text"
+            value={form.qrisId}
+            onChange={e => setForm(p => ({ ...p, qrisId: e.target.value }))}
+            placeholder="Masukkan string payload QRIS static Anda (misal: 000201...)"
+            className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <label className="block text-xs font-semibold text-foreground">Upload Manual Gambar QRIS Toko</label>
+          <input
+            type="file"
+            ref={qrisInputRef}
+            onChange={e => e.target.files?.[0] && handleFileUpload(e.target.files[0], "qris")}
+            accept="image/*"
+            className="hidden"
+          />
+          {form.qrisImageUrl ? (
+            <div className="relative group w-full max-w-[200px] aspect-square rounded-lg overflow-hidden border border-border bg-muted/20 flex items-center justify-center mx-auto">
+              <img
+                src={form.qrisImageUrl}
+                alt="Gambar QRIS Toko"
+                className="w-full h-full object-contain"
+              />
+              <div className="absolute inset-0 bg-black/45 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => qrisInputRef.current?.click()}
+                  className="px-2.5 py-1 bg-amber-400 text-black text-xs font-semibold rounded hover:bg-amber-500 transition-colors shadow"
+                >
+                  Ubah
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setForm(p => ({ ...p, qrisImageUrl: "" }))}
+                  className="p-1 bg-red-500 text-white rounded hover:bg-red-650 transition-colors shadow"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div
+              onClick={() => qrisInputRef.current?.click()}
+              className="w-full h-28 rounded-lg border-2 border-dashed border-input flex flex-col items-center justify-center p-4 cursor-pointer hover:border-primary hover:bg-primary/5 transition-all text-center"
+            >
+              {qrisUploading ? (
+                <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+              ) : (
+                <>
+                  <UploadCloud size={20} className="text-muted-foreground mb-1" />
+                  <span className="text-xs text-muted-foreground font-medium">Upload Gambar QRIS Toko</span>
+                  <span className="text-[9px] text-muted-foreground/60 mt-0.5">Format JPG/PNG, Maksimal 5MB</span>
+                </>
+              )}
+            </div>
+          )}
+          {qrisError && <p className="text-[11px] text-red-500 text-center font-medium">{qrisError}</p>}
+        </div>
 
         <div className="flex items-center gap-3 pt-2">
           <button onClick={handleSave} disabled={updateTenant.isPending}

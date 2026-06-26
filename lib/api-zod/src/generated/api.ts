@@ -132,6 +132,8 @@ export const ListAdminTenantsResponse = zod.object({
 }).optional(),
   "defaultCashierName": zod.string().nullish(),
   "receiptFooter": zod.string().nullish(),
+  "qrisId": zod.string().nullish(),
+  "qrisImageUrl": zod.string().nullish(),
   "createdAt": zod.string()
 })),
   "total": zod.number(),
@@ -177,6 +179,8 @@ export const GetAdminTenantResponse = zod.object({
 }).optional(),
   "defaultCashierName": zod.string().nullish(),
   "receiptFooter": zod.string().nullish(),
+  "qrisId": zod.string().nullish(),
+  "qrisImageUrl": zod.string().nullish(),
   "createdAt": zod.string()
 })
 
@@ -230,6 +234,8 @@ export const UpdateTenantStatusResponse = zod.object({
 }).optional(),
   "defaultCashierName": zod.string().nullish(),
   "receiptFooter": zod.string().nullish(),
+  "qrisId": zod.string().nullish(),
+  "qrisImageUrl": zod.string().nullish(),
   "createdAt": zod.string()
 })
 
@@ -267,6 +273,8 @@ export const GetTenantResponse = zod.object({
 }).optional(),
   "defaultCashierName": zod.string().nullish(),
   "receiptFooter": zod.string().nullish(),
+  "qrisId": zod.string().nullish(),
+  "qrisImageUrl": zod.string().nullish(),
   "createdAt": zod.string()
 })
 
@@ -285,6 +293,8 @@ export const UpdateTenantBody = zod.object({
   "bio": zod.string().optional(),
   "receiptFooter": zod.string().optional(),
   "defaultCashierName": zod.string().optional(),
+  "qrisId": zod.string().optional(),
+  "qrisImageUrl": zod.string().optional(),
   "enableDelivery": zod.boolean().optional(),
   "deliveryFeeNear": zod.number().optional(),
   "deliveryFeeFar": zod.number().optional(),
@@ -330,6 +340,8 @@ export const UpdateTenantResponse = zod.object({
 }).optional(),
   "defaultCashierName": zod.string().nullish(),
   "receiptFooter": zod.string().nullish(),
+  "qrisId": zod.string().nullish(),
+  "qrisImageUrl": zod.string().nullish(),
   "createdAt": zod.string()
 })
 

@@ -18,6 +18,8 @@ export interface TenantUpdate {
   bio?: string;
   receiptFooter?: string;
   defaultCashierName?: string;
+  qrisId?: string;
+  qrisImageUrl?: string;
   enableDelivery?: boolean;
   deliveryFeeNear?: number;
   deliveryFeeFar?: number;

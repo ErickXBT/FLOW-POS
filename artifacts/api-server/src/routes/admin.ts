@@ -226,11 +226,21 @@ router.patch("/admin/tenants/:id/subscription", async (req, res): Promise<void> 
   }
 
   // Also insert active subscription record
+  const isYearly = expiresDays && Number(expiresDays) >= 360;
+  const computedPrice =
+    subscriptionPlan === "starter"
+      ? (isYearly ? "1723800" : "169000")
+      : subscriptionPlan === "business"
+      ? (isYearly ? "3049800" : "299000")
+      : subscriptionPlan === "pro"
+      ? (isYearly ? "6741000" : "749000")
+      : "0";
+
   await db.insert(subscriptionsTable).values({
     tenantId: id,
     plan: subscriptionPlan,
     status: "active",
-    price: subscriptionPlan === "starter" ? "299000" : subscriptionPlan === "business" ? "499000" : subscriptionPlan === "pro" ? "749000" : "0",
+    price: computedPrice,
     expiresAt,
   });
 

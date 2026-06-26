@@ -47,5 +47,9 @@ export interface Tenant {
   defaultCashierName?: string | null;
   /** @nullable */
   receiptFooter?: string | null;
+  /** @nullable */
+  qrisId?: string | null;
+  /** @nullable */
+  qrisImageUrl?: string | null;
   createdAt: string;
 }
