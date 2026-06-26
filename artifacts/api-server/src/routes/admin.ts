@@ -54,8 +54,20 @@ router.get("/admin/stats", async (req, res): Promise<void> => {
   const [branchesResult] = await db.select({ count: count() }).from(branchesTable);
   const [customersResult] = await db.select({ count: count() }).from(customersTable);
 
-  // Calculate MRR by handling monthly vs yearly active subscriptions
-  const activeSubs = await db.select().from(subscriptionsTable).where(eq(subscriptionsTable.status, "active"));
+  // Calculate MRR by handling monthly vs yearly active subscriptions for existing active tenants
+  const activeSubs = await db
+    .select({
+      price: subscriptionsTable.price,
+      startedAt: subscriptionsTable.startedAt,
+      expiresAt: subscriptionsTable.expiresAt,
+    })
+    .from(subscriptionsTable)
+    .innerJoin(tenantsTable, eq(subscriptionsTable.tenantId, tenantsTable.id))
+    .where(and(
+      eq(subscriptionsTable.status, "active"),
+      eq(tenantsTable.status, "active")
+    ));
+
   let mrr = 0;
   for (const sub of activeSubs) {
     const price = Number(sub.price) || 0;

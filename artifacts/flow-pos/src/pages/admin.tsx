@@ -67,8 +67,8 @@ const STATUS_MAP: Record<string, { label: string; cls: string }> = {
 
 const BUSINESS_TYPE_ICONS: Record<string, string> = {
   fnb: "🍔",
-  restaurant: "🍽️",
-  cafe: "☕",
+  restaurant: "🍔",
+  cafe: "🍔",
   fashion: "👗",
   salon: "✂️",
   minimarket: "🛒"
@@ -76,8 +76,8 @@ const BUSINESS_TYPE_ICONS: Record<string, string> = {
 
 const BUSINESS_TYPE_LABELS: Record<string, string> = {
   fnb: "F&B",
-  restaurant: "Restoran",
-  cafe: "Kafe",
+  restaurant: "F&B",
+  cafe: "F&B",
   fashion: "Fashion Store",
   salon: "Salon",
   minimarket: "Minimarket"
@@ -740,32 +740,44 @@ function TenantsTab({
                           >
                             <Settings size={14} />
                           </button>
-                          {t.status === "suspended" || t.status === "frozen" || t.status === "expired" ? (
-                             <button
-                               onClick={() => handleStatus(t.id, "active")}
-                               title="Aktifkan Tenant"
-                               className="p-2 bg-green-50 text-green-600 hover:bg-green-600 hover:text-white dark:bg-green-950/20 dark:text-green-400 rounded-xl transition-all"
-                             >
-                               <CheckCircle size={14} />
-                             </button>
-                           ) : (
-                             <>
-                               <button
-                                 onClick={() => handleStatus(t.id, "suspended")}
-                                 title="Tangguhkan (Suspend) Tenant"
-                                 className="p-2 bg-amber-50 text-amber-600 hover:bg-amber-600 hover:text-white dark:bg-amber-950/20 dark:text-amber-400 rounded-xl transition-all"
-                               >
-                                 <Ban size={14} />
-                               </button>
-                               <button
-                                 onClick={() => handleStatus(t.id, "frozen")}
-                                 title="Bekukan (Freeze) Tenant"
-                                 className="p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white dark:bg-indigo-950/20 dark:text-indigo-400 rounded-xl transition-all"
-                               >
-                                 <Lock size={14} />
-                               </button>
-                             </>
-                           )}
+                          {/* Active / Trial Toggle */}
+                          {t.status === "active" ? (
+                            <button
+                              onClick={() => handleStatus(t.id, "trial")}
+                              title="Kembalikan ke Masa Trial"
+                              className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white dark:bg-blue-950/20 dark:text-blue-400 rounded-xl transition-all"
+                            >
+                              <RefreshCw size={14} />
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleStatus(t.id, "active")}
+                              title="Aktifkan Tenant"
+                              className="p-2 bg-green-50 text-green-600 hover:bg-green-600 hover:text-white dark:bg-green-950/20 dark:text-green-400 rounded-xl transition-all"
+                            >
+                              <CheckCircle size={14} />
+                            </button>
+                          )}
+
+                          {/* Suspend / Freeze (only for active or trial tenants) */}
+                          {(t.status === "active" || t.status === "trial") && (
+                            <>
+                              <button
+                                onClick={() => handleStatus(t.id, "suspended")}
+                                title="Tangguhkan (Suspend) Tenant"
+                                className="p-2 bg-amber-50 text-amber-600 hover:bg-amber-600 hover:text-white dark:bg-amber-950/20 dark:text-amber-400 rounded-xl transition-all"
+                              >
+                                <Ban size={14} />
+                              </button>
+                              <button
+                                onClick={() => handleStatus(t.id, "frozen")}
+                                title="Bekukan (Freeze) Tenant"
+                                className="p-2 bg-indigo-50 text-indigo-600 hover:bg-indigo-600 hover:text-white dark:bg-indigo-950/20 dark:text-indigo-400 rounded-xl transition-all"
+                              >
+                                <Lock size={14} />
+                              </button>
+                            </>
+                          )}
                           <button
                             onClick={() => handleDelete(t.id, t.name)}
                             title="Hapus Tenant"
