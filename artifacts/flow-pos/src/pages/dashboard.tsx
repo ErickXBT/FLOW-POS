@@ -1,10 +1,27 @@
 import { useState, useEffect, useRef } from "react";
-import { useGetDashboardStats, useGetRecentOrders, useGetTopProducts, useGetSalesChartData, useListBranches, useGetTenant, useListEmployees, useListProducts, useListCustomers } from "@workspace/api-client-react";
+import {
+  useGetDashboardStats,
+  useGetRecentOrders,
+  useGetTopProducts,
+  useGetSalesChartData,
+  useListBranches,
+  useGetTenant,
+  useListEmployees,
+  useListProducts,
+  useListCustomers,
+  useListAnnouncements,
+  useListSupportTickets,
+  useListTicketReplies,
+  useCreateTicketReply,
+  useCreateSupportTicket,
+  getListSupportTicketsQueryKey,
+  getListTicketRepliesQueryKey
+} from "@workspace/api-client-react";
 import {
   TrendingUp, TrendingDown, ShoppingCart, Package, Users, AlertTriangle, DollarSign, ChefHat, Truck, Clock,
   Bell, FileText, Download, BarChart2, Users2, ShieldAlert, Award, Calendar, Layers, MapPin, Percent,
   MessageSquare, Plus, Trash2, Check, RefreshCw, Smartphone, Clipboard, QrCode, Sparkles, LogIn, Laptop, Globe, Gift,
-  Building2, Activity, Lock, UploadCloud, Shirt, ShoppingBag, X
+  Building2, Activity, Lock, UploadCloud, Shirt, ShoppingBag, X, Send, ArrowLeft
 } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, LineChart, Line, Legend, PieChart, Pie, Cell } from "recharts";
 import { Link } from "wouter";
@@ -197,6 +214,9 @@ function OwnerDashboard() {
   const plan = tenant?.subscriptionPlan || "trial";
   const isFashion = tenant?.businessType === "fashion";
   const isDemo = tenant?.slug === "budi-resto";
+
+  // Fetch announcements from super admin
+  const { data: announcements } = useListAnnouncements();
 
   // Real-time fetched resources
   const { data: realEmployees } = useListEmployees();
@@ -1370,6 +1390,70 @@ function OwnerDashboard() {
           {/* Tab 1: Overview */}
           {activeTab === "overview" && (
             <div className="space-y-6 animate-fade-in">
+              {/* Banner Pengumuman & Promo dari Super Admin */}
+              {announcements && announcements.length > 0 && (
+                <div className="space-y-3">
+                  {announcements.map((ann) => {
+                    const isPromo = ann.type === "promotion" || ann.type === "promo";
+                    const isMaintenance = ann.type === "maintenance";
+                    const isUpdate = ann.type === "update";
+                    
+                    if (isMaintenance) {
+                      return (
+                        <div key={ann.id} className="bg-red-500/10 border border-red-500/30 text-red-700 dark:text-red-400 p-4 rounded-2xl flex items-start gap-3.5 shadow-sm animate-pulse">
+                          <AlertTriangle size={18} className="flex-shrink-0 mt-0.5 text-red-500" />
+                          <div>
+                            <h4 className="font-bold text-sm leading-snug">{ann.title}</h4>
+                            <p className="text-xs mt-1 text-muted-foreground leading-relaxed whitespace-pre-wrap">{ann.content}</p>
+                          </div>
+                        </div>
+                      );
+                    }
+                    
+                    if (isPromo) {
+                      return (
+                        <div key={ann.id} className="relative overflow-hidden bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 text-white p-5 rounded-2xl shadow-md flex flex-col sm:flex-row justify-between sm:items-center gap-4 hover:shadow-xl transition-all duration-300">
+                          <div className="absolute right-0 top-0 w-32 h-32 bg-white/5 rounded-full blur-xl translate-x-12 -translate-y-12" />
+                          <div className="flex items-start gap-3.5 relative z-10">
+                            <Sparkles size={22} className="flex-shrink-0 mt-0.5 text-yellow-300 animate-bounce" />
+                            <div>
+                              <span className="px-2 py-0.5 rounded-full bg-yellow-400 text-slate-900 text-[9px] font-extrabold uppercase tracking-wide">Promo Platform</span>
+                              <h4 className="font-bold text-base leading-snug mt-1.5">{ann.title}</h4>
+                              <p className="text-xs mt-1 opacity-90 leading-relaxed whitespace-pre-wrap">{ann.content}</p>
+                            </div>
+                          </div>
+                          <Link href="/settings">
+                            <a className="px-4.5 py-2 bg-yellow-400 hover:bg-yellow-300 active:scale-95 text-slate-900 font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 self-start sm:self-auto relative z-10 cursor-pointer">
+                              Kelola Langganan <Sparkles size={12} />
+                            </a>
+                          </Link>
+                        </div>
+                      );
+                    }
+                    
+                    // Default / Update
+                    return (
+                      <div key={ann.id} className="bg-card border border-card-border p-4 rounded-xl flex items-start gap-3.5 shadow-sm hover:shadow-md transition-shadow">
+                        <div className={`p-2 rounded-lg ${isUpdate ? "bg-green-500/10 text-green-600" : "bg-blue-500/10 text-blue-600"} flex-shrink-0`}>
+                          {isUpdate ? <Sparkles size={16} /> : <Bell size={16} />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className="font-bold text-foreground text-sm leading-snug">{ann.title}</h4>
+                            <span className={`px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider ${
+                              isUpdate ? "bg-green-100 text-green-700 dark:bg-green-950/20 dark:text-green-400" : "bg-blue-100 text-blue-700 dark:bg-blue-950/20 dark:text-blue-400"
+                            }`}>
+                              {ann.type}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-1 leading-relaxed whitespace-pre-wrap">{ann.content}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard label="Penjualan Hari Ini" value={formatRp(s.todaySales)} icon={<DollarSign size={16} />} sub={`${s.todayOrders} transaksi`} />
                 <StatCard label="Revenue Bulanan" value={formatRp(estimatedGrossProfit)} icon={<TrendingUp size={16} />} trend={isFreshTenant ? undefined : s.revenueGrowth} />
@@ -2650,6 +2734,326 @@ function OwnerDashboard() {
   );
 }
 
+
+// ── Tenant Support Chat Widget ───────────────────────────────────────────────
+function TenantSupportWidget() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const [isOpen, setIsOpen] = useState(false);
+  const [selectedTicketId, setSelectedTicketId] = useState<number | null>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+
+  // Form states
+  const [title, setTitle] = useState("");
+  const [category, setCategory] = useState("technical");
+  const [description, setDescription] = useState("");
+  const [replyText, setReplyText] = useState("");
+
+  const showWidget = user?.role === "owner" || user?.role === "manager" || user?.role === "super_admin";
+
+  const { data: tickets, refetch: refetchTickets } = useListSupportTickets({
+    query: {
+      enabled: showWidget && isOpen,
+      queryKey: getListSupportTicketsQueryKey()
+    }
+  });
+
+  const { data: replies, refetch: refetchReplies } = useListTicketReplies(selectedTicketId ?? 0, {
+    query: {
+      enabled: showWidget && isOpen && !!selectedTicketId,
+      queryKey: getListTicketRepliesQueryKey(selectedTicketId ?? 0)
+    }
+  });
+
+  const createReplyMutation = useCreateTicketReply();
+  const createTicketMutation = useCreateSupportTicket();
+
+  // Scroll to bottom of chat automatically
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [replies, selectedTicketId]);
+
+  if (!showWidget) return null;
+
+  const activeTicket = (tickets || []).find(t => t.id === selectedTicketId);
+
+  const handleCreateTicket = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!title.trim() || !description.trim()) return;
+    try {
+      const newTicket = await createTicketMutation.mutateAsync({
+        data: { title, category, description }
+      });
+      setTitle("");
+      setDescription("");
+      setShowCreateForm(false);
+      
+      // Refresh tickets list
+      queryClient.invalidateQueries({ queryKey: getListSupportTicketsQueryKey() });
+      await refetchTickets();
+      
+      // Auto select the new ticket
+      if (newTicket && newTicket.id) {
+        setSelectedTicketId(newTicket.id);
+      }
+    } catch (err) {
+      alert("Gagal membuat tiket bantuan");
+    }
+  };
+
+  const handleSendReply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedTicketId || !replyText.trim()) return;
+    try {
+      await createReplyMutation.mutateAsync({
+        id: selectedTicketId,
+        data: { message: replyText }
+      });
+      setReplyText("");
+      // Refresh replies list
+      queryClient.invalidateQueries({ queryKey: getListTicketRepliesQueryKey(selectedTicketId) });
+      queryClient.invalidateQueries({ queryKey: getListSupportTicketsQueryKey() });
+      refetchReplies();
+      refetchTickets();
+    } catch (err) {
+      alert("Gagal mengirim balasan");
+    }
+  };
+
+  return (
+    <div className="fixed bottom-6 right-6 z-[999] font-sans">
+      {/* Floating Button */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-14 h-14 bg-primary text-primary-foreground rounded-full flex items-center justify-center shadow-xl hover:scale-105 active:scale-95 transition-all cursor-pointer border-none"
+        title="Hubungi Bantuan / Laporkan Bug"
+      >
+        {isOpen ? <X size={24} /> : <MessageSquare size={24} />}
+      </button>
+
+      {/* Chat Window Panel */}
+      {isOpen && (
+        <div className="absolute bottom-18 right-0 w-[360px] sm:w-[380px] h-[520px] bg-card border border-card-border rounded-2xl shadow-2xl flex flex-col justify-between overflow-hidden animate-scale-up">
+          {/* Header */}
+          <div className="px-5 py-4 border-b border-border bg-muted/20 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
+              <div>
+                <h4 className="font-bold text-foreground text-sm leading-snug">Dukungan FlowApp</h4>
+                <p className="text-[10px] text-muted-foreground mt-0.5">Kami siap membantu bisnis Anda</p>
+              </div>
+            </div>
+            <button
+              onClick={() => setIsOpen(false)}
+              className="p-1 hover:bg-muted rounded-full text-muted-foreground hover:text-foreground transition-all border-none bg-transparent cursor-pointer"
+            >
+              <X size={16} />
+            </button>
+          </div>
+
+          {/* Body Content */}
+          <div className="flex-1 overflow-y-auto p-4 bg-background/50 scrollbar-thin">
+            {selectedTicketId ? (
+              /* Case 1: Thread Chat Detail */
+              <div className="flex flex-col h-full justify-between">
+                <div>
+                  <div className="flex items-center gap-2 mb-3">
+                    <button
+                      onClick={() => setSelectedTicketId(null)}
+                      className="p-1 hover:bg-muted rounded-lg text-muted-foreground hover:text-foreground transition-all border-none bg-transparent cursor-pointer flex items-center"
+                      title="Kembali ke Daftar Tiket"
+                    >
+                      <ArrowLeft size={16} />
+                    </button>
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Tiket #{selectedTicketId}</span>
+                  </div>
+
+                  {activeTicket && (
+                    <div className="bg-card border border-card-border p-3.5 rounded-xl mb-4 space-y-1.5 shadow-sm">
+                      <div className="flex justify-between items-start gap-2">
+                        <h5 className="font-bold text-foreground text-xs">{activeTicket.title}</h5>
+                        <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase flex-shrink-0 ${
+                          activeTicket.status === "resolved" ? "bg-green-100 text-green-700 dark:bg-green-950/20 dark:text-green-400" :
+                          activeTicket.status === "in_progress" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" :
+                          "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                        }`}>
+                          {activeTicket.status === "resolved" ? "Selesai" : activeTicket.status === "in_progress" ? "Proses" : "Baru"}
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-muted-foreground leading-relaxed whitespace-pre-wrap">{activeTicket.description}</p>
+                      <div className="text-[9px] text-muted-foreground/60 pt-1 text-right">
+                        Kategori: <span className="font-semibold capitalize">{activeTicket.category}</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Thread Replies */}
+                  <div className="space-y-3 pb-4">
+                    {(replies || []).map((rep: any) => {
+                      const isAdmin = rep.senderRole === "admin";
+                      return (
+                        <div key={rep.id} className={`flex flex-col ${isAdmin ? "items-start" : "items-end"} space-y-1`}>
+                          <span className="text-[9px] text-muted-foreground font-semibold px-1">
+                            {rep.senderName} &bull; {isAdmin ? "Staf Flow" : "Anda"}
+                          </span>
+                          <div className={`px-3 py-2 rounded-2xl text-xs max-w-[85%] leading-relaxed ${
+                            isAdmin
+                              ? "bg-muted text-foreground rounded-tl-none"
+                              : "bg-primary text-primary-foreground rounded-tr-none"
+                          }`}>
+                            {rep.message}
+                          </div>
+                          <span className="text-[8px] text-muted-foreground/50 px-1">
+                            {new Date(rep.createdAt).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        </div>
+                      );
+                    })}
+                    <div ref={messagesEndRef} />
+                  </div>
+                </div>
+
+                {/* Reply Form Footer */}
+                {activeTicket?.status !== "resolved" ? (
+                  <form onSubmit={handleSendReply} className="flex gap-2 items-center border-t border-border pt-3 mt-4 bg-card p-2 rounded-xl">
+                    <input
+                      type="text"
+                      placeholder="Ketik balasan Anda..."
+                      value={replyText}
+                      onChange={e => setReplyText(e.target.value)}
+                      className="flex-1 px-3 py-2 border border-input rounded-lg bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all"
+                    />
+                    <button
+                      type="submit"
+                      disabled={createReplyMutation.isPending || !replyText.trim()}
+                      className="p-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90 disabled:opacity-50 transition-all flex items-center justify-center border-none cursor-pointer"
+                    >
+                      <Send size={14} />
+                    </button>
+                  </form>
+                ) : (
+                  <div className="text-center py-2.5 bg-green-500/10 border border-green-500/20 text-green-700 dark:text-green-400 rounded-xl text-[10px] font-semibold mt-4">
+                    Tiket ini telah diselesaikan oleh admin.
+                  </div>
+                )}
+              </div>
+            ) : showCreateForm ? (
+              /* Case 2: Create Support Ticket Form */
+              <form onSubmit={handleCreateTicket} className="space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateForm(false)}
+                    className="p-1 hover:bg-muted rounded-lg text-muted-foreground hover:text-foreground transition-all border-none bg-transparent cursor-pointer flex items-center"
+                  >
+                    <ArrowLeft size={16} />
+                  </button>
+                  <span className="text-xs font-bold text-foreground">Laporkan Masalah Baru</span>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Judul Laporan</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Contoh: Error saat checkout struk"
+                    value={title}
+                    onChange={e => setTitle(e.target.value)}
+                    className="w-full px-3 py-2 border border-input rounded-xl bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Kategori</label>
+                  <select
+                    value={category}
+                    onChange={e => setCategory(e.target.value)}
+                    className="w-full px-3 py-2 border border-input rounded-xl bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all"
+                  >
+                    <option value="technical">Masalah Teknis / Bug</option>
+                    <option value="billing">Pembayaran & Tagihan</option>
+                    <option value="general">Pertanyaan Umum</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Deskripsi Masalah</label>
+                  <textarea
+                    required
+                    rows={4}
+                    placeholder="Jelaskan secara detail masalah yang Anda alami..."
+                    value={description}
+                    onChange={e => setDescription(e.target.value)}
+                    className="w-full px-3 py-2 border border-input rounded-xl bg-background text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-primary focus:border-primary transition-all resize-none"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={createTicketMutation.isPending || !title.trim() || !description.trim()}
+                  className="w-full py-2.5 bg-primary text-primary-foreground font-bold rounded-xl hover:opacity-95 disabled:opacity-50 transition-all text-xs border-none cursor-pointer flex items-center justify-center gap-1.5 shadow-md"
+                >
+                  {createTicketMutation.isPending ? "Mengirim..." : "Kirim Laporan"}
+                </button>
+              </form>
+            ) : (
+              /* Case 3: Tickets List */
+              <div className="space-y-3 h-full flex flex-col justify-between">
+                <div className="flex-1 overflow-y-auto max-h-[380px] pr-1 space-y-2.5">
+                  {(tickets || []).length === 0 ? (
+                    <div className="text-center py-16 text-muted-foreground space-y-2">
+                      <MessageSquare size={36} className="mx-auto opacity-20" />
+                      <div className="text-xs font-semibold">Belum Ada Tiket Bantuan</div>
+                      <p className="text-[10px] text-muted-foreground max-w-[220px] mx-auto leading-relaxed">
+                        Jika Anda menemui bug atau kendala, buat tiket baru untuk berkonsultasi dengan tim dukungan kami.
+                      </p>
+                    </div>
+                  ) : (
+                    (tickets || []).map((t) => (
+                      <button
+                        key={t.id}
+                        onClick={() => setSelectedTicketId(t.id)}
+                        className="w-full text-left p-3.5 bg-card border border-card-border hover:bg-muted/10 rounded-xl transition-all shadow-sm flex flex-col justify-between cursor-pointer space-y-1.5 hover:shadow-md"
+                      >
+                        <div className="flex justify-between items-center w-full gap-2">
+                          <span className="text-[10px] font-bold text-primary capitalize">{t.category}</span>
+                          <span className={`px-2 py-0.5 rounded-full text-[8px] font-bold uppercase ${
+                            t.status === "resolved" ? "bg-green-100 text-green-700 dark:bg-green-950/20 dark:text-green-400" :
+                            t.status === "in_progress" ? "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400" :
+                            "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                          }`}>
+                            {t.status === "resolved" ? "Selesai" : t.status === "in_progress" ? "Proses" : "Baru"}
+                          </span>
+                        </div>
+                        <div className="text-xs font-bold text-foreground truncate w-full">{t.title}</div>
+                        <div className="text-[10px] text-muted-foreground truncate w-full">{t.description}</div>
+                        <div className="text-[8px] text-muted-foreground/60 text-right w-full pt-0.5">
+                          {new Date(t.createdAt).toLocaleDateString("id-ID")}
+                        </div>
+                      </button>
+                    ))
+                  )}
+                </div>
+
+                {/* Create Ticket Button Footer */}
+                <button
+                  onClick={() => setShowCreateForm(true)}
+                  className="w-full py-2.5 mt-4 bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground font-bold rounded-xl transition-all text-xs border-none cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
+                >
+                  <Plus size={14} /> Buat Laporan Baru
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main Dashboard ────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const { user } = useAuth();
@@ -2714,6 +3118,7 @@ export default function DashboardPage() {
   return (
     <>
       {dashboardView}
+      <TenantSupportWidget />
       {scannedProduct && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
           <div className="bg-card border border-card-border rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200">
