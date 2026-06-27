@@ -237,15 +237,33 @@ function TrackingView({
       day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
     });
 
+    const getOrderTypeLabel = (type: string) => {
+      if (isFashion) {
+        switch (type) {
+          case "dine_in": return "Fitting Room";
+          case "take_away": return "Ambil di Toko";
+          case "delivery": return "Kirim Kurir";
+          default: return type || "-";
+        }
+      } else {
+        switch (type) {
+          case "dine_in": return "Dine In";
+          case "take_away": return "Take Away";
+          case "delivery": return "Delivery";
+          default: return type || "-";
+        }
+      }
+    };
+
     // 1. Prepare Metadata Rows
     const metaRows = [
       { label: "Tanggal", value: formattedDate },
-      { label: "Tipe", value: order.orderType === "dine_in" ? "Dine In" : order.orderType === "take_away" ? "Take Away" : "Delivery" }
+      { label: "Tipe", value: getOrderTypeLabel(order.orderType) }
     ];
     if (order.orderType === "delivery" && order.deliveryAddress) {
       metaRows.push({ label: "Alamat", value: order.deliveryAddress });
     } else if (order.orderType === "dine_in" && order.tableNumber) {
-      metaRows.push({ label: "Meja", value: order.tableNumber });
+      metaRows.push({ label: isFashion ? "Fitting Room" : "Meja", value: order.tableNumber });
     }
     metaRows.push({ label: "Nama", value: order.customerName || "-" });
     
@@ -270,6 +288,11 @@ function TrackingView({
     }
     
     metaRows.push({ label: "Pembayaran", value: paymentLabel });
+    if (order.paymentMethod === "cash") {
+      metaRows.push({ label: "Uang Diterima", value: formatRp(Number(order.cashReceived || 0)) });
+      const change = Number(order.cashReceived || 0) - Number(order.total);
+      metaRows.push({ label: "Kembalian", value: formatRp(change > 0 ? change : 0) });
+    }
     metaRows.push({ label: "Kasir", value: order.employeeName || "Kasir Utama" });
 
     // Format Metadata Lines

@@ -680,9 +680,20 @@ export default function POSPage() {
           <div>
             <p style="margin: 0 0 4px 0;">Nota: ${order.orderNumber}</p>
             <p style="margin: 0 0 4px 0;">Tanggal: ${formattedDate}</p>
+            <p style="margin: 0 0 4px 0;">Tipe: ${
+              isFashion
+                ? order.orderType === "dine_in" ? "Fitting Room" : order.orderType === "take_away" ? "Ambil di Toko" : "Kirim Kurir"
+                : order.orderType === "dine_in" ? "Dine In" : order.orderType === "take_away" ? "Take Away" : "Delivery"
+            }</p>
+            <p style="margin: 0 0 4px 0;">Pelanggan: ${order.customerName || "-"}</p>
+            ${order.orderType === "dine_in" && order.tableNumber ? `<p style="margin: 0 0 4px 0;">${isFashion ? "Fitting Room" : "Meja"}: ${order.tableNumber}</p>` : ""}
+            ${order.orderType === "delivery" && order.deliveryAddress ? `<p style="margin: 0 0 4px 0;">Alamat: ${order.deliveryAddress}</p>` : ""}
+            <p style="margin: 0 0 4px 0;">Pembayaran: ${order.paymentMethod === "cash" ? "Tunai" : order.paymentMethod === "qris" ? "QRIS" : order.paymentMethod === "bank_transfer" ? "Transfer" : order.paymentMethod === "ewallet" ? "E-Wallet" : order.paymentMethod || "-"}</p>
+            ${order.paymentMethod === "cash" ? `
+            <p style="margin: 0 0 4px 0;">Uang Diterima: ${formatRp(Number(order.cashReceived || 0))}</p>
+            <p style="margin: 0 0 4px 0;">Kembalian: ${formatRp(Math.max(0, Number(order.cashReceived || 0) - Number(order.total)))}</p>
+            ` : ""}
             <p style="margin: 0 0 4px 0;">Kasir: ${order.employeeName || "Kasir Utama"}</p>
-            ${order.customerName ? `<p style="margin: 0 0 4px 0;">Pelanggan: ${order.customerName}</p>` : ""}
-            ${order.tableNumber ? `<p style="margin: 0 0 4px 0;">Meja: ${order.tableNumber}</p>` : ""}
           </div>
           <div class="divider"></div>
           ${itemsHtml}
@@ -749,22 +760,40 @@ export default function POSPage() {
       day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
     });
 
+    const getOrderTypeLabel = (type: string) => {
+      if (isFashion) {
+        switch (type) {
+          case "dine_in": return "Fitting Room";
+          case "take_away": return "Ambil di Toko";
+          case "delivery": return "Kirim Kurir";
+          default: return type || "-";
+        }
+      } else {
+        switch (type) {
+          case "dine_in": return "Dine In";
+          case "take_away": return "Take Away";
+          case "delivery": return "Delivery";
+          default: return type || "-";
+        }
+      }
+    };
+
     const metaRows = [
       { label: "Tanggal", value: formattedDate },
-      { label: "Tipe", value: order.orderType === "dine_in" ? "Dine In" : order.orderType === "take_away" ? "Take Away" : "Delivery" }
+      { label: "Tipe", value: getOrderTypeLabel(order.orderType) }
     ];
     if (order.orderType === "delivery" && order.deliveryAddress) {
       metaRows.push({ label: "Alamat", value: order.deliveryAddress });
     } else if (order.orderType === "dine_in" && order.tableNumber) {
-      metaRows.push({ label: "Meja", value: order.tableNumber });
+      metaRows.push({ label: isFashion ? "Fitting Room" : "Meja", value: order.tableNumber });
     }
     metaRows.push({ label: "Nama", value: order.customerName || "-" });
     metaRows.push({ label: "Pembayaran", value: getPaymentLabel(order.paymentMethod) });
-        if (order.paymentMethod === "cash") {
-          metaRows.push({ label: "Uang Diterima", value: formatRp(order.cashReceived || 0) });
-          const change = (order.cashReceived || 0) - order.total;
-          metaRows.push({ label: "Kembalian", value: formatRp(change > 0 ? change : 0) });
-        }
+    if (order.paymentMethod === "cash") {
+      metaRows.push({ label: "Uang Diterima", value: formatRp(Number(order.cashReceived || 0)) });
+      const change = Number(order.cashReceived || 0) - Number(order.total);
+      metaRows.push({ label: "Kembalian", value: formatRp(change > 0 ? change : 0) });
+    }
     metaRows.push({ label: "Kasir", value: order.employeeName || "Kasir Utama" });
 
     const formattedMetaLines: string[] = [];

@@ -123,6 +123,7 @@ function formatOrder(o: any, items: any[] = []) {
     tax: Number(o.tax),
     serviceCharge: Number(o.serviceCharge || 0),
     total: Number(o.total),
+    cashReceived: Number(o.cashReceived || 0),
     createdAt: o.createdAt instanceof Date ? o.createdAt.toISOString() : o.createdAt,
     updatedAt: o.updatedAt instanceof Date ? o.updatedAt.toISOString() : o.updatedAt,
     items: items.map(i => ({
@@ -360,13 +361,18 @@ router.post("/orders", async (req, res): Promise<void> => {
     paymentMethod: body.data.paymentMethod,
     notes: orderNotesWithReward,
     customerId: customerId,
-    customerName,
+    customerName: customerName || rawData.customerName || "Pelanggan POS",
     employeeId,
     employeeName,
     tenantId: claims.tenantId!,
     branchId,
     shiftId,
     isClaimReward: isClaimReward,
+    cashReceived: String(rawData.cashReceived || 0),
+    orderType: rawData.orderType || "dine_in",
+    tableNumber: rawData.tableNumber || null,
+    customerPhone: rawData.customerPhone || null,
+    deliveryAddress: rawData.deliveryAddress || null,
   }).returning();
 
   const insertedItems = await db.insert(orderItemsTable).values(
@@ -416,6 +422,7 @@ router.post("/orders", async (req, res): Promise<void> => {
       priority,
       estimatedTime,
       isClaimReward: isClaimReward,
+      cashReceived: String(rawData.cashReceived || 0),
     }).returning();
 
     if (custOrder) {

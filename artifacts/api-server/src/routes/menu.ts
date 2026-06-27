@@ -37,6 +37,7 @@ function formatCustomerOrder(order: any, items: any[]) {
     total: Number(order.total),
     deliveryFee: Number(order.deliveryFee ?? 0),
     serviceCharge: Number(order.serviceCharge || 0),
+    cashReceived: Number(order.cashReceived || 0),
     createdAt: order.createdAt instanceof Date ? order.createdAt.toISOString() : order.createdAt,
     items: items.map(i => ({
       ...i,

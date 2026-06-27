@@ -102,6 +102,7 @@ export const customerOrdersTable = pgTable("customer_orders", {
   total: numeric("total", { precision: 15, scale: 2 }).notNull().default("0"),
   status: text("status").notNull().default("pending"), // pending, confirmed, preparing, ready, on_delivery, completed, cancelled
   paymentStatus: text("payment_status").notNull().default("unpaid"), // unpaid, paid
+  cashReceived: numeric("cash_received", { precision: 15, scale: 2 }).notNull().default("0"),
   notes: text("notes"),
   employeeId: integer("employee_id"),
   employeeName: text("employee_name"),
