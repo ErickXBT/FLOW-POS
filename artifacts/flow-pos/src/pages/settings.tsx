@@ -12,6 +12,13 @@ const ALL_BUSINESS_TYPES = [
 
 const STATUS_MAP: Record<string, string> = { active: "Aktif", trial: "Uji Coba", suspended: "Ditangguhkan", expired: "Kadaluarsa" };
 
+const PLAN_DISPLAY_MAP: Record<string, string> = {
+  starter: "FlowApp UMKM",
+  business: "FlowApp Multi",
+  pro: "FlowApp Pro",
+  enterprise: "FlowApp Enterprise"
+};
+
 export default function SettingsPage() {
   const qc = useQueryClient();
   const { data: tenant, isLoading } = useGetTenant();
@@ -1086,7 +1093,7 @@ export default function SettingsPage() {
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <div className="text-muted-foreground text-xs mb-1">Paket</div>
-              <div className="font-semibold capitalize">{sub.plan}</div>
+              <div className="font-semibold">{PLAN_DISPLAY_MAP[sub.plan] || sub.plan}</div>
             </div>
             <div>
               <div className="text-muted-foreground text-xs mb-1">Status</div>
@@ -1109,7 +1116,7 @@ export default function SettingsPage() {
                 <div className="text-xs">
                   <div className="font-bold text-foreground">Permintaan Upgrade Pending</div>
                   <div className="text-muted-foreground mt-1">
-                    Menunggu persetujuan Super Admin untuk paket <span className="font-semibold capitalize text-foreground">{(sub.pendingUpgradeRequest as any).requestedPlan}</span> ({ (sub.pendingUpgradeRequest as any).billingCycle === "yearly" ? "Tahunan" : "Bulanan"}).
+                    Menunggu persetujuan Super Admin untuk paket <span className="font-semibold text-foreground">{PLAN_DISPLAY_MAP[(sub.pendingUpgradeRequest as any).requestedPlan] || (sub.pendingUpgradeRequest as any).requestedPlan}</span> ({ (sub.pendingUpgradeRequest as any).billingCycle === "yearly" ? "Tahunan" : "Bulanan"}).
                   </div>
                 </div>
               </div>
@@ -1208,7 +1215,7 @@ export default function SettingsPage() {
                 <div className="font-semibold text-foreground">Detail Upgrade:</div>
                 <div className="flex justify-between text-muted-foreground">
                   <span>Paket Baru:</span>
-                  <span className="font-medium text-foreground capitalize">{upgradePlan} ({upgradeCycle === "yearly" ? "Tahunan" : "Bulanan"})</span>
+                  <span className="font-medium text-foreground">{PLAN_DISPLAY_MAP[upgradePlan] || upgradePlan} ({upgradeCycle === "yearly" ? "Tahunan" : "Bulanan"})</span>
                 </div>
                 <div className="flex justify-between text-muted-foreground">
                   <span>Estimasi Biaya:</span>
