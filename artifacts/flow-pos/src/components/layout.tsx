@@ -631,17 +631,17 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
               <div className="flex-shrink-0 px-6 pt-4 space-y-3">
                 {/* 1. Maintenance Alert (Urgent/Statis) */}
                 {maintenanceAlerts.map((ann: any) => (
-                  <div key={ann.id} className="bg-red-500/10 border border-red-500/30 text-red-700 dark:text-red-400 p-4 rounded-xl flex flex-col md:flex-row gap-4 shadow-sm border-l-4 border-l-red-500 animate-pulse items-center">
+                  <div key={ann.id} className="bg-red-500/10 border border-red-500/30 text-red-700 dark:text-red-400 p-3 rounded-xl flex flex-row gap-3.5 shadow-sm border-l-4 border-l-red-500 animate-pulse items-center">
                     {ann.imageUrl && (
-                      <div className="w-full md:w-[250px] aspect-[16/9] md:h-20 rounded-lg overflow-hidden border border-red-500/20 bg-muted flex-shrink-0">
+                      <div className="w-16 h-12 sm:w-28 sm:h-20 rounded-lg overflow-hidden border border-red-500/20 bg-muted flex-shrink-0">
                         <img src={ann.imageUrl} alt={ann.title} className="w-full h-full object-cover" />
                       </div>
                     )}
-                    <div className="flex items-start gap-3 flex-1">
-                      <AlertTriangle size={18} className="flex-shrink-0 mt-0.5 text-red-500" />
-                      <div>
-                        <h4 className="font-bold text-xs leading-snug">{ann.title}</h4>
-                        <p className="text-[11px] mt-0.5 text-muted-foreground leading-relaxed whitespace-pre-wrap">{ann.content}</p>
+                    <div className="flex items-start gap-2 flex-1 min-w-0">
+                      <AlertTriangle size={16} className="flex-shrink-0 mt-0.5 text-red-500" />
+                      <div className="min-w-0">
+                        <h4 className="font-bold text-xs md:text-sm leading-snug">{ann.title}</h4>
+                        <p className="text-[10px] md:text-xs text-muted-foreground leading-normal whitespace-pre-wrap">{ann.content}</p>
                       </div>
                     </div>
                   </div>
@@ -661,11 +661,11 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
                         return (
                           <div 
                             key={ann.id} 
-                            className={`w-full flex-shrink-0 p-4 ${
+                            className={`w-full flex-shrink-0 p-3.5 ${
                               isPromo 
                                 ? "bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 text-white" 
                                 : "bg-card text-foreground"
-                            } relative flex flex-col md:flex-row gap-4 min-h-[110px] items-center justify-between`}
+                            } relative flex flex-row gap-3.5 items-center justify-between min-h-[90px] md:min-h-[110px]`}
                             style={{ width: "100%" }}
                           >
                             {/* Decorative blur blob for promo */}
@@ -674,42 +674,42 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
                             )}
                             
                             {ann.imageUrl && (
-                              <div className={`w-full md:w-[320px] lg:w-[380px] aspect-[16/9] md:h-28 rounded-xl overflow-hidden relative z-10 border flex-shrink-0 ${
+                              <div className={`w-20 h-14 xs:w-24 xs:h-16 sm:w-36 sm:h-24 md:w-[220px] md:h-[120px] rounded-xl overflow-hidden relative z-10 border flex-shrink-0 ${
                                 isPromo ? "border-white/10 bg-black/20" : "border-border/30 bg-muted"
                               }`}>
                                 <img src={ann.imageUrl} alt={ann.title} className="w-full h-full object-cover" />
                               </div>
                             )}
 
-                            <div className="flex-1 flex flex-col md:flex-row justify-between md:items-center gap-4 relative z-10 w-full">
-                              <div className="flex items-start gap-3">
+                            <div className="flex-1 flex flex-col md:flex-row justify-between md:items-center gap-2 md:gap-4 relative z-10 w-full min-w-0">
+                              <div className="flex items-start gap-2.5 min-w-0">
                                 {isPromo ? (
-                                  <Sparkles size={20} className="flex-shrink-0 mt-0.5 text-yellow-300 animate-bounce" />
+                                  <Sparkles size={18} className="flex-shrink-0 mt-0.5 text-yellow-300 animate-bounce" />
                                 ) : (
                                   <div className={`p-1.5 rounded-lg ${isUpdate ? "bg-green-500/10 text-green-600" : "bg-blue-500/10 text-blue-600"} flex-shrink-0`}>
                                     {isUpdate ? <Sparkles size={14} /> : <Bell size={14} />}
                                   </div>
                                 )}
-                                <div className="space-y-1">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                    <span className={`px-2 py-0.5 rounded-full text-[8px] font-extrabold uppercase tracking-wide ${
+                                <div className="space-y-0.5 min-w-0">
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-extrabold uppercase tracking-wide ${
                                       isPromo 
                                         ? "bg-yellow-400 text-slate-900" 
                                         : isUpdate 
                                           ? "bg-green-100 text-green-700 dark:bg-green-950/20 dark:text-green-400" 
                                           : "bg-blue-100 text-blue-700 dark:bg-blue-950/20 dark:text-blue-400"
                                     }`}>
-                                      {isPromo ? "Promo Platform" : ann.type}
+                                      {isPromo ? "Promo" : ann.type}
                                     </span>
-                                    <h4 className="font-bold text-xs leading-snug">{ann.title}</h4>
+                                    <h4 className="font-bold text-xs md:text-sm leading-tight truncate max-w-[150px] xs:max-w-[200px] sm:max-w-none">{ann.title}</h4>
                                   </div>
-                                  <p className={`text-[11px] leading-relaxed whitespace-pre-wrap ${isPromo ? "opacity-90" : "text-muted-foreground"}`}>{ann.content}</p>
+                                  <p className={`text-[10px] md:text-xs leading-snug line-clamp-2 ${isPromo ? "opacity-90" : "text-muted-foreground"}`}>{ann.content}</p>
                                 </div>
                               </div>
                               
                               {isPromo && (
                                 <Link href="/settings">
-                                  <a className="px-3.5 py-1.5 bg-yellow-400 hover:bg-yellow-300 active:scale-95 text-slate-900 font-extrabold text-[10px] rounded-lg shadow-md transition-all flex items-center justify-center gap-1.5 self-start md:self-auto cursor-pointer flex-shrink-0">
+                                  <a className="px-3 py-1.5 bg-yellow-400 hover:bg-yellow-300 active:scale-95 text-slate-900 font-extrabold text-[9px] md:text-[10px] rounded-lg shadow-md transition-all flex items-center justify-center gap-1 cursor-pointer flex-shrink-0 self-start md:self-auto mt-1 md:mt-0">
                                     Kelola Langganan <Sparkles size={10} />
                                   </a>
                                 </Link>
@@ -722,15 +722,15 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
 
                     {/* Carousel Indicators (Dots) */}
                     {carouselBanners.length > 1 && (
-                      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 z-20">
+                      <div className="absolute bottom-1.5 left-1/2 -translate-x-1/2 flex gap-1 z-20">
                         {carouselBanners.map((_: any, idx: number) => (
                           <button
                             key={idx}
                             onClick={() => setCurrentSlide(idx)}
-                            className={`h-1.5 rounded-full transition-all ${
+                            className={`h-1 rounded-full transition-all ${
                               currentSlide === idx 
-                                ? "w-4 bg-white dark:bg-primary" 
-                                : "w-1.5 bg-white/40 dark:bg-muted-foreground/40"
+                                ? "w-3 bg-white dark:bg-primary" 
+                                : "w-1 bg-white/40 dark:bg-muted-foreground/40"
                             }`}
                             title={`Slide ${idx + 1}`}
                           />
