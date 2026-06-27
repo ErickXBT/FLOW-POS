@@ -99,6 +99,10 @@ export default function POSPage() {
   }, [activeBranchId]);
 
   const handleStartShift = async (name: string, id: number | null) => {
+    if (!activeBranchId) {
+      alert("Silakan pilih Cabang/Outlet terlebih dahulu di bagian atas halaman.");
+      return;
+    }
     try {
       const token = localStorage.getItem("flow_token");
       const res = await fetch("/api/shifts/start", {
@@ -1558,87 +1562,96 @@ export default function POSPage() {
             </div>
             
             <div className="p-5 space-y-4">
-              <p className="text-xs text-muted-foreground">
-                Pilih atau masukkan nama kasir untuk memulai pencatatan shift hari ini.
-              </p>
-              
-              {activeEmployees.length > 0 ? (
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-foreground mb-1">
-                      Pilih Karyawan Kasir
-                    </label>
-                    <select
-                      value={selectedEmpId}
-                      onChange={(e) => {
-                        setSelectedEmpId(e.target.value);
-                        if (e.target.value !== "custom") {
-                          setCustomCashierName("");
-                        }
-                      }}
-                      className="w-full px-3 py-2 border border-input rounded-xl text-xs bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                    >
-                      <option value="">-- Pilih Kasir --</option>
-                      {activeEmployees.map((emp: any) => (
-                        <option key={emp.id} value={emp.id}>
-                          {emp.name} ({emp.role})
-                        </option>
-                      ))}
-                      <option value="custom">Ketik Nama Manual</option>
-                    </select>
-                  </div>
-                  
-                  {selectedEmpId === "custom" && (
-                    <div className="animate-fade-in">
-                      <label className="block text-xs font-semibold text-foreground mb-1">
-                        Nama Kasir
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="Masukkan nama kasir..."
-                        value={customCashierName}
-                        onChange={(e) => setCustomCashierName(e.target.value)}
-                        className="w-full px-3 py-2 border border-input rounded-xl text-xs bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                      />
-                    </div>
-                  )}
+              {!activeBranchId ? (
+                <div className="bg-red-500/10 border border-red-500/20 text-red-500 text-xs font-semibold p-4 rounded-xl space-y-2">
+                  <p className="font-bold">⚠️ Cabang/Outlet Belum Terpilih</p>
+                  <p className="leading-relaxed">Silakan pilih Cabang/Outlet terlebih dahulu di bagian atas halaman (pilihan "Semua Cabang" tidak bisa digunakan untuk memulai shift kasir).</p>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  <div className="bg-amber-50 dark:bg-amber-955/20 border border-amber-200 dark:border-amber-900/50 rounded-xl p-3 text-[11px] text-amber-700 dark:text-amber-400">
-                    ℹ️ Belum ada karyawan terdaftar. Silakan masukkan nama kasir secara manual.
-                  </div>
+                <>
+                  <p className="text-xs text-muted-foreground">
+                    Pilih atau masukkan nama kasir untuk memulai pencatatan shift hari ini.
+                  </p>
+                  
+                  {activeEmployees.length > 0 ? (
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-foreground mb-1">
+                          Pilih Karyawan Kasir
+                        </label>
+                        <select
+                          value={selectedEmpId}
+                          onChange={(e) => {
+                            setSelectedEmpId(e.target.value);
+                            if (e.target.value !== "custom") {
+                              setCustomCashierName("");
+                            }
+                          }}
+                          className="w-full px-3 py-2 border border-input rounded-xl text-xs bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                        >
+                          <option value="">-- Pilih Kasir --</option>
+                          {activeEmployees.map((emp: any) => (
+                            <option key={emp.id} value={emp.id}>
+                              {emp.name} ({emp.role})
+                            </option>
+                          ))}
+                          <option value="custom">Ketik Nama Manual</option>
+                        </select>
+                      </div>
+                      
+                      {selectedEmpId === "custom" && (
+                        <div className="animate-fade-in">
+                          <label className="block text-xs font-semibold text-foreground mb-1">
+                            Nama Kasir
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Masukkan nama kasir..."
+                            value={customCashierName}
+                            onChange={(e) => setCustomCashierName(e.target.value)}
+                            className="w-full px-3 py-2 border border-input rounded-xl text-xs bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="bg-amber-50 dark:bg-amber-955/20 border border-amber-200 dark:border-amber-900/50 rounded-xl p-3 text-[11px] text-amber-700 dark:text-amber-400">
+                        ℹ️ Belum ada karyawan terdaftar. Silakan masukkan nama kasir secara manual.
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-foreground mb-1">
+                          Nama Kasir Manual
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Masukkan nama kasir..."
+                          value={customCashierName}
+                          onChange={(e) => setCustomCashierName(e.target.value)}
+                          className="w-full px-3 py-2 border border-input rounded-xl text-xs bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Uang Kas Awal */}
                   <div>
                     <label className="block text-xs font-semibold text-foreground mb-1">
-                      Nama Kasir Manual
+                      Uang Kas Awal (Modal Pembukaan)
                     </label>
-                    <input
-                      type="text"
-                      placeholder="Masukkan nama kasir..."
-                      value={customCashierName}
-                      onChange={(e) => setCustomCashierName(e.target.value)}
-                      className="w-full px-3 py-2 border border-input rounded-xl text-xs bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">Rp</span>
+                      <input
+                        type="number"
+                        value={openingCash}
+                        onChange={(e) => setOpeningCash(e.target.value)}
+                        placeholder="100000"
+                        className="w-full pl-8 pr-3 py-2 border border-input rounded-xl text-xs bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary font-semibold"
+                      />
+                    </div>
                   </div>
-                </div>
+                </>
               )}
-
-              {/* Uang Kas Awal */}
-              <div>
-                <label className="block text-xs font-semibold text-foreground mb-1">
-                  Uang Kas Awal (Modal Pembukaan)
-                </label>
-                <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground">Rp</span>
-                  <input
-                    type="number"
-                    value={openingCash}
-                    onChange={(e) => setOpeningCash(e.target.value)}
-                    placeholder="100000"
-                    className="w-full pl-8 pr-3 py-2 border border-input rounded-xl text-xs bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary font-semibold"
-                  />
-                </div>
-              </div>
             </div>
             
             <div className="p-4 border-t border-border bg-muted/10 flex gap-3">
@@ -1648,23 +1661,25 @@ export default function POSPage() {
               >
                 Batal
               </button>
-              <button
-                disabled={
-                  (activeEmployees.length > 0 && !selectedEmpId) ||
-                  ((selectedEmpId === "custom" || activeEmployees.length === 0) && !customCashierName.trim())
-                }
-                onClick={() => {
-                  if (selectedEmpId && selectedEmpId !== "custom") {
-                    const emp = activeEmployees.find((e: any) => e.id === Number(selectedEmpId));
-                    if (emp) handleStartShift(emp.name, emp.id);
-                  } else {
-                    handleStartShift(customCashierName, null);
+              {activeBranchId && (
+                <button
+                  disabled={
+                    (activeEmployees.length > 0 && !selectedEmpId) ||
+                    ((selectedEmpId === "custom" || activeEmployees.length === 0) && !customCashierName.trim())
                   }
-                }}
-                className="flex-1 py-2 bg-primary text-primary-foreground font-bold text-xs rounded-xl hover:opacity-90 active:scale-95 transition-all disabled:opacity-40"
-              >
-                Mulai Kerja
-              </button>
+                  onClick={() => {
+                    if (selectedEmpId && selectedEmpId !== "custom") {
+                      const emp = activeEmployees.find((e: any) => e.id === Number(selectedEmpId));
+                      if (emp) handleStartShift(emp.name, emp.id);
+                    } else {
+                      handleStartShift(customCashierName, null);
+                    }
+                  }}
+                  className="flex-1 py-2 bg-primary text-primary-foreground font-bold text-xs rounded-xl hover:opacity-90 active:scale-95 transition-all disabled:opacity-40"
+                >
+                  Mulai Kerja
+                </button>
+              )}
             </div>
           </div>
         </div>
