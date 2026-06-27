@@ -2661,91 +2661,10 @@ export default function DashboardPage() {
   const { data: productsData } = useListProducts({ limit: 150 });
   const products = productsData?.data || [];
 
-  const { toast } = useToast();
-  const { activeBranchId } = useActiveBranch();
-  const [isScanningCheckout, setIsScanningCheckout] = useState(false);
-
   const isLoading = statsLoading || tenantLoading;
 
   const role = user?.role ?? "staff";
   const businessType = tenant?.businessType || "fnb";
-
-  const handleScanCheckout = async (barcodeVal: string) => {
-    setIsScanningCheckout(true);
-    try {
-      const token = localStorage.getItem("flow_token") ?? "";
-      const res = await fetch(`${import.meta.env.BASE_URL.replace(/\/$/, "")}/api/tenant/customer-orders/scan-checkout`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          barcode: barcodeVal,
-          branchId: activeBranchId
-        })
-      });
-
-      if (!res.ok) {
-        const errData = await res.json();
-        throw new Error(errData.error || "Gagal melakukan checkout");
-      }
-
-      const data = await res.json();
-      toast({
-        title: "Checkout Otomatis Berhasil",
-        description: `Produk "${data.items?.[0]?.productName || 'Produk'}" telah berhasil masuk ke antrean Pesanan Online & Display Packing.`,
-      });
-    } catch (err: any) {
-      console.error(err);
-      toast({
-        variant: "destructive",
-        title: "Checkout Gagal",
-        description: err.message || "Gagal menghubungkan ke server.",
-      });
-    } finally {
-      setIsScanningCheckout(false);
-    }
-  };
-
-  useEffect(() => {
-    if (businessType !== "fashion" || products.length === 0) return;
-
-    let barcodeBuffer = "";
-    let lastKeyTime = Date.now();
-
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const isInput = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
-      const currentTime = Date.now();
-      
-      if (currentTime - lastKeyTime > 50) {
-        barcodeBuffer = "";
-      }
-
-      if (e.key !== "Enter") {
-        if (e.key.length === 1) {
-          barcodeBuffer += e.key;
-        }
-      } else {
-        if (barcodeBuffer.length >= 3) {
-          if (!isInput || (currentTime - lastKeyTime < 50)) {
-            e.preventDefault();
-            e.stopPropagation();
-            const scannedCode = barcodeBuffer.trim();
-            barcodeBuffer = "";
-
-            // Auto-checkout for Fashion business type
-            handleScanCheckout(scannedCode);
-          }
-        }
-        barcodeBuffer = "";
-      }
-      lastKeyTime = currentTime;
-    };
-
-    window.addEventListener("keydown", handleKeyDown, true);
-    return () => window.removeEventListener("keydown", handleKeyDown, true);
-  }, [products, businessType, activeBranchId]);
 
   if (isLoading) {
     return (
