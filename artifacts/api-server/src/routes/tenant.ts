@@ -1,8 +1,15 @@
 import { Router, type IRouter } from "express";
-import { eq, and, desc } from "drizzle-orm";
-import { db, tenantsTable, subscriptionsTable, subscriptionPlansTable, publicMenusTable, usersTable, subscriptionUpgradeRequestsTable } from "@workspace/db";
+import { eq, and, desc, inArray } from "drizzle-orm";
+import {
+  db, tenantsTable, subscriptionsTable, subscriptionPlansTable,
+  publicMenusTable, usersTable, subscriptionUpgradeRequestsTable,
+  ordersTable, orderItemsTable, customerOrdersTable, shiftsTable,
+  expensesTable, employeeAttendanceTable, customerCartsTable,
+  customerSessionsTable, customersTable, activityLogsTable
+} from "@workspace/db";
 import { UpdateTenantBody, CreateSubscriptionUpgradeRequestBody } from "@workspace/api-zod";
-import { extractToken } from "./auth";
+import { extractToken, verifyPassword } from "./auth";
+import { logActivity } from "./activity";
 
 const router: IRouter = Router();
 
@@ -159,6 +166,85 @@ router.get("/subscriptions/plans", async (_req, res): Promise<void> => {
     maxBranches: p.maxBranches,
     features: p.features,
   })));
+});
+
+router.post("/tenant/reset-data", async (req, res): Promise<void> => {
+  const claims = requireAuth(req, res);
+  if (!claims) return;
+  if (!claims.tenantId) { res.status(400).json({ error: "No tenant" }); return; }
+
+  if (claims.role !== "owner") {
+    res.status(403).json({ error: "Hanya Pemilik (Owner) yang diizinkan untuk meriset data." });
+    return;
+  }
+
+  const { password } = req.body;
+  if (!password) {
+    res.status(400).json({ error: "Password konfirmasi wajib diisi." });
+    return;
+  }
+
+  // Verify the owner's password
+  const [ownerUser] = await db.select().from(usersTable).where(eq(usersTable.id, claims.userId)).limit(1);
+  if (!ownerUser || !verifyPassword(password, ownerUser.passwordHash)) {
+    res.status(400).json({ error: "Password konfirmasi salah." });
+    return;
+  }
+
+  const tenantId = claims.tenantId;
+
+  try {
+    await db.transaction(async (tx) => {
+      // 1. Delete order items first (no foreign key cascade)
+      const tenantOrders = await tx.select({ id: ordersTable.id }).from(ordersTable).where(eq(ordersTable.tenantId, tenantId));
+      const orderIds = tenantOrders.map(o => o.id);
+      if (orderIds.length > 0) {
+        await tx.delete(orderItemsTable).where(inArray(orderItemsTable.orderId, orderIds));
+      }
+
+      // 2. Delete orders
+      await tx.delete(ordersTable).where(eq(ordersTable.tenantId, tenantId));
+
+      // 3. Delete customer orders (cascades to customer_order_items, customer_addresses, delivery_orders)
+      await tx.delete(customerOrdersTable).where(eq(customerOrdersTable.tenantId, tenantId));
+
+      // 4. Delete shifts
+      await tx.delete(shiftsTable).where(eq(shiftsTable.tenantId, tenantId));
+
+      // 5. Delete expenses
+      await tx.delete(expensesTable).where(eq(expensesTable.tenantId, tenantId));
+
+      // 6. Delete attendance
+      await tx.delete(employeeAttendanceTable).where(eq(employeeAttendanceTable.tenantId, tenantId));
+
+      // 7. Delete customer carts & sessions
+      await tx.delete(customerCartsTable).where(eq(customerCartsTable.tenantId, tenantId));
+      await tx.delete(customerSessionsTable).where(eq(customerSessionsTable.tenantId, tenantId));
+
+      // 8. Delete customers
+      await tx.delete(customersTable).where(eq(customersTable.tenantId, tenantId));
+
+      // 9. Delete activity logs
+      await tx.delete(activityLogsTable).where(eq(activityLogsTable.tenantId, tenantId));
+    });
+
+    // Write a new log entry about the reset activity
+    await logActivity({
+      tenantId: claims.tenantId,
+      userId: claims.userId,
+      userName: ownerUser.name,
+      userRole: claims.role,
+      action: "reset_business_data",
+      module: "tenant",
+      details: { message: "Seluruh data transaksi, shift, log aktivitas, dan absensi berhasil diriset ke kondisi bersih." },
+      ipAddress: req.ip,
+    });
+
+    res.json({ message: "Data usaha berhasil diriset." });
+  } catch (err: any) {
+    console.error("Failed to reset business data:", err);
+    res.status(500).json({ error: "Gagal meriset data usaha: " + err.message });
+  }
 });
 
 export default router;

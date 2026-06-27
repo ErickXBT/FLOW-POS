@@ -26,6 +26,52 @@ export default function SettingsPage() {
   const [upgradeError, setUpgradeError] = useState("");
   const [upgradeSuccess, setUpgradeSuccess] = useState(false);
 
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetPassword, setResetPassword] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetError, setResetError] = useState("");
+  const [resetSuccess, setResetSuccess] = useState(false);
+
+  const handleResetData = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetPassword.trim()) {
+      setResetError("Password wajib diisi");
+      return;
+    }
+    setResetLoading(true);
+    setResetError("");
+    setResetSuccess(false);
+
+    try {
+      const token = localStorage.getItem("flow_token");
+      const res = await fetch("/api/tenant/reset-data", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token || ""}`,
+        },
+        body: JSON.stringify({ password: resetPassword }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Gagal meriset data");
+      }
+
+      setResetSuccess(true);
+      qc.invalidateQueries(); // Invalidate all React Query caches
+      setTimeout(() => {
+        setShowResetModal(false);
+        setResetPassword("");
+        setResetSuccess(false);
+      }, 2000);
+    } catch (err: any) {
+      setResetError(err.message || "Terjadi kesalahan");
+    } finally {
+      setResetLoading(false);
+    }
+  };
+
   const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || "");
   const [profileName, setProfileName] = useState(user?.name || "");
   const [avatarUploading, setAvatarUploading] = useState(false);
@@ -1210,6 +1256,119 @@ export default function SettingsPage() {
                 {createUpgradeRequest.isPending ? "Mengajukan..." : "Ajukan Upgrade"}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Data Usaha - Khusus Owner */}
+      {user?.role === "owner" && (
+        <div className="bg-destructive/5 border border-destructive/20 rounded-xl p-6 shadow-sm space-y-4">
+          <div className="flex items-center gap-2 font-bold text-destructive">
+            <Trash2 size={18} /> Reset Data Usaha (Mulai Baru)
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            Gunakan fitur ini untuk membersihkan seluruh data penjualan (riwayat transaksi, pesanan online, rekap kas/shift, log aktivitas, dan absensi) agar toko Anda kembali bersih. 
+            <strong> Data produk, kategori, cabang, dan karyawan tetap dipertahankan</strong> sehingga Anda tidak perlu mengaturnya kembali.
+          </p>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                setResetError("");
+                setResetPassword("");
+                setResetSuccess(false);
+                setShowResetModal(true);
+              }}
+              className="flex items-center gap-1.5 px-4 py-2 bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-lg text-xs font-bold transition-all cursor-pointer shadow"
+            >
+              <Trash2 size={14} /> Bersihkan Data Penjualan & Log
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Reset Data Confirmation Modal */}
+      {showResetModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in font-sans">
+          <div className="bg-card border border-card-border rounded-2xl shadow-2xl w-full max-w-md animate-scale-up overflow-hidden">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-destructive/10">
+              <h2 className="font-bold text-destructive text-sm font-sans flex items-center gap-2">
+                🚨 Konfirmasi Reset Data Usaha
+              </h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowResetModal(false);
+                  setResetPassword("");
+                  setResetError("");
+                }}
+                className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            
+            <form onSubmit={handleResetData} className="p-6 space-y-5">
+              <div className="text-xs text-muted-foreground leading-normal space-y-2">
+                <p className="font-bold text-foreground">Peringatan: Tindakan ini tidak dapat dibatalkan!</p>
+                <p>Seluruh riwayat transaksi (POS & Online), sesi kasir, pengeluaran, log aktivitas, dan absensi karyawan akan dihapus secara permanen dari server.</p>
+                <p>Data produk, kategori, cabang, dan karyawan Anda tetap tersimpan.</p>
+              </div>
+
+              {resetError && (
+                <div className="p-3 text-xs bg-destructive/10 border border-destructive/20 text-destructive rounded-xl font-medium">
+                  {resetError}
+                </div>
+              )}
+              {resetSuccess && (
+                <div className="p-3 text-xs bg-green-100 text-green-700 dark:bg-green-950/20 border border-green-200 dark:border-green-900/50 rounded-xl font-medium">
+                  Sukses! Seluruh data transaksi dan aktivitas berhasil dibersihkan. Memuat ulang halaman...
+                </div>
+              )}
+              
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-foreground">
+                  Konfirmasi Password Owner *
+                </label>
+                <input
+                  type="password"
+                  value={resetPassword}
+                  onChange={(e) => setResetPassword(e.target.value)}
+                  placeholder="Masukkan password akun Owner Anda"
+                  className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+                  required
+                  disabled={resetLoading || resetSuccess}
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowResetModal(false);
+                    setResetPassword("");
+                    setResetError("");
+                  }}
+                  className="flex-1 py-2 border border-border rounded-xl text-xs font-medium hover:bg-muted text-foreground font-sans cursor-pointer"
+                  disabled={resetLoading || resetSuccess}
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={resetLoading || resetSuccess || !resetPassword.trim()}
+                  className="flex-1 py-2 bg-destructive text-destructive-foreground rounded-xl text-xs font-semibold hover:opacity-90 disabled:opacity-50 font-sans cursor-pointer shadow-sm flex items-center justify-center gap-1"
+                >
+                  {resetLoading ? (
+                    <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <>
+                      <Trash2 size={13} /> Reset Sekarang
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
