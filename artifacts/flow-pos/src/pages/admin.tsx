@@ -473,12 +473,12 @@ function ManageSubscriptionModal({ tenant, onClose, onSave }: any) {
               <option value="trial">Trial (Maks 1 Outlet - 7 Hari Gratis)</option>
               <option value="starter">
                 {billingCycle === "yearly"
-                  ? "FlowApp UMKM (Maks 1 Outlet - Rp1.723.800/thn)"
-                  : "FlowApp UMKM (Maks 1 Outlet - Rp169.000/bln)"}
+                  ? "FlowApp UMKM (Maks 1 Outlet - Rp2.040.000/thn)"
+                  : "FlowApp UMKM (Maks 1 Outlet - Rp249.000/bln)"}
               </option>
               <option value="business">
                 {billingCycle === "yearly"
-                  ? "FlowApp Multi (Maks 3 Outlet - Rp3.049.800/thn)"
+                  ? "FlowApp Multi (Maks 3 Outlet - Rp3.000.000/thn)"
                   : "FlowApp Multi (Maks 3 Outlet - Rp299.000/bln)"}
               </option>
               <option value="pro">

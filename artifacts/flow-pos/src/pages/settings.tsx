@@ -1177,55 +1177,78 @@ export default function SettingsPage() {
                     }`}
                   >
                     Tahunan
-                    <span className="px-1.5 py-0.5 rounded-full bg-green-500 text-white text-[9px] font-extrabold uppercase">Hemat 15%</span>
+                  <span className="px-1.5 py-0.5 rounded-full bg-green-500 text-white text-[9px] font-extrabold uppercase">Hemat 50%</span>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-[10px] font-semibold text-muted-foreground uppercase mb-2">Pilih Paket</label>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {[
+                  { id: "starter", name: "FlowApp UMKM", branches: "Maks 1 Outlet", monthly: "Rp 249.000", originalMonthly: "Rp 349.000", yearly: "Rp 2.040.000", originalYearly: "Rp 349.000/bln" },
+                  { id: "business", name: "FlowApp Multi", branches: "Maks 3 Outlet", monthly: "Rp 299.000", originalMonthly: "Rp 499.000", yearly: "Rp 3.000.000", originalYearly: "Rp 499.000/bln" },
+                  { id: "pro", name: "FlowApp Pro", branches: "Maks 5 Outlet", monthly: "Rp 749.000", yearly: "Rp 6.741.000" },
+                ].map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => setUpgradePlan(p.id as any)}
+                    className={`flex flex-col text-left p-3.5 border rounded-xl cursor-pointer transition-all ${
+                      upgradePlan === p.id
+                        ? "border-primary bg-primary/5 ring-1 ring-primary"
+                        : "border-border hover:border-primary/40 bg-card"
+                    }`}
+                  >
+                    <span className="font-bold text-xs">{p.name}</span>
+                    <span className="text-[10px] text-muted-foreground mt-0.5">{p.branches}</span>
+                    {upgradeCycle === "yearly" ? (
+                      <div className="flex flex-col mt-2">
+                        {p.originalYearly && (
+                          <span className="text-[9px] text-muted-foreground line-through font-normal mb-0.5">
+                            {p.originalYearly}
+                          </span>
+                        )}
+                        <span className="text-xs font-semibold text-primary">
+                          Rp {(p.id === "starter" ? 170000 : p.id === "business" ? 250000 : 561750).toLocaleString("id-ID")}/bln
+                          <span className="text-[8px] text-muted-foreground font-normal block mt-0.5">
+                            (Total {p.yearly})
+                          </span>
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col mt-2">
+                        {p.originalMonthly && (
+                          <span className="text-[9px] text-muted-foreground line-through font-normal mb-0.5">
+                            {p.originalMonthly}
+                          </span>
+                        )}
+                        <span className="text-xs font-semibold text-primary">
+                          {p.monthly}
+                          <span className="text-[9px] text-muted-foreground font-normal">/bln</span>
+                        </span>
+                      </div>
+                    )}
                   </button>
-                </div>
+                ))}
               </div>
+            </div>
 
-              <div>
-                <label className="block text-[10px] font-semibold text-muted-foreground uppercase mb-2">Pilih Paket</label>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {[
-                    { id: "starter", name: "FlowApp UMKM", branches: "Maks 1 Outlet", monthly: "Rp 169.000", yearly: "Rp 1.723.800" },
-                    { id: "business", name: "FlowApp Multi", branches: "Maks 3 Outlet", monthly: "Rp 299.000", yearly: "Rp 3.049.800" },
-                    { id: "pro", name: "FlowApp Pro", branches: "Maks 5 Outlet", monthly: "Rp 749.000", yearly: "Rp 6.741.000" },
-                  ].map((p) => (
-                    <button
-                      key={p.id}
-                      type="button"
-                      onClick={() => setUpgradePlan(p.id as any)}
-                      className={`flex flex-col text-left p-3.5 border rounded-xl cursor-pointer transition-all ${
-                        upgradePlan === p.id
-                          ? "border-primary bg-primary/5 ring-1 ring-primary"
-                          : "border-border hover:bg-muted text-foreground bg-transparent"
-                      }`}
-                    >
-                      <span className="font-bold text-xs">{p.name}</span>
-                      <span className="text-[10px] text-muted-foreground mt-0.5">{p.branches}</span>
-                      <span className="text-xs font-semibold text-primary mt-2">
-                        {upgradeCycle === "yearly" ? p.yearly : p.monthly}
-                        <span className="text-[9px] text-muted-foreground font-normal">/{upgradeCycle === "yearly" ? "thn" : "bln"}</span>
-                      </span>
-                    </button>
-                  ))}
-                </div>
+            <div className="bg-muted/30 border border-border p-4 rounded-xl space-y-2 text-xs">
+              <div className="font-semibold text-foreground">Detail Upgrade:</div>
+              <div className="flex justify-between text-muted-foreground">
+                <span>Paket Baru:</span>
+                <span className="font-medium text-foreground">{PLAN_DISPLAY_MAP[upgradePlan] || upgradePlan} ({upgradeCycle === "yearly" ? "Tahunan" : "Bulanan"})</span>
               </div>
-
-              <div className="bg-muted/30 border border-border p-4 rounded-xl space-y-2 text-xs">
-                <div className="font-semibold text-foreground">Detail Upgrade:</div>
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Paket Baru:</span>
-                  <span className="font-medium text-foreground">{PLAN_DISPLAY_MAP[upgradePlan] || upgradePlan} ({upgradeCycle === "yearly" ? "Tahunan" : "Bulanan"})</span>
-                </div>
-                <div className="flex justify-between text-muted-foreground">
-                  <span>Estimasi Biaya:</span>
-                  <span className="font-bold text-primary">
-                    {upgradePlan === "starter" ? (upgradeCycle === "yearly" ? "Rp 1.723.800" : "Rp 169.000") :
-                     upgradePlan === "business" ? (upgradeCycle === "yearly" ? "Rp 3.049.800" : "Rp 299.000") :
-                     (upgradeCycle === "yearly" ? "Rp 6.741.000" : "Rp 749.000")}
-                  </span>
-                </div>
+              <div className="flex justify-between text-muted-foreground">
+                <span>Estimasi Biaya:</span>
+                <span className="font-bold text-primary">
+                  {upgradePlan === "starter" ? (upgradeCycle === "yearly" ? "Rp 2.040.000" : "Rp 249.000") :
+                   upgradePlan === "business" ? (upgradeCycle === "yearly" ? "Rp 3.000.000" : "Rp 299.000") :
+                   (upgradeCycle === "yearly" ? "Rp 6.741.000" : "Rp 749.000")}
+                </span>
               </div>
+            </div>
             </div>
 
             <div className="flex gap-3 px-6 py-4 border-t border-border bg-muted/10">

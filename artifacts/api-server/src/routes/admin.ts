@@ -731,9 +731,9 @@ router.post("/admin/subscription-upgrades/:id/approve", async (req, res): Promis
   const plan = request.requestedPlan;
   const computedPrice =
     plan === "starter"
-      ? (isYearly ? "1723800" : "169000")
+      ? (isYearly ? "2040000" : "249000")
       : plan === "business"
-      ? (isYearly ? "3049800" : "299000")
+      ? (isYearly ? "3000000" : "299000")
       : plan === "pro"
       ? (isYearly ? "6741000" : "749000")
       : "0";

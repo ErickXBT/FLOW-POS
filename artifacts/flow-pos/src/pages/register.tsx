@@ -200,7 +200,7 @@ export default function RegisterPage({ onLogin }: { onLogin: (token: string, use
                   >
                     Tahunan
                     <span className="px-1.5 py-0.5 rounded-full bg-green-500 text-white text-[9px] font-extrabold uppercase">
-                      Hemat 15%
+                      Hemat 50%
                     </span>
                   </button>
                 </div>
@@ -218,18 +218,20 @@ export default function RegisterPage({ onLogin }: { onLogin: (token: string, use
                   {
                     id: "starter",
                     name: "FlowApp UMKM",
-                    priceLabel: billingCycle === "monthly" ? "Rp169.000" : "Rp143.650",
+                    priceLabel: billingCycle === "monthly" ? "Rp249.000" : "Rp170.000",
+                    originalPriceLabel: "Rp349.000",
                     periodLabel: "/bulan",
-                    totalLabel: billingCycle === "yearly" ? "Total Rp1.723.800/tahun (Hemat 15%)" : "",
+                    totalLabel: billingCycle === "yearly" ? "Total Rp2.040.000/tahun (Hemat 50%)" : "",
                     features: ["1 outlet"],
                     isPopular: true,
                   },
                   {
                     id: "business",
                     name: "FlowApp Multi",
-                    priceLabel: billingCycle === "monthly" ? "Rp299.000" : "Rp254.150",
+                    priceLabel: billingCycle === "monthly" ? "Rp299.000" : "Rp250.000",
+                    originalPriceLabel: "Rp499.000",
                     periodLabel: "/bulan",
-                    totalLabel: billingCycle === "yearly" ? "Total Rp3.049.800/tahun (Hemat 15%)" : "",
+                    totalLabel: billingCycle === "yearly" ? "Total Rp3.000.000/tahun (Hemat 50%)" : "",
                     features: ["Hingga 3 outlet"],
                   },
                   {
@@ -261,6 +263,11 @@ export default function RegisterPage({ onLogin }: { onLogin: (token: string, use
                         <div>
                           <div className="font-bold text-foreground text-sm">{planItem.name}</div>
                           <div className="flex flex-col mt-1.5">
+                            {planItem.originalPriceLabel && (
+                              <span className="text-[10px] text-muted-foreground line-through font-normal mb-0.5">
+                                {planItem.originalPriceLabel}
+                              </span>
+                            )}
                             <div className="flex items-baseline">
                               <span className="text-lg font-extrabold text-foreground">{planItem.priceLabel}</span>
                               {planItem.periodLabel && <span className="text-[10px] text-muted-foreground ml-0.5">{planItem.periodLabel}</span>}

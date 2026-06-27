@@ -454,7 +454,7 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
               <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-5 space-y-3.5 shadow-inner">
                 <div className="text-[10px] font-bold text-primary uppercase tracking-wider">Langkah Upgrade ke FlowApp UMKM:</div>
                 <div className="space-y-1 text-xs text-slate-300">
-                  <p>1. Transfer biaya langganan sebesar <span className="font-bold text-white">Rp 169.000 / bulan</span> ke rekening BCA di bawah.</p>
+                  <p>1. Transfer biaya langganan sebesar <span className="font-bold text-white">Rp 249.000 / bulan</span> ke rekening BCA di bawah.</p>
                   <p>2. Klik tombol konfirmasi WhatsApp untuk mengirimkan bukti transfer kepada Admin.</p>
                   <p>3. Admin akan segera mengaktifkan akun Anda.</p>
                 </div>

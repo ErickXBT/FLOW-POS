@@ -311,7 +311,7 @@ function UpgradeSubscriptionModal({ plan, limit, onClose }: { plan: string; limi
             <div className="p-2 border border-border rounded-lg bg-muted/20">
               <span className="font-bold text-foreground">FlowApp UMKM</span>
               <p className="text-[8px] text-muted-foreground">1 Outlet</p>
-              <p className="text-primary font-bold mt-0.5 font-sans">Rp169.000/bln</p>
+              <p className="text-primary font-bold mt-0.5 font-sans">Rp249.000/bln</p>
             </div>
             <div className="p-2 border border-border rounded-lg bg-muted/20">
               <span className="font-bold text-foreground">FlowApp Multi</span>
