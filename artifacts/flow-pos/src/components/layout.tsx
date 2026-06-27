@@ -5,14 +5,14 @@ import {
   Users, UserCheck, BarChart3, Warehouse, Settings,
   Shield, LogOut, Menu, X, Sun, Moon, Smartphone,
   ChefHat, Truck, Activity, MapPin, ShieldCheck, QrCode, ShoppingBag, Sparkles,
-  Receipt, Coins, History, ArrowLeftRight, Printer
+  Receipt, Coins, History, ArrowLeftRight, Printer, AlertTriangle, Bell
 } from "lucide-react";
 import flowLogo from "@assets/FLOW_LOGO_1780799864457.png";
 import type { AuthUser } from "@/hooks/use-auth";
 import { ROLE_LABELS, hasPermission } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
 import { useActiveBranch } from "@/hooks/use-active-branch";
-import { useGetTenant, getGetTenantQueryKey } from "@workspace/api-client-react";
+import { useGetTenant, getGetTenantQueryKey, useListAnnouncements, getListAnnouncementsQueryKey } from "@workspace/api-client-react";
 
 interface NavItem {
   href: string;
@@ -124,6 +124,32 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
   const { toast } = useToast();
   const tokenRef = useRef(localStorage.getItem("flow_token") ?? "");
   const [activePopupOrder, setActivePopupOrder] = useState<any | null>(null);
+
+  const isSuperAdmin = user.role === "super_admin";
+  const { data: rawAnnouncements } = useListAnnouncements({
+    query: {
+      enabled: !isSuperAdmin,
+      queryKey: getListAnnouncementsQueryKey()
+    }
+  });
+
+  const activeAnnouncements = ((rawAnnouncements || []) as any[]).filter((a: any) => a.isActive);
+  const maintenanceAlerts = activeAnnouncements.filter((a: any) => a.type === "maintenance");
+  const carouselBanners = activeAnnouncements.filter((a: any) => a.type !== "maintenance");
+
+  const [currentSlide, setCurrentSlide] = useState(0);
+
+  useEffect(() => {
+    setCurrentSlide(0);
+  }, [carouselBanners.length]);
+
+  useEffect(() => {
+    if (carouselBanners.length <= 1) return;
+    const interval = setInterval(() => {
+      setCurrentSlide(prev => (prev + 1) % carouselBanners.length);
+    }, 6000);
+    return () => clearInterval(interval);
+  }, [carouselBanners.length]);
 
   // Request Notification permission on mount
   useEffect(() => {
@@ -599,6 +625,121 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
                 {dark ? <Sun size={18} /> : <Moon size={18} />}
               </button>
             </header>
+
+            {/* Global Banner & Announcements (Between Outlet Selector and Page Content) */}
+            {!isSuperAdmin && (maintenanceAlerts.length > 0 || carouselBanners.length > 0) && (
+              <div className="flex-shrink-0 px-6 pt-4 space-y-3">
+                {/* 1. Maintenance Alert (Urgent/Statis) */}
+                {maintenanceAlerts.map((ann: any) => (
+                  <div key={ann.id} className="bg-red-500/10 border border-red-500/30 text-red-700 dark:text-red-400 p-4 rounded-2xl flex flex-col gap-3 shadow-sm border-l-4 border-l-red-500 animate-pulse">
+                    {ann.imageUrl && (
+                      <div className="w-full aspect-[21/9] rounded-xl overflow-hidden border border-red-500/20 bg-muted">
+                        <img src={ann.imageUrl} alt={ann.title} className="w-full h-full object-cover" />
+                      </div>
+                    )}
+                    <div className="flex items-start gap-3.5">
+                      <AlertTriangle size={18} className="flex-shrink-0 mt-0.5 text-red-500" />
+                      <div>
+                        <h4 className="font-bold text-sm leading-snug">{ann.title}</h4>
+                        <p className="text-xs mt-1 text-muted-foreground leading-relaxed whitespace-pre-wrap">{ann.content}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {/* 2. Autoplay Looping Carousel (Promo, Update, General) */}
+                {carouselBanners.length > 0 && (
+                  <div className="relative overflow-hidden rounded-2xl shadow-md border border-border bg-card transition-all duration-300">
+                    <div 
+                      className="flex transition-transform duration-500 ease-in-out"
+                      style={{ transform: `translateX(-${currentSlide * 100}%)` }}
+                    >
+                      {carouselBanners.map((ann: any) => {
+                        const isPromo = ann.type === "promotion" || ann.type === "promo";
+                        const isUpdate = ann.type === "update";
+                        
+                        return (
+                          <div 
+                            key={ann.id} 
+                            className={`w-full flex-shrink-0 p-5 ${
+                              isPromo 
+                                ? "bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 text-white" 
+                                : "bg-card text-foreground"
+                            } relative flex flex-col gap-4 min-h-[140px] justify-between`}
+                            style={{ width: "100%" }}
+                          >
+                            {/* Decorative blur blob for promo */}
+                            {isPromo && (
+                              <div className="absolute right-0 top-0 w-32 h-32 bg-white/5 rounded-full blur-xl translate-x-12 -translate-y-12 pointer-events-none" />
+                            )}
+                            
+                            {ann.imageUrl && (
+                              <div className={`w-full aspect-[21/9] rounded-xl overflow-hidden relative z-10 border ${
+                                isPromo ? "border-white/10 bg-black/20" : "border-border/30 bg-muted"
+                              }`}>
+                                <img src={ann.imageUrl} alt={ann.title} className="w-full h-full object-cover" />
+                              </div>
+                            )}
+
+                            <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 relative z-10">
+                              <div className="flex items-start gap-3.5">
+                                {isPromo ? (
+                                  <Sparkles size={22} className="flex-shrink-0 mt-0.5 text-yellow-300 animate-bounce" />
+                                ) : (
+                                  <div className={`p-2 rounded-lg ${isUpdate ? "bg-green-500/10 text-green-600" : "bg-blue-500/10 text-blue-600"} flex-shrink-0`}>
+                                    {isUpdate ? <Sparkles size={16} /> : <Bell size={16} />}
+                                  </div>
+                                )}
+                                <div>
+                                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wide ${
+                                    isPromo 
+                                      ? "bg-yellow-400 text-slate-900" 
+                                      : isUpdate 
+                                        ? "bg-green-100 text-green-700 dark:bg-green-950/20 dark:text-green-400" 
+                                        : "bg-blue-100 text-blue-700 dark:bg-blue-950/20 dark:text-blue-400"
+                                  }`}>
+                                    {isPromo ? "Promo Platform" : ann.type}
+                                  </span>
+                                  <h4 className="font-bold text-sm leading-snug mt-1.5">{ann.title}</h4>
+                                  <p className={`text-xs mt-1 leading-relaxed whitespace-pre-wrap ${isPromo ? "opacity-90" : "text-muted-foreground"}`}>{ann.content}</p>
+                                </div>
+                              </div>
+                              
+                              {isPromo && (
+                                <Link href="/settings">
+                                  <a className="px-4 py-2 bg-yellow-400 hover:bg-yellow-300 active:scale-95 text-slate-900 font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 self-start sm:self-auto cursor-pointer">
+                                    Kelola Langganan <Sparkles size={12} />
+                                  </a>
+                                </Link>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Carousel Indicators (Dots) */}
+                    {carouselBanners.length > 1 && (
+                      <div className="absolute bottom-2 left-1/2 -translate-x-1/2 flex gap-1.5 z-20">
+                        {carouselBanners.map((_: any, idx: number) => (
+                          <button
+                            key={idx}
+                            onClick={() => setCurrentSlide(idx)}
+                            className={`h-1.5 rounded-full transition-all ${
+                              currentSlide === idx 
+                                ? "w-4 bg-white dark:bg-primary" 
+                                : "w-1.5 bg-white/40 dark:bg-muted-foreground/40"
+                            }`}
+                            title={`Slide ${idx + 1}`}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             <main className="flex-1 overflow-y-auto">
               {children}
             </main>

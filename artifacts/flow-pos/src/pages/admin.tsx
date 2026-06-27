@@ -863,6 +863,41 @@ function AnnouncementsTab() {
     reader.readAsDataURL(file);
   };
 
+  const handleToggleActive = async (id: number, currentActive: boolean) => {
+    try {
+      const token = localStorage.getItem("flow_token");
+      const res = await fetch(`/api/admin/announcements/${id}/toggle`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token || ""}`,
+        },
+        body: JSON.stringify({ isActive: !currentActive }),
+      });
+      if (!res.ok) throw new Error();
+      refetch();
+    } catch {
+      alert("Gagal mengubah status pengumuman.");
+    }
+  };
+
+  const handleDelete = async (id: number) => {
+    if (!confirm("Apakah Anda yakin ingin menghapus pengumuman ini secara permanen?")) return;
+    try {
+      const token = localStorage.getItem("flow_token");
+      const res = await fetch(`/api/admin/announcements/${id}`, {
+        method: "DELETE",
+        headers: {
+          "Authorization": `Bearer ${token || ""}`,
+        },
+      });
+      if (!res.ok) throw new Error();
+      refetch();
+    } catch {
+      alert("Gagal menghapus pengumuman.");
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.title.trim() || !form.content.trim()) return;
@@ -962,26 +997,58 @@ function AnnouncementsTab() {
             <div className="text-center py-12 text-muted-foreground text-xs font-medium">Belum ada pengumuman disiarkan.</div>
           ) : (
             (list || []).map((a: any) => (
-              <div key={a.id} className="bg-background border border-border p-4 rounded-xl space-y-2 hover:shadow-sm transition-all">
-                <div className="flex justify-between items-start">
-                  <div className="text-sm font-bold text-foreground">{a.title}</div>
-                  <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${
-                    a.type === "maintenance" ? "bg-red-100 text-red-700 dark:bg-red-950/20 dark:text-red-400" :
-                    a.type === "update" ? "bg-green-100 text-green-700 dark:bg-green-950/20 dark:text-green-400" :
-                    a.type === "promotion" ? "bg-amber-100 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400" :
-                    "bg-blue-100 text-blue-700 dark:bg-blue-950/20 dark:text-blue-400"
-                  }`}>
-                    {a.type}
-                  </span>
-                </div>
-                {a.imageUrl && (
-                  <div className="border border-border/40 rounded-lg overflow-hidden aspect-[16/9] bg-muted w-full max-h-40 my-2">
-                    <img src={a.imageUrl} alt={a.title} className="w-full h-full object-cover" />
+              <div key={a.id} className="bg-background border border-border p-4 rounded-xl space-y-2 hover:shadow-sm transition-all flex flex-col justify-between">
+                <div>
+                  <div className="flex justify-between items-start">
+                    <div className="text-sm font-bold text-foreground">{a.title}</div>
+                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${
+                      a.type === "maintenance" ? "bg-red-100 text-red-700 dark:bg-red-950/20 dark:text-red-400" :
+                      a.type === "update" ? "bg-green-100 text-green-700 dark:bg-green-950/20 dark:text-green-400" :
+                      a.type === "promotion" ? "bg-amber-100 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400" :
+                      "bg-blue-100 text-blue-700 dark:bg-blue-950/20 dark:text-blue-400"
+                    }`}>
+                      {a.type}
+                    </span>
                   </div>
-                )}
-                <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">{a.content}</p>
-                <div className="text-[10px] text-muted-foreground/70 text-right">
-                  {new Date(a.createdAt).toLocaleString("id-ID", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                  {a.imageUrl && (
+                    <div className="border border-border/40 rounded-lg overflow-hidden aspect-[16/9] bg-muted w-full max-h-40 my-2">
+                      <img src={a.imageUrl} alt={a.title} className="w-full h-full object-cover" />
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">{a.content}</p>
+                </div>
+                
+                <div className="flex items-center justify-between pt-2 border-t border-border/50 mt-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-semibold text-muted-foreground">Status Aktif:</span>
+                    <button
+                      type="button"
+                      onClick={() => handleToggleActive(a.id, a.isActive)}
+                      className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                        a.isActive ? "bg-primary" : "bg-muted"
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                          a.isActive ? "translate-x-4" : "translate-x-0"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                  
+                  <div className="flex items-center gap-3">
+                    <span className="text-[9px] text-muted-foreground/70">
+                      {new Date(a.createdAt).toLocaleString("id-ID", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleDelete(a.id)}
+                      className="p-1.5 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors flex items-center gap-1 text-[10px] font-bold"
+                      title="Hapus Pengumuman"
+                    >
+                      <Trash2 size={13} /> Hapus
+                    </button>
+                  </div>
                 </div>
               </div>
             ))

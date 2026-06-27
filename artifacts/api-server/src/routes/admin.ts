@@ -411,11 +411,20 @@ router.post("/admin/tenants/:id/impersonate", async (req, res): Promise<void> =>
 
 // Announcements endpoints
 router.get("/announcements", async (req, res): Promise<void> => {
-  if (!requireAdminOrTenant(req, res)) return;
+  const claims = requireAdminOrTenant(req, res);
+  if (!claims) return;
 
-  const list = await db.select().from(announcementsTable)
-    .orderBy(desc(announcementsTable.createdAt))
-    .limit(10);
+  let list;
+  if (claims.role === "super_admin") {
+    // Super Admin can see all announcements (active and inactive) for management
+    list = await db.select().from(announcementsTable)
+      .orderBy(desc(announcementsTable.createdAt));
+  } else {
+    // Normal tenants can only see active announcements
+    list = await db.select().from(announcementsTable)
+      .where(eq(announcementsTable.isActive, true))
+      .orderBy(desc(announcementsTable.createdAt));
+  }
 
   res.json(list.map(a => ({ ...a, createdAt: a.createdAt.toISOString() })));
 });
@@ -448,9 +457,38 @@ router.post("/admin/announcements", async (req, res): Promise<void> => {
     content,
     type: type || "general",
     imageUrl: imageUrl || null,
+    isActive: true,
   }).returning();
 
   res.status(201).json({ ...ann, createdAt: ann.createdAt.toISOString() });
+});
+
+router.delete("/admin/announcements/:id", async (req, res): Promise<void> => {
+  if (!requireAdmin(req, res)) return;
+
+  const id = Number(req.params.id);
+  if (isNaN(id)) { res.status(400).json({ error: "ID tidak valid" }); return; }
+
+  await db.delete(announcementsTable).where(eq(announcementsTable.id, id));
+
+  res.sendStatus(204);
+});
+
+router.patch("/admin/announcements/:id/toggle", async (req, res): Promise<void> => {
+  if (!requireAdmin(req, res)) return;
+
+  const id = Number(req.params.id);
+  const { isActive } = req.body;
+  if (isNaN(id)) { res.status(400).json({ error: "ID tidak valid" }); return; }
+
+  const [updated] = await db.update(announcementsTable)
+    .set({ isActive: isActive === undefined ? true : !!isActive })
+    .where(eq(announcementsTable.id, id))
+    .returning();
+
+  if (!updated) { res.status(404).json({ error: "Pengumuman tidak ditemukan" }); return; }
+
+  res.status(200).json({ ...updated, createdAt: updated.createdAt.toISOString() });
 });
 
 // Support Ticket endpoints
