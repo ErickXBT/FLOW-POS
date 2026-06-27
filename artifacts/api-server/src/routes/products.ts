@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, ilike, count, sql, desc } from "drizzle-orm";
+import { eq, and, ilike, count, sql, desc, or } from "drizzle-orm";
 import { db, productsTable, categoriesTable, orderItemsTable, ordersTable, employeesTable, publicMenuProductsTable, publicMenusTable, publicMenuCategoriesTable, tenantsTable } from "@workspace/db";
 import fs from "fs";
 import path from "path";
@@ -142,6 +142,52 @@ function formatProduct(p: any, categoryName?: string | null, bp?: any) {
     createdAt: p.createdAt instanceof Date ? p.createdAt.toISOString() : p.createdAt,
   };
 }
+
+router.get("/products/scan-lookup", async (req, res): Promise<void> => {
+  const claims = requireTenant(req, res);
+  if (!claims) return;
+
+  const { barcode, branchId } = req.query as any;
+  if (!barcode) {
+    res.status(400).json({ error: "Barcode atau SKU diperlukan" });
+    return;
+  }
+
+  const activeBranchId = branchId ? Number(branchId) : await getRequestedBranchId(req, claims);
+
+  const [row] = await db
+    .select({
+      product: productsTable,
+      categoryName: categoriesTable.name,
+      branchProduct: {
+        price: publicMenuProductsTable.price,
+        promoPrice: publicMenuProductsTable.promoPrice,
+        isAvailable: publicMenuProductsTable.isAvailable,
+        stock: publicMenuProductsTable.stock,
+      }
+    })
+    .from(productsTable)
+    .leftJoin(categoriesTable, eq(productsTable.categoryId, categoriesTable.id))
+    .leftJoin(
+      publicMenuProductsTable,
+      and(
+        eq(productsTable.id, publicMenuProductsTable.productId),
+        eq(publicMenuProductsTable.branchId, activeBranchId ? activeBranchId : -1)
+      )
+    )
+    .where(and(
+      eq(productsTable.tenantId, claims.tenantId!),
+      or(eq(productsTable.barcode, barcode), eq(productsTable.sku, barcode))
+    ))
+    .limit(1);
+
+  if (!row) {
+    res.status(404).json({ error: `Produk dengan barcode atau SKU "${barcode}" tidak ditemukan.` });
+    return;
+  }
+
+  res.json(formatProduct(row.product, row.categoryName, row.branchProduct));
+});
 
 router.get("/products", async (req, res): Promise<void> => {
   const claims = requireTenant(req, res);

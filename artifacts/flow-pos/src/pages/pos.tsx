@@ -454,6 +454,61 @@ export default function POSPage() {
     }
   };
 
+  // Barcode scanner keydown listener on POS page
+  useEffect(() => {
+    let barcodeBuffer = "";
+    let lastKeyTime = Date.now();
+
+    const handleKeyDown = async (e: KeyboardEvent) => {
+      const isInput = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
+      const currentTime = Date.now();
+      
+      if (currentTime - lastKeyTime > 50) {
+        barcodeBuffer = "";
+      }
+
+      if (e.key !== "Enter") {
+        if (e.key.length === 1) {
+          barcodeBuffer += e.key;
+        }
+      } else {
+        if (barcodeBuffer.length >= 3) {
+          if (!isInput || (currentTime - lastKeyTime < 50)) {
+            e.preventDefault();
+            e.stopPropagation();
+            const scannedCode = barcodeBuffer.trim();
+            barcodeBuffer = "";
+
+            try {
+              const token = localStorage.getItem("flow_token") ?? "";
+              const res = await fetch(`${import.meta.env.BASE_URL.replace(/\/$/, "")}/api/tenant/products/scan-lookup?barcode=${encodeURIComponent(scannedCode)}&branchId=${activeBranchId || ""}`, {
+                headers: {
+                  "Authorization": `Bearer ${token}`
+                }
+              });
+
+              if (!res.ok) {
+                const errData = await res.json();
+                throw new Error(errData.error || "Produk tidak ditemukan");
+              }
+
+              const matchedProduct = await res.json();
+              addToCart(matchedProduct);
+            } catch (err: any) {
+              console.error(err);
+              alert(err.message || "Gagal memproses barcode");
+            }
+          }
+        }
+        barcodeBuffer = "";
+      }
+      lastKeyTime = currentTime;
+    };
+
+    window.addEventListener("keydown", handleKeyDown, true);
+    return () => window.removeEventListener("keydown", handleKeyDown, true);
+  }, [activeBranchId, tenant, addToCart]);
+
   const updateQty = (id: string, delta: number) => {
     setCart(c => c.map(i => i.id === id ? { ...i, quantity: Math.max(0, i.quantity + delta) } : i).filter(i => i.quantity > 0));
   };
