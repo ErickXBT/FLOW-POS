@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and, desc, sql, inArray, ilike } from "drizzle-orm";
+import { eq, and, desc, sql, inArray, ilike, or } from "drizzle-orm";
 import crypto from "crypto";
 import {
   db, tenantsTable, categoriesTable, productsTable,
@@ -855,6 +855,140 @@ router.get("/tenant/customer-orders/:id", async (req, res): Promise<void> => {
     .where(eq(customerOrderItemsTable.customerOrderId, order.id));
 
   res.json(formatCustomerOrder(order, items));
+});
+
+router.post("/tenant/customer-orders/scan-checkout", async (req, res): Promise<void> => {
+  const claims = extractToken(req);
+  if (!claims || !claims.tenantId) { res.status(401).json({ error: "Unauthorized" }); return; }
+
+  const { barcode, branchId } = req.body;
+  if (!barcode) { res.status(400).json({ error: "Barcode atau SKU produk diperlukan" }); return; }
+
+  // 1. Find product by barcode or SKU
+  const [product] = await db.select().from(productsTable)
+    .where(and(
+      eq(productsTable.tenantId, claims.tenantId),
+      or(eq(productsTable.barcode, barcode), eq(productsTable.sku, barcode))
+    ))
+    .limit(1);
+
+  if (!product) {
+    res.status(404).json({ error: `Produk dengan barcode atau SKU "${barcode}" tidak ditemukan.` });
+    return;
+  }
+
+  // 2. Fetch tenant settings
+  const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, claims.tenantId)).limit(1);
+  if (!tenant) {
+    res.status(404).json({ error: "Tenant tidak ditemukan." });
+    return;
+  }
+
+  // 3. Resolve active branch ID
+  let activeBranchId = Number(branchId);
+  if (!activeBranchId) {
+    const branches = await db.select().from(branchesTable).where(eq(branchesTable.tenantId, claims.tenantId)).limit(1);
+    if (branches.length > 0) {
+      activeBranchId = branches[0].id;
+    } else {
+      res.status(400).json({ error: "Tenant tidak memiliki cabang terdaftar." });
+      return;
+    }
+  }
+
+  // 4. Calculate prices
+  const quantity = 1;
+  const subtotal = Number(product.price) * quantity;
+  const discountAmount = 0;
+  const subtotalAfterDiscount = subtotal - discountAmount;
+  
+  const enableServiceCharge = (tenant as any).enableServiceCharge ?? false;
+  const serviceChargePercentage = enableServiceCharge ? Number((tenant as any).serviceChargePercentage ?? 10) : 0;
+  const serviceChargeAmount = subtotalAfterDiscount * (serviceChargePercentage / 100);
+
+  const enableTax = (tenant as any).enableTax ?? false;
+  const taxPercentage = enableTax ? Number(tenant.taxPercentage ?? 10) : 0;
+  const taxAmount = (subtotalAfterDiscount + serviceChargeAmount) * (taxPercentage / 100);
+
+  const total = subtotalAfterDiscount + serviceChargeAmount + taxAmount;
+  const orderNum = `SCAN-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+  // 5. Get employee details
+  let cashierId: number | null = null;
+  let cashierName: string | null = null;
+  const [employee] = await db.select().from(employeesTable).where(eq(employeesTable.userId, claims.userId)).limit(1);
+  if (employee) {
+    cashierId = employee.id;
+    cashierName = employee.name;
+  } else {
+    const [userRec] = await db.select().from(usersTable).where(eq(usersTable.id, claims.userId)).limit(1);
+    if (userRec) {
+      cashierName = userRec.name;
+    }
+  }
+
+  // 6. Create customer order in database
+  const [order] = await db.insert(customerOrdersTable).values({
+    orderNumber: orderNum,
+    tenantId: claims.tenantId,
+    branchId: activeBranchId,
+    orderType: "take_away", // default order type: Ambil di Toko / take_away
+    customerName: "Scan Barcode",
+    customerPhone: null,
+    tableNumber: null,
+    deliveryAddress: null,
+    deliveryNotes: null,
+    deliveryFee: "0",
+    paymentMethod: "cashier", // customer pays at cashier
+    subtotal: String(subtotal),
+    discount: String(discountAmount),
+    tax: String(taxAmount),
+    serviceCharge: String(serviceChargeAmount),
+    total: String(total),
+    status: "pending",
+    paymentStatus: "unpaid",
+    notes: "Checkout otomatis via scan barcode",
+    employeeId: cashierId,
+    employeeName: cashierName,
+    priority: "normal",
+    estimatedTime: 5,
+    isClaimReward: false,
+  }).returning();
+
+  // 7. Create customer order item
+  const [insertedItem] = await db.insert(customerOrderItemsTable).values({
+    tenantId: claims.tenantId,
+    branchId: activeBranchId,
+    customerOrderId: order.id,
+    productId: product.id,
+    productName: product.name,
+    quantity: quantity,
+    price: String(product.price),
+    subtotal: String(subtotal),
+    notes: null,
+    variantSelection: null,
+  }).returning();
+
+  // 8. Deduct branch stock
+  try {
+    if (activeBranchId) {
+      await deductBranchStock(claims.tenantId, activeBranchId, product.id, quantity);
+    } else {
+      await db.execute(sql`UPDATE products SET stock = stock - ${quantity} WHERE id = ${product.id} AND tenant_id = ${claims.tenantId}`);
+    }
+  } catch (stockErr) {
+    console.error("Failed to deduct stock for scan checkout order:", stockErr);
+  }
+
+  // 9. Format response & broadcast via SSE
+  const insertedItemsWithImage = [{
+    ...insertedItem,
+    imageUrl: product.imageUrl ?? null
+  }];
+  const formatted = formatCustomerOrder(order, insertedItemsWithImage);
+  broadcastNewOrder(claims.tenantId, formatted);
+  
+  res.status(201).json(formatted);
 });
 
 router.patch("/tenant/customer-orders/:id/status", async (req, res): Promise<void> => {
