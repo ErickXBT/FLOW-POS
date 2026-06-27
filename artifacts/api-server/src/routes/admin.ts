@@ -17,6 +17,7 @@ import {
 import { extractToken } from "./auth";
 import * as jwt from "jsonwebtoken";
 import { logActivity } from "./activity";
+import { uploadProductImage } from "../lib/storage";
 
 const router: IRouter = Router();
 const JWT_SECRET = process.env.SESSION_SECRET || "flow-pos-secret-key-2024";
@@ -419,16 +420,34 @@ router.get("/announcements", async (req, res): Promise<void> => {
   res.json(list.map(a => ({ ...a, createdAt: a.createdAt.toISOString() })));
 });
 
+router.post("/admin/announcements/upload", async (req, res): Promise<void> => {
+  if (!requireAdmin(req, res)) return;
+
+  const { name, base64 } = req.body;
+  if (!name || !base64) {
+    res.status(400).json({ error: "Nama file atau konten base64 tidak boleh kosong" });
+    return;
+  }
+
+  try {
+    const imageUrl = await uploadProductImage(base64, name, 0); // scoped under admin (tenantId = 0)
+    res.status(200).json({ imageUrl });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || "Gagal mengunggah gambar" });
+  }
+});
+
 router.post("/admin/announcements", async (req, res): Promise<void> => {
   if (!requireAdmin(req, res)) return;
 
-  const { title, content, type } = req.body;
+  const { title, content, type, imageUrl } = req.body;
   if (!title || !content) { res.status(400).json({ error: "Judul dan konten wajib diisi" }); return; }
 
   const [ann] = await db.insert(announcementsTable).values({
     title,
     content,
     type: type || "general",
+    imageUrl: imageUrl || null,
   }).returning();
 
   res.status(201).json({ ...ann, createdAt: ann.createdAt.toISOString() });

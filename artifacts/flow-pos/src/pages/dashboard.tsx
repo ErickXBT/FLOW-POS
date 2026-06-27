@@ -1393,18 +1393,25 @@ function OwnerDashboard() {
               {/* Banner Pengumuman & Promo dari Super Admin */}
               {announcements && announcements.length > 0 && (
                 <div className="space-y-3">
-                  {announcements.map((ann) => {
+                  {announcements.map((ann: any) => {
                     const isPromo = ann.type === "promotion" || ann.type === "promo";
                     const isMaintenance = ann.type === "maintenance";
                     const isUpdate = ann.type === "update";
                     
                     if (isMaintenance) {
                       return (
-                        <div key={ann.id} className="bg-red-500/10 border border-red-500/30 text-red-700 dark:text-red-400 p-4 rounded-2xl flex items-start gap-3.5 shadow-sm animate-pulse">
-                          <AlertTriangle size={18} className="flex-shrink-0 mt-0.5 text-red-500" />
-                          <div>
-                            <h4 className="font-bold text-sm leading-snug">{ann.title}</h4>
-                            <p className="text-xs mt-1 text-muted-foreground leading-relaxed whitespace-pre-wrap">{ann.content}</p>
+                        <div key={ann.id} className="bg-red-500/10 border border-red-500/30 text-red-700 dark:text-red-400 p-4 rounded-2xl flex flex-col gap-3.5 shadow-sm animate-pulse">
+                          {ann.imageUrl && (
+                            <div className="w-full aspect-[21/9] rounded-xl overflow-hidden border border-red-500/20 bg-muted">
+                              <img src={ann.imageUrl} alt={ann.title} className="w-full h-full object-cover" />
+                            </div>
+                          )}
+                          <div className="flex items-start gap-3.5">
+                            <AlertTriangle size={18} className="flex-shrink-0 mt-0.5 text-red-500" />
+                            <div>
+                              <h4 className="font-bold text-sm leading-snug">{ann.title}</h4>
+                              <p className="text-xs mt-1 text-muted-foreground leading-relaxed whitespace-pre-wrap">{ann.content}</p>
+                            </div>
                           </div>
                         </div>
                       );
@@ -1412,41 +1419,55 @@ function OwnerDashboard() {
                     
                     if (isPromo) {
                       return (
-                        <div key={ann.id} className="relative overflow-hidden bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 text-white p-5 rounded-2xl shadow-md flex flex-col sm:flex-row justify-between sm:items-center gap-4 hover:shadow-xl transition-all duration-300">
+                        <div key={ann.id} className="relative overflow-hidden bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 text-white p-5 rounded-2xl shadow-lg flex flex-col gap-4 hover:shadow-xl transition-all duration-300">
                           <div className="absolute right-0 top-0 w-32 h-32 bg-white/5 rounded-full blur-xl translate-x-12 -translate-y-12" />
-                          <div className="flex items-start gap-3.5 relative z-10">
-                            <Sparkles size={22} className="flex-shrink-0 mt-0.5 text-yellow-300 animate-bounce" />
-                            <div>
-                              <span className="px-2 py-0.5 rounded-full bg-yellow-400 text-slate-900 text-[9px] font-extrabold uppercase tracking-wide">Promo Platform</span>
-                              <h4 className="font-bold text-base leading-snug mt-1.5">{ann.title}</h4>
-                              <p className="text-xs mt-1 opacity-90 leading-relaxed whitespace-pre-wrap">{ann.content}</p>
+                          {ann.imageUrl && (
+                            <div className="w-full aspect-[21/9] rounded-xl overflow-hidden border border-white/10 bg-black/20 relative z-10">
+                              <img src={ann.imageUrl} alt={ann.title} className="w-full h-full object-cover" />
                             </div>
+                          )}
+                          <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4 relative z-10">
+                            <div className="flex items-start gap-3.5">
+                              <Sparkles size={22} className="flex-shrink-0 mt-0.5 text-yellow-300 animate-bounce" />
+                              <div>
+                                <span className="px-2 py-0.5 rounded-full bg-yellow-400 text-slate-900 text-[9px] font-extrabold uppercase tracking-wide">Promo Platform</span>
+                                <h4 className="font-bold text-base leading-snug mt-1.5">{ann.title}</h4>
+                                <p className="text-xs mt-1 opacity-90 leading-relaxed whitespace-pre-wrap">{ann.content}</p>
+                              </div>
+                            </div>
+                            <Link href="/settings">
+                              <a className="px-4.5 py-2 bg-yellow-400 hover:bg-yellow-300 active:scale-95 text-slate-900 font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 self-start sm:self-auto cursor-pointer">
+                                Kelola Langganan <Sparkles size={12} />
+                              </a>
+                            </Link>
                           </div>
-                          <Link href="/settings">
-                            <a className="px-4.5 py-2 bg-yellow-400 hover:bg-yellow-300 active:scale-95 text-slate-900 font-extrabold text-xs rounded-xl shadow-md transition-all flex items-center justify-center gap-1.5 self-start sm:self-auto relative z-10 cursor-pointer">
-                              Kelola Langganan <Sparkles size={12} />
-                            </a>
-                          </Link>
                         </div>
                       );
                     }
                     
                     // Default / Update
                     return (
-                      <div key={ann.id} className="bg-card border border-card-border p-4 rounded-xl flex items-start gap-3.5 shadow-sm hover:shadow-md transition-shadow">
-                        <div className={`p-2 rounded-lg ${isUpdate ? "bg-green-500/10 text-green-600" : "bg-blue-500/10 text-blue-600"} flex-shrink-0`}>
-                          {isUpdate ? <Sparkles size={16} /> : <Bell size={16} />}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className="font-bold text-foreground text-sm leading-snug">{ann.title}</h4>
-                            <span className={`px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider ${
-                              isUpdate ? "bg-green-100 text-green-700 dark:bg-green-950/20 dark:text-green-400" : "bg-blue-100 text-blue-700 dark:bg-blue-950/20 dark:text-blue-400"
-                            }`}>
-                              {ann.type}
-                            </span>
+                      <div key={ann.id} className="bg-card border border-card-border p-4 rounded-xl flex flex-col gap-3.5 shadow-sm hover:shadow-md transition-shadow">
+                        {ann.imageUrl && (
+                          <div className="w-full aspect-[21/9] rounded-xl overflow-hidden border border-border/30 bg-muted">
+                            <img src={ann.imageUrl} alt={ann.title} className="w-full h-full object-cover" />
                           </div>
-                          <p className="text-xs text-muted-foreground mt-1 leading-relaxed whitespace-pre-wrap">{ann.content}</p>
+                        )}
+                        <div className="flex items-start gap-3.5">
+                          <div className={`p-2 rounded-lg ${isUpdate ? "bg-green-500/10 text-green-600" : "bg-blue-500/10 text-blue-600"} flex-shrink-0`}>
+                            {isUpdate ? <Sparkles size={16} /> : <Bell size={16} />}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="font-bold text-foreground text-sm leading-snug">{ann.title}</h4>
+                              <span className={`px-2 py-0.5 rounded-full text-[8px] font-bold uppercase tracking-wider ${
+                                isUpdate ? "bg-green-100 text-green-700 dark:bg-green-950/20 dark:text-green-400" : "bg-blue-100 text-blue-700 dark:bg-blue-950/20 dark:text-blue-400"
+                              }`}>
+                                {ann.type}
+                              </span>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-1 leading-relaxed whitespace-pre-wrap">{ann.content}</p>
+                          </div>
                         </div>
                       </div>
                     );

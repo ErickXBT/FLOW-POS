@@ -7,6 +7,7 @@ export const announcementsTable = pgTable("announcements", {
   title: text("title").notNull(),
   content: text("content").notNull(),
   type: text("type").notNull().default("general"), // general, maintenance, update, promotion
+  imageUrl: text("image_url"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

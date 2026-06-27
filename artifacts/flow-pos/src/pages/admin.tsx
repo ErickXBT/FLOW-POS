@@ -824,8 +824,44 @@ function TenantsTab({
 function AnnouncementsTab() {
   const { data: list, refetch } = useListAnnouncements();
   const createAnn = useCreateAnnouncement();
-  const [form, setForm] = useState({ title: "", content: "", type: "general" });
+  const [form, setForm] = useState({ title: "", content: "", type: "general", imageUrl: "" });
   const [loading, setLoading] = useState(false);
+  const [uploading, setUploading] = useState(false);
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setUploading(true);
+    const reader = new FileReader();
+    reader.onload = async () => {
+      try {
+        const base64 = reader.result as string;
+        const token = localStorage.getItem("flow_token");
+        const res = await fetch("/api/admin/announcements/upload", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token || ""}`,
+          },
+          body: JSON.stringify({ name: file.name, base64 }),
+        });
+        
+        if (!res.ok) throw new Error("Gagal mengunggah");
+        const data = await res.json();
+        setForm(p => ({ ...p, imageUrl: data.imageUrl }));
+      } catch (err) {
+        alert("Gagal mengunggah gambar. Silakan coba lagi.");
+      } finally {
+        setUploading(false);
+      }
+    };
+    reader.onerror = () => {
+      alert("Gagal membaca file gambar.");
+      setUploading(false);
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -833,7 +869,7 @@ function AnnouncementsTab() {
     setLoading(true);
     try {
       await createAnn.mutateAsync({ data: form });
-      setForm({ title: "", content: "", type: "general" });
+      setForm({ title: "", content: "", type: "general", imageUrl: "" });
       refetch();
     } catch {
       alert("Gagal memposting pengumuman.");
@@ -884,9 +920,34 @@ function AnnouncementsTab() {
             className="w-full px-3 py-2 border border-input rounded-xl bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
           />
         </div>
+        <div>
+          <label className="block text-xs font-medium mb-1.5 text-muted-foreground">Gambar / Banner Desain</label>
+          {form.imageUrl ? (
+            <div className="relative border border-border rounded-xl overflow-hidden aspect-[16/9] bg-muted mb-2 shadow-sm">
+              <img src={form.imageUrl} alt="Banner Preview" className="w-full h-full object-cover" />
+              <button
+                type="button"
+                onClick={() => setForm(p => ({ ...p, imageUrl: "" }))}
+                className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1.5 hover:bg-red-700 transition-all border-none cursor-pointer flex items-center justify-center shadow-md"
+                title="Hapus Gambar"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          ) : (
+            <input
+              type="file"
+              accept="image/*"
+              disabled={uploading}
+              onChange={handleImageUpload}
+              className="w-full text-xs text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 file:cursor-pointer transition-all border border-input rounded-xl p-1 bg-background"
+            />
+          )}
+          {uploading && <div className="text-[10px] text-primary font-medium animate-pulse mt-1">Mengunggah gambar...</div>}
+        </div>
         <button
           type="submit"
-          disabled={loading || !form.title.trim()}
+          disabled={loading || uploading || !form.title.trim()}
           className="w-full py-2.5 bg-primary text-primary-foreground font-semibold rounded-xl hover:opacity-95 disabled:opacity-50 transition-all text-sm flex items-center justify-center gap-2 shadow-md shadow-primary/10"
         >
           {loading ? "Memposting..." : <><Megaphone size={14} /> Siarkan Sekarang</>}
@@ -900,7 +961,7 @@ function AnnouncementsTab() {
           {(list || []).length === 0 ? (
             <div className="text-center py-12 text-muted-foreground text-xs font-medium">Belum ada pengumuman disiarkan.</div>
           ) : (
-            (list || []).map(a => (
+            (list || []).map((a: any) => (
               <div key={a.id} className="bg-background border border-border p-4 rounded-xl space-y-2 hover:shadow-sm transition-all">
                 <div className="flex justify-between items-start">
                   <div className="text-sm font-bold text-foreground">{a.title}</div>
@@ -913,6 +974,11 @@ function AnnouncementsTab() {
                     {a.type}
                   </span>
                 </div>
+                {a.imageUrl && (
+                  <div className="border border-border/40 rounded-lg overflow-hidden aspect-[16/9] bg-muted w-full max-h-40 my-2">
+                    <img src={a.imageUrl} alt={a.title} className="w-full h-full object-cover" />
+                  </div>
+                )}
                 <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">{a.content}</p>
                 <div className="text-[10px] text-muted-foreground/70 text-right">
                   {new Date(a.createdAt).toLocaleString("id-ID", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
