@@ -16,6 +16,9 @@
     <meta name="twitter:description" content="FlowApp adalah platform kasir online (Point of Sale) dan menu QR digital multi-tenant modern untuk restoran, kafe, retail, salon, dan UMKM. Kelola bisnis Anda lebih efisien." />
     <meta name="twitter:image" content="https://flowapp.id/flow_logo.png" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <meta name="theme-color" content="#1D4EF5" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -23,5 +26,14 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker.register("/sw.js")
+            .then((reg) => console.log("Service Worker registered successfully:", reg.scope))
+            .catch((err) => console.error("Service Worker registration failed:", err));
+        });
+      }
+    </script>
   </body>
 </html>

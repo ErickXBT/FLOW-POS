@@ -1,0 +1,21 @@
+{
+  "short_name": "FlowApp",
+  "name": "FlowApp POS Kasir",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "background_color": "#1D4EF5",
+  "theme_color": "#1D4EF5",
+  "display": "standalone",
+  "orientation": "portrait"
+}

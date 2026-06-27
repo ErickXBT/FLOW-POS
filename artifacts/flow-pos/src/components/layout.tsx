@@ -160,6 +160,26 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
     }
   }, []);
 
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+    };
+    window.addEventListener("beforeinstallprompt", handler);
+    return () => window.removeEventListener("beforeinstallprompt", handler);
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === "accepted") {
+      setDeferredPrompt(null);
+    }
+  };
+
   // Barcode scanner auto-checkout for Fashion business type on specific pages
   useEffect(() => {
     const isFashion = user.businessType === "fashion";
@@ -627,8 +647,35 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
             </header>
 
             {/* Global Banner & Announcements (Between Outlet Selector and Page Content) */}
-            {!isSuperAdmin && (maintenanceAlerts.length > 0 || carouselBanners.length > 0) && (
+            {!isSuperAdmin && (maintenanceAlerts.length > 0 || carouselBanners.length > 0 || deferredPrompt) && (
               <div className="flex-shrink-0 px-6 pt-4 space-y-3">
+                {/* 0. PWA Install Banner */}
+                {deferredPrompt && (
+                  <div className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white p-3.5 rounded-2xl shadow-md flex items-center justify-between gap-3 animate-slide-up relative overflow-hidden">
+                    <div className="absolute right-0 top-0 w-24 h-24 bg-white/5 rounded-full blur-xl translate-x-8 -translate-y-8 pointer-events-none" />
+                    <div className="flex-1 min-w-0 relative z-10">
+                      <h4 className="font-extrabold text-xs md:text-sm leading-tight flex items-center gap-1.5">
+                        <Sparkles size={14} className="text-yellow-300 animate-pulse" />
+                        Instal Aplikasi FlowApp
+                      </h4>
+                      <p className="text-[10px] md:text-xs opacity-90 leading-snug mt-0.5">Instal FlowApp di HP Anda untuk akses kasir & laporan lebih cepat</p>
+                    </div>
+                    <div className="flex gap-2 flex-shrink-0 relative z-10">
+                      <button 
+                        onClick={() => setDeferredPrompt(null)} 
+                        className="px-2.5 py-1 text-[10px] md:text-xs text-white/80 hover:text-white font-medium bg-white/10 hover:bg-white/20 active:scale-95 rounded-lg transition-all"
+                      >
+                        Nanti
+                      </button>
+                      <button 
+                        onClick={handleInstallClick} 
+                        className="px-3.5 py-1 text-[10px] md:text-xs bg-yellow-400 hover:bg-yellow-300 active:scale-95 text-slate-900 font-extrabold rounded-lg shadow-md transition-all"
+                      >
+                        Instal
+                      </button>
+                    </div>
+                  </div>
+                )}
                 {/* 1. Maintenance Alert (Urgent/Statis) */}
                 {maintenanceAlerts.map((ann: any) => (
                   <div key={ann.id} className="bg-red-500/10 border border-red-500/30 text-red-700 dark:text-red-400 p-3 rounded-xl flex flex-row gap-3.5 shadow-sm border-l-4 border-l-red-500 animate-pulse items-center">
