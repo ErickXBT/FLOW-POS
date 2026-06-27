@@ -2448,7 +2448,7 @@ components:
 
     Announcement:
       type: object
-      required: [id, title, content, type, createdAt]
+      required: [id, type, createdAt]
       properties:
         id:
           type: integer
@@ -2458,12 +2458,20 @@ components:
           type: string
         type:
           type: string
+        imageUrl:
+          type: string
+          nullable: true
+        mobileImageUrl:
+          type: string
+          nullable: true
+        isActive:
+          type: boolean
         createdAt:
           type: string
 
     AnnouncementInput:
       type: object
-      required: [title, content, type]
+      required: [type]
       properties:
         title:
           type: string
@@ -2471,6 +2479,12 @@ components:
           type: string
         type:
           type: string
+        imageUrl:
+          type: string
+          nullable: true
+        mobileImageUrl:
+          type: string
+          nullable: true
 
     SupportTicket:
       type: object

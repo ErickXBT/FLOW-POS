@@ -824,15 +824,18 @@ function TenantsTab({
 function AnnouncementsTab() {
   const { data: list, refetch } = useListAnnouncements();
   const createAnn = useCreateAnnouncement();
-  const [form, setForm] = useState({ title: "", content: "", type: "general", imageUrl: "" });
+  const [form, setForm] = useState({ title: "", content: "", type: "general", imageUrl: "", mobileImageUrl: "" });
   const [loading, setLoading] = useState(false);
-  const [uploading, setUploading] = useState(false);
+  const [uploadingDesktop, setUploadingDesktop] = useState(false);
+  const [uploadingMobile, setUploadingMobile] = useState(false);
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, target: "desktop" | "mobile") => {
     const file = e.target.files?.[0];
     if (!file) return;
     
-    setUploading(true);
+    if (target === "desktop") setUploadingDesktop(true);
+    else setUploadingMobile(true);
+
     const reader = new FileReader();
     reader.onload = async () => {
       try {
@@ -849,16 +852,22 @@ function AnnouncementsTab() {
         
         if (!res.ok) throw new Error("Gagal mengunggah");
         const data = await res.json();
-        setForm(p => ({ ...p, imageUrl: data.imageUrl }));
+        if (target === "desktop") {
+          setForm(p => ({ ...p, imageUrl: data.imageUrl }));
+        } else {
+          setForm(p => ({ ...p, mobileImageUrl: data.imageUrl }));
+        }
       } catch (err) {
         alert("Gagal mengunggah gambar. Silakan coba lagi.");
       } finally {
-        setUploading(false);
+        if (target === "desktop") setUploadingDesktop(false);
+        else setUploadingMobile(false);
       }
     };
     reader.onerror = () => {
       alert("Gagal membaca file gambar.");
-      setUploading(false);
+      if (target === "desktop") setUploadingDesktop(false);
+      else setUploadingMobile(false);
     };
     reader.readAsDataURL(file);
   };
@@ -900,11 +909,19 @@ function AnnouncementsTab() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.title.trim() || !form.content.trim()) return;
+    const titleTrimmed = form.title.trim();
+    const contentTrimmed = form.content.trim();
+    const hasImages = !!form.imageUrl || !!form.mobileImageUrl;
+
+    if (!titleTrimmed && !contentTrimmed && !hasImages) {
+      alert("Harap masukkan judul/isi pengumuman atau unggah gambar banner.");
+      return;
+    }
+
     setLoading(true);
     try {
       await createAnn.mutateAsync({ data: form });
-      setForm({ title: "", content: "", type: "general", imageUrl: "" });
+      setForm({ title: "", content: "", type: "general", imageUrl: "", mobileImageUrl: "" });
       refetch();
     } catch {
       alert("Gagal memposting pengumuman.");
@@ -921,10 +938,9 @@ function AnnouncementsTab() {
           <Megaphone size={16} className="text-primary" /> Siarkan Pengumuman Baru
         </h3>
         <div>
-          <label className="block text-xs font-medium mb-1 text-muted-foreground">Judul Pengumuman</label>
+          <label className="block text-xs font-medium mb-1 text-muted-foreground">Judul Pengumuman (Opsional)</label>
           <input
             type="text"
-            required
             placeholder="Contoh: Pemeliharaan Server POS"
             value={form.title}
             onChange={e => setForm(p => ({ ...p, title: e.target.value }))}
@@ -945,26 +961,30 @@ function AnnouncementsTab() {
           </select>
         </div>
         <div>
-          <label className="block text-xs font-medium mb-1 text-muted-foreground">Isi Pengumuman</label>
+          <label className="block text-xs font-medium mb-1 text-muted-foreground">Isi Pengumuman (Opsional)</label>
           <textarea
-            required
             placeholder="Tulis pesan detail pengumuman di sini..."
-            rows={4}
+            rows={3}
             value={form.content}
             onChange={e => setForm(p => ({ ...p, content: e.target.value }))}
             className="w-full px-3 py-2 border border-input rounded-xl bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all resize-none"
           />
         </div>
+        
+        {/* Gambar Desktop */}
         <div>
-          <label className="block text-xs font-medium mb-1.5 text-muted-foreground">Gambar / Banner Desain</label>
+          <label className="block text-xs font-medium mb-1 text-muted-foreground flex items-center justify-between">
+            <span>Gambar Desktop / Tablet</span>
+            <span className="text-[10px] text-muted-foreground/60">(Ukuran Rekomendasi: 16:9 / 800x450)</span>
+          </label>
           {form.imageUrl ? (
-            <div className="relative border border-border rounded-xl overflow-hidden aspect-[16/9] bg-muted mb-2 shadow-sm">
-              <img src={form.imageUrl} alt="Banner Preview" className="w-full h-full object-cover" />
+            <div className="relative border border-border rounded-xl overflow-hidden aspect-[16/9] bg-muted mb-1 shadow-sm">
+              <img src={form.imageUrl} alt="Desktop Preview" className="w-full h-full object-cover" />
               <button
                 type="button"
                 onClick={() => setForm(p => ({ ...p, imageUrl: "" }))}
                 className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1.5 hover:bg-red-700 transition-all border-none cursor-pointer flex items-center justify-center shadow-md"
-                title="Hapus Gambar"
+                title="Hapus Gambar Desktop"
               >
                 <X size={12} />
               </button>
@@ -973,16 +993,47 @@ function AnnouncementsTab() {
             <input
               type="file"
               accept="image/*"
-              disabled={uploading}
-              onChange={handleImageUpload}
+              disabled={uploadingDesktop}
+              onChange={e => handleImageUpload(e, "desktop")}
               className="w-full text-xs text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 file:cursor-pointer transition-all border border-input rounded-xl p-1 bg-background"
             />
           )}
-          {uploading && <div className="text-[10px] text-primary font-medium animate-pulse mt-1">Mengunggah gambar...</div>}
+          {uploadingDesktop && <div className="text-[10px] text-primary font-medium animate-pulse mt-0.5">Mengunggah gambar desktop...</div>}
         </div>
+
+        {/* Gambar Mobile */}
+        <div>
+          <label className="block text-xs font-medium mb-1 text-muted-foreground flex items-center justify-between">
+            <span>Gambar Mobile</span>
+            <span className="text-[10px] text-muted-foreground/60">(Ukuran Rekomendasi: Ramping / 400x190)</span>
+          </label>
+          {form.mobileImageUrl ? (
+            <div className="relative border border-border rounded-xl overflow-hidden aspect-[16/9] bg-muted mb-1 shadow-sm">
+              <img src={form.mobileImageUrl} alt="Mobile Preview" className="w-full h-full object-cover" />
+              <button
+                type="button"
+                onClick={() => setForm(p => ({ ...p, mobileImageUrl: "" }))}
+                className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1.5 hover:bg-red-700 transition-all border-none cursor-pointer flex items-center justify-center shadow-md"
+                title="Hapus Gambar Mobile"
+              >
+                <X size={12} />
+              </button>
+            </div>
+          ) : (
+            <input
+              type="file"
+              accept="image/*"
+              disabled={uploadingMobile}
+              onChange={e => handleImageUpload(e, "mobile")}
+              className="w-full text-xs text-muted-foreground file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-xs file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20 file:cursor-pointer transition-all border border-input rounded-xl p-1 bg-background"
+            />
+          )}
+          {uploadingMobile && <div className="text-[10px] text-primary font-medium animate-pulse mt-0.5">Mengunggah gambar mobile...</div>}
+        </div>
+
         <button
           type="submit"
-          disabled={loading || uploading || !form.title.trim()}
+          disabled={loading || uploadingDesktop || uploadingMobile || (!form.title.trim() && !form.content.trim() && !form.imageUrl && !form.mobileImageUrl)}
           className="w-full py-2.5 bg-primary text-primary-foreground font-semibold rounded-xl hover:opacity-95 disabled:opacity-50 transition-all text-sm flex items-center justify-center gap-2 shadow-md shadow-primary/10"
         >
           {loading ? "Memposting..." : <><Megaphone size={14} /> Siarkan Sekarang</>}
@@ -1000,8 +1051,8 @@ function AnnouncementsTab() {
               <div key={a.id} className="bg-background border border-border p-4 rounded-xl space-y-2 hover:shadow-sm transition-all flex flex-col justify-between">
                 <div>
                   <div className="flex justify-between items-start">
-                    <div className="text-sm font-bold text-foreground">{a.title}</div>
-                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase ${
+                    <div className="text-sm font-bold text-foreground">{a.title || "(Banner Murni)"}</div>
+                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold uppercase \${
                       a.type === "maintenance" ? "bg-red-100 text-red-700 dark:bg-red-950/20 dark:text-red-400" :
                       a.type === "update" ? "bg-green-100 text-green-700 dark:bg-green-950/20 dark:text-green-400" :
                       a.type === "promotion" ? "bg-amber-100 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400" :
@@ -1010,9 +1061,24 @@ function AnnouncementsTab() {
                       {a.type}
                     </span>
                   </div>
-                  {a.imageUrl && (
-                    <div className="border border-border/40 rounded-lg overflow-hidden aspect-[16/9] bg-muted w-full max-h-40 my-2">
-                      <img src={a.imageUrl} alt={a.title} className="w-full h-full object-cover" />
+                  {(a.imageUrl || a.mobileImageUrl) && (
+                    <div className="grid grid-cols-2 gap-2 my-2">
+                      {a.imageUrl ? (
+                        <div className="border border-border/40 rounded-lg overflow-hidden aspect-[16/9] bg-muted relative">
+                          <img src={a.imageUrl} alt="Desktop Preview" className="w-full h-full object-cover" />
+                          <span className="absolute bottom-1 left-1 bg-black/60 text-[8px] text-white font-extrabold px-1 py-0.5 rounded uppercase">Desktop</span>
+                        </div>
+                      ) : (
+                        <div className="border border-border/40 rounded-lg aspect-[16/9] bg-muted flex items-center justify-center text-[10px] text-muted-foreground font-medium">No Desktop Image</div>
+                      )}
+                      {a.mobileImageUrl ? (
+                        <div className="border border-border/40 rounded-lg overflow-hidden aspect-[16/9] bg-muted relative">
+                          <img src={a.mobileImageUrl} alt="Mobile Preview" className="w-full h-full object-cover" />
+                          <span className="absolute bottom-1 left-1 bg-black/60 text-[8px] text-white font-extrabold px-1 py-0.5 rounded uppercase">Mobile</span>
+                        </div>
+                      ) : (
+                        <div className="border border-border/40 rounded-lg aspect-[16/9] bg-muted flex items-center justify-center text-[10px] text-muted-foreground font-medium">No Mobile Image</div>
+                      )}
                     </div>
                   )}
                   <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-wrap">{a.content}</p>

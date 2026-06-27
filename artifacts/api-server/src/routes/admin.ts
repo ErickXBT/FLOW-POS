@@ -449,14 +449,19 @@ router.post("/admin/announcements/upload", async (req, res): Promise<void> => {
 router.post("/admin/announcements", async (req, res): Promise<void> => {
   if (!requireAdmin(req, res)) return;
 
-  const { title, content, type, imageUrl } = req.body;
-  if (!title || !content) { res.status(400).json({ error: "Judul dan konten wajib diisi" }); return; }
+  const { title, content, type, imageUrl, mobileImageUrl } = req.body;
+  const hasImages = !!imageUrl || !!mobileImageUrl;
+  if (!title && !content && !hasImages) {
+    res.status(400).json({ error: "Judul/konten atau gambar banner wajib ditentukan" });
+    return;
+  }
 
   const [ann] = await db.insert(announcementsTable).values({
-    title,
-    content,
+    title: title || "",
+    content: content || "",
     type: type || "general",
     imageUrl: imageUrl || null,
+    mobileImageUrl: mobileImageUrl || null,
     isActive: true,
   }).returning();
 

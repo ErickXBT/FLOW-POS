@@ -1467,9 +1467,12 @@ export const DeleteRoleParams = zod.object({
  */
 export const ListAnnouncementsResponseItem = zod.object({
   "id": zod.number(),
-  "title": zod.string(),
-  "content": zod.string(),
+  "title": zod.string().optional(),
+  "content": zod.string().optional(),
   "type": zod.string(),
+  "imageUrl": zod.string().nullish(),
+  "mobileImageUrl": zod.string().nullish(),
+  "isActive": zod.boolean().optional(),
   "createdAt": zod.string()
 })
 export const ListAnnouncementsResponse = zod.array(ListAnnouncementsResponseItem)
@@ -1479,9 +1482,11 @@ export const ListAnnouncementsResponse = zod.array(ListAnnouncementsResponseItem
  * @summary Create announcement (admin only)
  */
 export const CreateAnnouncementBody = zod.object({
-  "title": zod.string(),
-  "content": zod.string(),
-  "type": zod.string()
+  "title": zod.string().optional(),
+  "content": zod.string().optional(),
+  "type": zod.string(),
+  "imageUrl": zod.string().nullish(),
+  "mobileImageUrl": zod.string().nullish()
 })
 
 

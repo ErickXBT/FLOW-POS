@@ -712,94 +712,120 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
                             style={{ width: "100%" }}
                           >
                             {/* MOBILE VIEW (Ramping & Responsive) */}
-                            <div 
-                              className={`flex md:hidden flex-row gap-3 items-center justify-between p-3.5 min-h-[90px] ${
-                                isPromo 
-                                  ? "bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 text-white" 
-                                  : "bg-card text-foreground"
-                              } relative`}
-                            >
-                              {isPromo && (
-                                <div className="absolute right-0 top-0 w-24 h-24 bg-white/5 rounded-full blur-xl translate-x-8 -translate-y-8 pointer-events-none" />
-                              )}
-                              
-                              {ann.imageUrl && (
-                                <div className={`w-[110px] h-[70px] rounded-xl overflow-hidden relative z-10 border flex-shrink-0 bg-black/5 ${
-                                  isPromo ? "border-white/10" : "border-border/30 bg-muted"
-                                }`}>
-                                  <img src={ann.imageUrl} alt={ann.title} className="w-full h-full object-contain" />
-                                </div>
-                              )}
-
-                              <div className="flex-1 flex flex-col justify-between relative z-10 min-w-0">
-                                <div className="space-y-0.5">
-                                  <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-extrabold uppercase tracking-wide ${
-                                      isPromo ? "bg-yellow-400 text-slate-900" : "bg-blue-100 text-blue-700"
-                                    }`}>
-                                      {isPromo ? "Promo" : ann.type}
-                                    </span>
-                                    <h4 className="font-bold text-xs leading-tight truncate max-w-[120px] xs:max-w-[160px]">{ann.title}</h4>
-                                  </div>
-                                  <p className={`text-[10px] leading-snug line-clamp-2 ${isPromo ? "opacity-90" : "text-muted-foreground"}`}>{ann.content}</p>
-                                </div>
-                                
-                                {isPromo && (
-                                  <Link href="/settings">
-                                    <a className="px-2.5 py-1 bg-yellow-400 hover:bg-yellow-300 active:scale-95 text-slate-900 font-extrabold text-[9px] rounded-md shadow-md transition-all flex items-center justify-center gap-1 cursor-pointer w-fit mt-1">
-                                      Kelola <Sparkles size={8} />
-                                    </a>
-                                  </Link>
-                                )}
+                            {(!ann.title?.trim() && !ann.content?.trim()) ? (
+                              <div className="flex md:hidden w-full h-[95px] relative">
+                                <img 
+                                  src={ann.mobileImageUrl || ann.imageUrl} 
+                                  alt="Banner" 
+                                  className="w-full h-full object-cover cursor-pointer"
+                                  onClick={() => {
+                                    if (isPromo) window.location.href = "/settings";
+                                  }}
+                                />
                               </div>
-                            </div>
+                            ) : (
+                              <div 
+                                className={`flex md:hidden flex-row gap-3 items-center justify-between p-3.5 min-h-[90px] ${
+                                  isPromo 
+                                    ? "bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 text-white" 
+                                    : "bg-card text-foreground"
+                                } relative`}
+                              >
+                                {isPromo && (
+                                  <div className="absolute right-0 top-0 w-24 h-24 bg-white/5 rounded-full blur-xl translate-x-8 -translate-y-8 pointer-events-none" />
+                                )}
+                                
+                                {(ann.mobileImageUrl || ann.imageUrl) && (
+                                  <div className={`w-[110px] h-[70px] rounded-xl overflow-hidden relative z-10 border flex-shrink-0 bg-black/5 ${
+                                    isPromo ? "border-white/10" : "border-border/30 bg-muted"
+                                  }`}>
+                                    <img src={ann.mobileImageUrl || ann.imageUrl} alt={ann.title} className="w-full h-full object-contain" />
+                                  </div>
+                                )}
+
+                                <div className="flex-1 flex flex-col justify-between relative z-10 min-w-0">
+                                  <div className="space-y-0.5">
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      <span className={`px-1.5 py-0.5 rounded-full text-[8px] font-extrabold uppercase tracking-wide ${
+                                        isPromo ? "bg-yellow-400 text-slate-900" : "bg-blue-100 text-blue-700"
+                                      }`}>
+                                        {isPromo ? "Promo" : ann.type}
+                                      </span>
+                                      <h4 className="font-bold text-xs leading-tight truncate max-w-[120px] xs:max-w-[160px]">{ann.title}</h4>
+                                    </div>
+                                    <p className={`text-[10px] leading-snug line-clamp-2 ${isPromo ? "opacity-90" : "text-muted-foreground"}`}>{ann.content}</p>
+                                  </div>
+                                  
+                                  {isPromo && (
+                                    <Link href="/settings">
+                                      <a className="px-2.5 py-1 bg-yellow-400 hover:bg-yellow-300 active:scale-95 text-slate-900 font-extrabold text-[9px] rounded-md shadow-md transition-all flex items-center justify-center gap-1 cursor-pointer w-fit mt-1">
+                                        Kelola <Sparkles size={8} />
+                                      </a>
+                                    </Link>
+                                  )}
+                                </div>
+                              </div>
+                            )}
 
                             {/* DESKTOP & TABLET VIEW (Text besar, Gambar full tanpa terpotong, CTA Menjolok) */}
-                            <div 
-                              className={`hidden md:flex flex-row gap-6 items-center justify-between p-6 min-h-[140px] ${
-                                isPromo 
-                                  ? "bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 text-white" 
-                                  : "bg-card text-foreground"
-                              } relative`}
-                            >
-                              {isPromo && (
-                                <div className="absolute right-0 top-0 w-48 h-48 bg-white/5 rounded-full blur-2xl translate-x-16 -translate-y-16 pointer-events-none" />
-                              )}
-                              
-                              {ann.imageUrl && (
-                                <div className={`w-[240px] lg:w-[280px] h-[96px] lg:h-[110px] rounded-xl overflow-hidden relative z-10 border flex-shrink-0 bg-black/10 ${
-                                  isPromo ? "border-white/10" : "border-border/30 bg-muted"
-                                }`}>
-                                  <img src={ann.imageUrl} alt={ann.title} className="w-full h-full object-contain" />
-                                </div>
-                              )}
-
-                              <div className="flex-1 flex flex-row justify-between items-center gap-6 relative z-10 min-w-0">
-                                <div className="space-y-1.5 min-w-0">
-                                  <div className="flex items-center gap-2.5 flex-wrap">
-                                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide ${
-                                      isPromo 
-                                        ? "bg-yellow-400 text-slate-900" 
-                                        : isUpdate 
-                                          ? "bg-green-100 text-green-700 dark:bg-green-950/20 dark:text-green-400" 
-                                          : "bg-blue-100 text-blue-700 dark:bg-blue-950/20 dark:text-blue-400"
-                                    }`}>
-                                      {isPromo ? "Promo Platform" : ann.type}
-                                    </span>
-                                    <h4 className="font-extrabold text-base lg:text-lg leading-snug">{ann.title}</h4>
-                                  </div>
-                                  <p className={`text-xs lg:text-sm leading-relaxed ${isPromo ? "opacity-90" : "text-muted-foreground"}`}>{ann.content}</p>
-                                </div>
-                                
-                                {isPromo && (
-                                  <Link href="/settings">
-                                    <a className="px-5 py-2.5 bg-yellow-400 hover:bg-yellow-300 active:scale-95 text-slate-900 font-extrabold text-xs lg:text-sm rounded-xl shadow-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer flex-shrink-0">
-                                      Kelola Langganan <Sparkles size={14} />
-                                    </a>
-                                  </Link>
-                                )}
+                            {(!ann.title?.trim() && !ann.content?.trim()) ? (
+                              <div className="hidden md:flex w-full h-[140px] relative">
+                                <img 
+                                  src={ann.imageUrl || ann.mobileImageUrl} 
+                                  alt="Banner" 
+                                  className="w-full h-full object-cover cursor-pointer"
+                                  onClick={() => {
+                                    if (isPromo) window.location.href = "/settings";
+                                  }}
+                                />
                               </div>
-                            </div>
+                            ) : (
+                              <div 
+                                className={`hidden md:flex flex-row gap-6 items-center justify-between p-6 min-h-[140px] ${
+                                  isPromo 
+                                    ? "bg-gradient-to-r from-violet-600 via-indigo-600 to-blue-600 text-white" 
+                                    : "bg-card text-foreground"
+                                } relative`}
+                              >
+                                {isPromo && (
+                                  <div className="absolute right-0 top-0 w-48 h-48 bg-white/5 rounded-full blur-2xl translate-x-16 -translate-y-16 pointer-events-none" />
+                                )}
+                                
+                                {(ann.imageUrl || ann.mobileImageUrl) && (
+                                  <div className={`w-[240px] lg:w-[280px] h-[96px] lg:h-[110px] rounded-xl overflow-hidden relative z-10 border flex-shrink-0 bg-black/10 ${
+                                    isPromo ? "border-white/10" : "border-border/30 bg-muted"
+                                  }`}>
+                                    <img src={ann.imageUrl || ann.mobileImageUrl} alt={ann.title} className="w-full h-full object-contain" />
+                                  </div>
+                                )}
+
+                                <div className="flex-1 flex flex-row justify-between items-center gap-6 relative z-10 min-w-0">
+                                  <div className="space-y-1.5 min-w-0">
+                                    <div className="flex items-center gap-2.5 flex-wrap">
+                                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase tracking-wide ${
+                                        isPromo 
+                                          ? "bg-yellow-400 text-slate-900" 
+                                          : isUpdate 
+                                            ? "bg-green-100 text-green-700 dark:bg-green-950/20 dark:text-green-400" 
+                                            : "bg-blue-100 text-blue-700 dark:bg-blue-950/20 dark:text-blue-400"
+                                      }`}>
+                                        {isPromo ? "Promo Platform" : ann.type}
+                                      </span>
+                                      <h4 className="font-extrabold text-base lg:text-lg leading-snug">{ann.title}</h4>
+                                    </div>
+                                    <p className={`text-xs lg:text-sm leading-relaxed ${isPromo ? "opacity-90" : "text-muted-foreground"}`}>{ann.content}</p>
+                                  </div>
+                                  
+                                  {isPromo && (
+                                    <Link href="/settings">
+                                      <a className="px-5 py-2.5 bg-yellow-400 hover:bg-yellow-300 active:scale-95 text-slate-900 font-extrabold text-xs lg:text-sm rounded-xl shadow-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer flex-shrink-0">
+                                        Kelola Langganan <Sparkles size={14} />
+                                      </a>
+                                    </Link>
+                                  )}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         );
                       })}

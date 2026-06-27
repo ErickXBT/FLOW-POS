@@ -7,7 +7,9 @@
  */
 
 export interface AnnouncementInput {
-  title: string;
-  content: string;
+  title?: string;
+  content?: string;
   type: string;
+  imageUrl?: string | null;
+  mobileImageUrl?: string | null;
 }

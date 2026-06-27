@@ -4,10 +4,11 @@ import { z } from "zod/v4";
 
 export const announcementsTable = pgTable("announcements", {
   id: serial("id").primaryKey(),
-  title: text("title").notNull(),
-  content: text("content").notNull(),
+  title: text("title"),
+  content: text("content"),
   type: text("type").notNull().default("general"), // general, maintenance, update, promotion
   imageUrl: text("image_url"),
+  mobileImageUrl: text("mobile_image_url"),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });

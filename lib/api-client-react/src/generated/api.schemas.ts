@@ -772,16 +772,21 @@ export interface CustomRoleInput {
 
 export interface Announcement {
   id: number;
-  title: string;
-  content: string;
+  title?: string;
+  content?: string;
   type: string;
+  imageUrl?: string | null;
+  mobileImageUrl?: string | null;
+  isActive?: boolean;
   createdAt: string;
 }
 
 export interface AnnouncementInput {
-  title: string;
-  content: string;
+  title?: string;
+  content?: string;
   type: string;
+  imageUrl?: string | null;
+  mobileImageUrl?: string | null;
 }
 
 export interface SupportTicket {
