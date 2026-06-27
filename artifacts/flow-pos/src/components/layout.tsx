@@ -96,7 +96,19 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
       } catch (err) {
         console.error("Failed to parse tenant primaryColor:", err);
       }
+    } else {
+      document.documentElement.style.removeProperty("--primary");
+      document.documentElement.style.removeProperty("--sidebar-primary");
+      document.documentElement.style.removeProperty("--sidebar-ring");
+      document.documentElement.style.removeProperty("--ring");
     }
+
+    return () => {
+      document.documentElement.style.removeProperty("--primary");
+      document.documentElement.style.removeProperty("--sidebar-primary");
+      document.documentElement.style.removeProperty("--sidebar-ring");
+      document.documentElement.style.removeProperty("--ring");
+    };
   }, [tenant?.primaryColor]);
 
   const isOwnerOrManager = user.role === "owner" || user.role === "manager";
