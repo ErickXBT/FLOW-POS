@@ -454,8 +454,10 @@ export default function POSPage() {
     }
   };
 
-  // Barcode scanner keydown listener on POS page
+  // Barcode scanner keydown listener on POS page (specifically for Fashion Store)
   useEffect(() => {
+    if (!isFashion) return;
+
     let barcodeBuffer = "";
     let lastKeyTime = Date.now();
 
@@ -481,7 +483,7 @@ export default function POSPage() {
 
             try {
               const token = localStorage.getItem("flow_token") ?? "";
-              const res = await fetch(`${import.meta.env.BASE_URL.replace(/\/$/, "")}/api/tenant/products/scan-lookup?barcode=${encodeURIComponent(scannedCode)}&branchId=${activeBranchId || ""}`, {
+              const res = await fetch(`${import.meta.env.BASE_URL.replace(/\/$/, "")}/api/products/scan-lookup?barcode=${encodeURIComponent(scannedCode)}&branchId=${activeBranchId || ""}`, {
                 headers: {
                   "Authorization": `Bearer ${token}`
                 }
@@ -507,7 +509,7 @@ export default function POSPage() {
 
     window.addEventListener("keydown", handleKeyDown, true);
     return () => window.removeEventListener("keydown", handleKeyDown, true);
-  }, [activeBranchId, tenant, addToCart]);
+  }, [activeBranchId, tenant, isFashion, addToCart]);
 
   const updateQty = (id: string, delta: number) => {
     setCart(c => c.map(i => i.id === id ? { ...i, quantity: Math.max(0, i.quantity + delta) } : i).filter(i => i.quantity > 0));
