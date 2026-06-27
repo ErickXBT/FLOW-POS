@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { useListProducts, useListCategories, useCreateOrder, getListOrdersQueryKey, useGetTenant, useListEmployees } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Banknote, Smartphone, QrCode, X, Check, Package, Sparkles, Gift, Percent, Printer, Download } from "lucide-react";
+import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Banknote, Smartphone, QrCode, X, Check, Package, Sparkles, Gift, Percent, Printer, Download, ArrowLeft } from "lucide-react";
 import { useActiveBranch } from "@/hooks/use-active-branch";
 import { Link } from "wouter";
 
@@ -252,6 +252,7 @@ export default function POSPage() {
   }
 
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [showCartMobile, setShowCartMobile] = useState(false);
   const [discount, setDiscount] = useState(0);
   const [taxPct, setTaxPct] = useState(0);
   const [serviceChargePct, setServiceChargePct] = useState(0);
@@ -553,6 +554,7 @@ export default function POSPage() {
     }, {
       onSuccess: (data: any) => {
         setCart([]);
+        setShowCartMobile(false);
         setDiscount(0);
         setSelectedCouponCode("");
         setOrderType("dine_in");
@@ -1008,7 +1010,7 @@ export default function POSPage() {
   return (
     <div className="flex h-[calc(100vh-56px)] overflow-hidden">
       {/* Products panel */}
-      <div className="flex-1 flex flex-col overflow-hidden border-r border-border">
+      <div className={`flex-1 flex flex-col overflow-hidden border-r border-border ${showCartMobile ? "hidden md:flex" : "flex"}`}>
         {/* Promo Banners */}
         {allBanners.length > 0 && (
           <div className="px-4 py-2 bg-muted/10 border-b border-border flex-shrink-0">
@@ -1162,8 +1164,14 @@ export default function POSPage() {
       </div>
 
       {/* Cart panel */}
-      <div className="w-80 xl:w-96 flex flex-col bg-card border-l border-border flex-shrink-0">
+      <div className={`w-80 xl:w-96 flex flex-col bg-card border-l border-border flex-shrink-0 ${showCartMobile ? "flex w-full md:w-80 lg:w-96" : "hidden md:flex"}`}>
         <div className="px-4 py-4 border-b border-border flex items-center gap-2">
+          <button
+            onClick={() => setShowCartMobile(false)}
+            className="md:hidden p-1 mr-1 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
+          >
+            <ArrowLeft size={16} />
+          </button>
           <ShoppingCart size={18} className="text-primary" />
           <span className="font-semibold text-foreground">Keranjang</span>
           <Link href="/printer-settings">
@@ -2098,6 +2106,24 @@ export default function POSPage() {
           </div>
         </div>
       )}
+      {/* Floating Cart Button for Mobile */}
+      <button
+        type="button"
+        onClick={() => setShowCartMobile(!showCartMobile)}
+        className="md:hidden fixed bottom-6 right-6 z-40 bg-primary text-primary-foreground p-4 rounded-full shadow-lg flex items-center gap-2 hover:scale-105 active:scale-95 transition-all"
+      >
+        {showCartMobile ? (
+          <>
+            <Package size={20} />
+            <span className="text-xs font-bold">Lihat Produk</span>
+          </>
+        ) : (
+          <>
+            <ShoppingCart size={20} />
+            <span className="text-xs font-bold">Keranjang ({cart.reduce((sum, item) => sum + item.quantity, 0)})</span>
+          </>
+        )}
+      </button>
     </div>
   );
 }
