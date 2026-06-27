@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useLogin } from "@workspace/api-client-react";
 import { setStoredToken } from "@/hooks/use-auth";
@@ -14,6 +14,25 @@ export default function LoginPage({ onLogin }: { onLogin: (token: string, user: 
   const [forgotEmail, setForgotEmail] = useState("");
   const [forgotSuccess, setForgotSuccess] = useState("");
   const [forgotLoading, setForgotLoading] = useState(false);
+
+  const [showSplash, setShowSplash] = useState(true);
+  const [fadeOut, setFadeOut] = useState(false);
+
+  useEffect(() => {
+    // Show splash for 1.8s, then trigger fade out animation (0.5s), then hide completely
+    const fadeTimer = setTimeout(() => {
+      setFadeOut(true);
+    }, 1800);
+    
+    const hideTimer = setTimeout(() => {
+      setShowSplash(false);
+    }, 2300);
+
+    return () => {
+      clearTimeout(fadeTimer);
+      clearTimeout(hideTimer);
+    };
+  }, []);
 
   const handleForgotSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -208,6 +227,44 @@ export default function LoginPage({ onLogin }: { onLogin: (token: string, user: 
           )}
         </div>
       </div>
+      {showSplash && (
+        <div className={`fixed inset-0 z-50 flex flex-col items-center justify-center bg-primary transition-opacity duration-500 ${fadeOut ? "opacity-0 pointer-events-none" : "opacity-100"}`}>
+          <div className="flex flex-col items-center gap-4">
+            <div className="relative flex items-center justify-center">
+              <div className="absolute w-24 h-24 rounded-full bg-white/10 animate-ping duration-1000" />
+              <img 
+                src={flowLogo} 
+                alt="Flow Logo" 
+                className="h-12 relative z-10 brightness-0 invert" 
+                style={{
+                  animation: "scaleUpLogo 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards"
+                }}
+              />
+            </div>
+            <div className="w-16 h-1 bg-white/20 rounded-full overflow-hidden mt-4 relative">
+              <div 
+                className="h-full bg-white rounded-full" 
+                style={{
+                  width: "100%",
+                  animation: "loadProgress 1.6s ease-in-out infinite",
+                  transformOrigin: "left"
+                }}
+              />
+            </div>
+          </div>
+          <style>{`
+            @keyframes scaleUpLogo {
+              0% { transform: scale(0.6); opacity: 0; }
+              100% { transform: scale(1); opacity: 1; }
+            }
+            @keyframes loadProgress {
+              0% { transform: scaleX(0); }
+              50% { transform: scaleX(0.7); }
+              100% { transform: scaleX(1); transform: translateX(100%); }
+            }
+          `}</style>
+        </div>
+      )}
     </div>
   );
 }
