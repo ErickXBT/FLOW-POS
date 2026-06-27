@@ -783,6 +783,69 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
             <main className="flex-1 overflow-y-auto">
               {children}
             </main>
+
+            {/* Mobile Bottom Navbar */}
+            {!isFullscreen && !isSuperAdmin && (
+              <div className="md:hidden h-16 bg-card border-t border-border flex items-center justify-around px-2 flex-shrink-0 z-40 select-none pb-safe shadow-[0_-2px_10px_rgba(0,0,0,0.03)]">
+                {/* 1. Dashboard */}
+                {hasPermission(user, "view_dashboard") && (
+                  <Link href="/dashboard">
+                    <a className={`flex flex-col items-center justify-center gap-1 w-16 py-1.5 transition-colors ${
+                      location === "/dashboard" ? "text-primary font-bold" : "text-muted-foreground hover:text-foreground"
+                    }`}>
+                      <LayoutDashboard size={20} className={location === "/dashboard" ? "scale-105 text-primary" : "text-muted-foreground/80"} />
+                      <span className="text-[9px] tracking-tight">Dasbor</span>
+                    </a>
+                  </Link>
+                )}
+
+                {/* 2. Kasir (POS) */}
+                {hasPermission(user, "view_pos") && (
+                  <Link href="/pos">
+                    <a className={`flex flex-col items-center justify-center gap-1 w-16 py-1.5 transition-colors ${
+                      location === "/pos" ? "text-primary font-bold" : "text-muted-foreground hover:text-foreground"
+                    }`}>
+                      <ShoppingCart size={20} className={location === "/pos" ? "scale-105 text-primary" : "text-muted-foreground/80"} />
+                      <span className="text-[9px] tracking-tight">Kasir</span>
+                    </a>
+                  </Link>
+                )}
+
+                {/* 3. Pesanan Online */}
+                {hasPermission(user, "manage_orders") && (
+                  <Link href="/customer-orders">
+                    <a className={`flex flex-col items-center justify-center gap-1 w-16 py-1.5 transition-colors ${
+                      location === "/customer-orders" ? "text-primary font-bold" : "text-muted-foreground hover:text-foreground"
+                    }`}>
+                      <Smartphone size={20} className={location === "/customer-orders" ? "scale-105 text-primary" : "text-muted-foreground/80"} />
+                      <span className="text-[9px] tracking-tight">Online</span>
+                    </a>
+                  </Link>
+                )}
+
+                {/* 4. Laporan */}
+                {hasPermission(user, "view_reports") && (
+                  <Link href="/reports">
+                    <a className={`flex flex-col items-center justify-center gap-1 w-16 py-1.5 transition-colors ${
+                      location === "/reports" ? "text-primary font-bold" : "text-muted-foreground hover:text-foreground"
+                    }`}>
+                      <BarChart3 size={20} className={location === "/reports" ? "scale-105 text-primary" : "text-muted-foreground/80"} />
+                      <span className="text-[9px] tracking-tight">Laporan</span>
+                    </a>
+                  </Link>
+                )}
+
+                {/* 5. Menu Lainnya (Slides open the main sidebar) */}
+                <button
+                  type="button"
+                  onClick={() => setSidebarOpen(true)}
+                  className="flex flex-col items-center justify-center gap-1 w-16 py-1.5 text-muted-foreground hover:text-foreground transition-colors"
+                >
+                  <Menu size={20} className="text-muted-foreground/80" />
+                  <span className="text-[9px] tracking-tight">Menu</span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

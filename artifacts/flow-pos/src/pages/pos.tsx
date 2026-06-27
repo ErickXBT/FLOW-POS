@@ -1164,7 +1164,7 @@ export default function POSPage() {
       </div>
 
       {/* Cart panel */}
-      <div className={`w-80 xl:w-96 flex flex-col bg-card border-l border-border flex-shrink-0 ${showCartMobile ? "flex w-full md:w-80 lg:w-96" : "hidden md:flex"}`}>
+      <div className={`w-80 xl:w-96 flex flex-col bg-card border-l border-border flex-shrink-0 ${showCartMobile ? "flex w-full md:w-80 lg:w-96 overflow-y-auto md:overflow-hidden h-full pb-24 md:pb-0" : "hidden md:flex"}`}>
         <div className="px-4 py-4 border-b border-border flex items-center gap-2">
           <button
             onClick={() => setShowCartMobile(false)}
@@ -1218,7 +1218,7 @@ export default function POSPage() {
         </div>
 
         {/* Cart items */}
-        <div className="flex-1 overflow-y-auto p-3 space-y-2">
+        <div className="flex-shrink-0 md:flex-1 overflow-visible md:overflow-y-auto p-3 space-y-2">
           {cart.length === 0 && (
             <div className="text-center text-muted-foreground py-12">
               <ShoppingCart size={36} className="mx-auto mb-3 opacity-30" />
