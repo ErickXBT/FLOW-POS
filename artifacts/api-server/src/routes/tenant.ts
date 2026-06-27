@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, and } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 import { db, tenantsTable, subscriptionsTable, subscriptionPlansTable, publicMenusTable, usersTable, subscriptionUpgradeRequestsTable } from "@workspace/db";
 import { UpdateTenantBody, CreateSubscriptionUpgradeRequestBody } from "@workspace/api-zod";
 import { extractToken } from "./auth";
@@ -80,7 +80,7 @@ router.get("/tenant/subscription", async (req, res): Promise<void> => {
 
   const [sub] = await db.select().from(subscriptionsTable)
     .where(eq(subscriptionsTable.tenantId, claims.tenantId))
-    .orderBy(subscriptionsTable.createdAt);
+    .orderBy(desc(subscriptionsTable.createdAt));
 
   if (!sub) { res.status(404).json({ error: "No subscription" }); return; }
 
