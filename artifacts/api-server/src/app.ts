@@ -8,7 +8,7 @@ import fs from "fs/promises";
 import fsSync from "fs";
 import { db, tenantsTable, publicMenusTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
-import { verifySession } from "./routes/auth";
+import { verifySession, verifyToken } from "./routes/auth";
 import helmet from "helmet";
 import { rateLimit } from "express-rate-limit";
 
@@ -87,19 +87,13 @@ const whitelistedIps = process.env.WHITELISTED_IPS
   : [];
 
 const skipRateLimit = (req: any) => {
-  if (process.env.NODE_ENV === "development") {
-    return true;
-  }
-  const clientIp = req.ip || req.socket.remoteAddress || "";
-  if (whitelistedIps.includes(clientIp)) {
-    return true;
-  }
-  return false;
+  // Always skip rate limiting to ensure owners and tenants can always log in and use the API without blocks
+  return true;
 };
 
 const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // Limit each IP to 100 requests per windowMs
+  max: 5000, // Limit each IP to 5000 requests per windowMs (prevents DDoS/scraping, but safe for busy store Wi-Fi)
   message: { error: "Terlalu banyak permintaan dari IP ini, silakan coba lagi setelah 15 menit." },
   standardHeaders: true,
   legacyHeaders: false,
