@@ -347,18 +347,18 @@ export default function QrManagerPage() {
           <Globe size={18} className="text-primary" /> {isFashion ? "Link Katalog Publik" : "Link Menu Publik"}
         </div>
         
-        <div className="flex gap-2">
-          <div className="flex-1 flex items-center bg-muted/40 rounded-lg border border-input px-3 py-2 text-sm">
-            <span className="text-muted-foreground font-medium select-none pr-1">flowapp.id/menu/</span>
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="flex-1 flex items-center bg-muted/40 rounded-lg border border-input px-3 py-2 text-sm min-w-0">
+            <span className="text-muted-foreground font-medium select-none pr-1 text-xs xs:text-sm">flowapp.id/menu/</span>
             <input
               value={slugInput}
               onChange={e => setSlugInput(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "-"))}
               placeholder="nama-toko-anda"
-              className="flex-1 bg-transparent focus:outline-none text-foreground font-semibold"
+              className="flex-1 bg-transparent focus:outline-none text-foreground font-semibold min-w-0 text-xs xs:text-sm"
             />
           </div>
           <button onClick={saveSlug} disabled={slugSaving || !slugInput.trim() || slugInput === slug}
-            className="px-6 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50 hover:bg-primary/90 transition-colors">
+            className="w-full sm:w-auto px-6 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50 hover:bg-primary/90 transition-colors">
             {slugSaving ? "..." : "Simpan"}
           </button>
         </div>
@@ -372,9 +372,9 @@ export default function QrManagerPage() {
 
         {slug && (
           <>
-            <div className="flex items-center justify-between bg-muted/20 rounded-lg border border-border px-3 py-2 text-sm text-foreground">
-              <span className="truncate font-mono text-xs">{publicMenuUrl}</span>
-              <div className="flex gap-2 flex-shrink-0 ml-2">
+            <div className="flex items-center justify-between bg-muted/20 rounded-lg border border-border px-3 py-2 text-sm text-foreground min-w-0">
+              <span className="truncate font-mono text-xs flex-1 min-w-0 pr-2">{publicMenuUrl}</span>
+              <div className="flex gap-2 flex-shrink-0">
                 <button onClick={() => copyLink(publicMenuUrl)} className="text-muted-foreground hover:text-foreground p-1 rounded transition-colors" title="Salin Link">
                   {copied === publicMenuUrl ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
                 </button>
@@ -409,10 +409,10 @@ export default function QrManagerPage() {
 
       {/* Card 2: Pengaturan Menu Online */}
       <div className="bg-card border border-card-border rounded-xl p-5 shadow-sm space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="font-semibold text-foreground text-sm font-sans">{isFashion ? "Pengaturan Katalog Online" : "Pengaturan Menu Online"}</div>
           <button onClick={saveSettings} disabled={settingsSaving}
-            className="flex items-center gap-1.5 text-xs bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 font-semibold font-sans">
+            className="w-full sm:w-auto flex items-center justify-center gap-1.5 text-xs bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 font-semibold font-sans">
             {settingsSaved ? <><Check size={12} /> Tersimpan</> : settingsSaving ? "Menyimpan..." : "Simpan Pengaturan"}
           </button>
         </div>

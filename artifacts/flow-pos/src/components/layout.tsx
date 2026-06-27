@@ -780,21 +780,23 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
               </div>
             )}
 
-            <main className="flex-1 overflow-y-auto">
+            <main className="flex-1 overflow-y-auto pb-24 md:pb-0">
               {children}
             </main>
 
             {/* Mobile Bottom Navbar */}
             {!isFullscreen && !isSuperAdmin && (
-              <div className="md:hidden h-16 bg-card border-t border-border flex items-center justify-around px-2 flex-shrink-0 z-40 select-none pb-safe shadow-[0_-2px_10px_rgba(0,0,0,0.03)]">
+              <div className="md:hidden fixed bottom-4 left-4 right-4 h-16 bg-primary rounded-2xl flex items-center justify-around px-2.5 z-40 select-none shadow-2xl border border-white/10 pb-safe">
                 {/* 1. Dashboard */}
                 {hasPermission(user, "view_dashboard") && (
                   <Link href="/dashboard">
-                    <a className={`flex flex-col items-center justify-center gap-1 w-16 py-1.5 transition-colors ${
-                      location === "/dashboard" ? "text-primary font-bold" : "text-muted-foreground hover:text-foreground"
+                    <a className={`flex items-center gap-1.5 transition-all duration-300 ${
+                      location === "/dashboard" 
+                        ? "bg-white text-primary font-bold px-3.5 py-2 rounded-full shadow-md scale-105 animate-scale-up" 
+                        : "text-white/70 hover:text-white p-2.5"
                     }`}>
-                      <LayoutDashboard size={20} className={location === "/dashboard" ? "scale-105 text-primary" : "text-muted-foreground/80"} />
-                      <span className="text-[9px] tracking-tight">Dasbor</span>
+                      <LayoutDashboard size={18} className={location === "/dashboard" ? "text-primary" : "text-white"} />
+                      {location === "/dashboard" && <span className="text-[10px] tracking-tight font-sans">Dasbor</span>}
                     </a>
                   </Link>
                 )}
@@ -802,11 +804,13 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
                 {/* 2. Kasir (POS) */}
                 {hasPermission(user, "view_pos") && (
                   <Link href="/pos">
-                    <a className={`flex flex-col items-center justify-center gap-1 w-16 py-1.5 transition-colors ${
-                      location === "/pos" ? "text-primary font-bold" : "text-muted-foreground hover:text-foreground"
+                    <a className={`flex items-center gap-1.5 transition-all duration-300 ${
+                      location === "/pos" 
+                        ? "bg-white text-primary font-bold px-3.5 py-2 rounded-full shadow-md scale-105 animate-scale-up" 
+                        : "text-white/70 hover:text-white p-2.5"
                     }`}>
-                      <ShoppingCart size={20} className={location === "/pos" ? "scale-105 text-primary" : "text-muted-foreground/80"} />
-                      <span className="text-[9px] tracking-tight">Kasir</span>
+                      <ShoppingCart size={18} className={location === "/pos" ? "text-primary" : "text-white"} />
+                      {location === "/pos" && <span className="text-[10px] tracking-tight font-sans">Kasir</span>}
                     </a>
                   </Link>
                 )}
@@ -814,11 +818,13 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
                 {/* 3. Pesanan Online */}
                 {hasPermission(user, "manage_orders") && (
                   <Link href="/customer-orders">
-                    <a className={`flex flex-col items-center justify-center gap-1 w-16 py-1.5 transition-colors ${
-                      location === "/customer-orders" ? "text-primary font-bold" : "text-muted-foreground hover:text-foreground"
+                    <a className={`flex items-center gap-1.5 transition-all duration-300 ${
+                      location === "/customer-orders" 
+                        ? "bg-white text-primary font-bold px-3.5 py-2 rounded-full shadow-md scale-105 animate-scale-up" 
+                        : "text-white/70 hover:text-white p-2.5"
                     }`}>
-                      <Smartphone size={20} className={location === "/customer-orders" ? "scale-105 text-primary" : "text-muted-foreground/80"} />
-                      <span className="text-[9px] tracking-tight">Online</span>
+                      <Smartphone size={18} className={location === "/customer-orders" ? "text-primary" : "text-white"} />
+                      {location === "/customer-orders" && <span className="text-[10px] tracking-tight font-sans">Online</span>}
                     </a>
                   </Link>
                 )}
@@ -826,11 +832,13 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
                 {/* 4. Laporan */}
                 {hasPermission(user, "view_reports") && (
                   <Link href="/reports">
-                    <a className={`flex flex-col items-center justify-center gap-1 w-16 py-1.5 transition-colors ${
-                      location === "/reports" ? "text-primary font-bold" : "text-muted-foreground hover:text-foreground"
+                    <a className={`flex items-center gap-1.5 transition-all duration-300 ${
+                      location === "/reports" 
+                        ? "bg-white text-primary font-bold px-3.5 py-2 rounded-full shadow-md scale-105 animate-scale-up" 
+                        : "text-white/70 hover:text-white p-2.5"
                     }`}>
-                      <BarChart3 size={20} className={location === "/reports" ? "scale-105 text-primary" : "text-muted-foreground/80"} />
-                      <span className="text-[9px] tracking-tight">Laporan</span>
+                      <BarChart3 size={18} className={location === "/reports" ? "text-primary" : "text-white"} />
+                      {location === "/reports" && <span className="text-[10px] tracking-tight font-sans">Laporan</span>}
                     </a>
                   </Link>
                 )}
@@ -839,10 +847,9 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
                 <button
                   type="button"
                   onClick={() => setSidebarOpen(true)}
-                  className="flex flex-col items-center justify-center gap-1 w-16 py-1.5 text-muted-foreground hover:text-foreground transition-colors"
+                  className="flex items-center gap-1.5 text-white/70 hover:text-white p-2.5 transition-all duration-300"
                 >
-                  <Menu size={20} className="text-muted-foreground/80" />
-                  <span className="text-[9px] tracking-tight">Menu</span>
+                  <Menu size={18} className="text-white" />
                 </button>
               </div>
             )}

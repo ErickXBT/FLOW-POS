@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Search, Eye, X, ClipboardList, Download, ArrowLeft, ArrowRight, Trash2, RefreshCw, FileText } from "lucide-react";
+import { Search, Eye, X, ClipboardList, Download, ArrowLeft, ArrowRight, Trash2, RefreshCw, FileText, ChevronRight } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useActiveBranch } from "@/hooks/use-active-branch";
 import { useListEmployees } from "@workspace/api-client-react";
@@ -926,100 +926,182 @@ export default function OrdersPage() {
             <span className="font-semibold text-sm">Memuat riwayat transaksi...</span>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-muted/40">
-                  <th className="text-left px-5 py-3.5 text-muted-foreground font-semibold text-xs uppercase tracking-wider">Order ID</th>
-                  <th className="text-left px-5 py-3.5 text-muted-foreground font-semibold text-xs uppercase tracking-wider">Date</th>
-                  <th className="text-left px-5 py-3.5 text-muted-foreground font-semibold text-xs uppercase tracking-wider">Customer</th>
-                  <th className="text-left px-5 py-3.5 text-muted-foreground font-semibold text-xs uppercase tracking-wider">Tipe</th>
-                  <th className="text-left px-5 py-3.5 text-muted-foreground font-semibold text-xs uppercase tracking-wider">Payment</th>
-                  <th className="text-left px-5 py-3.5 text-muted-foreground font-semibold text-xs uppercase tracking-wider">Status</th>
-                  <th className="text-left px-5 py-3.5 text-muted-foreground font-semibold text-xs uppercase tracking-wider">Total</th>
-                  <th className="text-center px-5 py-3.5 text-muted-foreground font-semibold text-xs uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/60">
-                {orders.length === 0 && (
-                  <tr>
-                    <td colSpan={8} className="text-center text-muted-foreground py-16">
-                      <ClipboardList size={40} className="mx-auto mb-3 opacity-20" />
-                      <div className="font-semibold text-base">Belum ada transaksi</div>
-                      <p className="text-xs text-muted-foreground mt-1">Selesaikan pesanan dari POS atau Online untuk melihat riwayat</p>
-                    </td>
+          <>
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-border bg-muted/40">
+                    <th className="text-left px-5 py-3.5 text-muted-foreground font-semibold text-xs uppercase tracking-wider">Order ID</th>
+                    <th className="text-left px-5 py-3.5 text-muted-foreground font-semibold text-xs uppercase tracking-wider">Date</th>
+                    <th className="text-left px-5 py-3.5 text-muted-foreground font-semibold text-xs uppercase tracking-wider">Customer</th>
+                    <th className="text-left px-5 py-3.5 text-muted-foreground font-semibold text-xs uppercase tracking-wider">Tipe</th>
+                    <th className="text-left px-5 py-3.5 text-muted-foreground font-semibold text-xs uppercase tracking-wider">Payment</th>
+                    <th className="text-left px-5 py-3.5 text-muted-foreground font-semibold text-xs uppercase tracking-wider">Status</th>
+                    <th className="text-left px-5 py-3.5 text-muted-foreground font-semibold text-xs uppercase tracking-wider">Total</th>
+                    <th className="text-center px-5 py-3.5 text-muted-foreground font-semibold text-xs uppercase tracking-wider">Actions</th>
                   </tr>
-                )}
-                {orders.map(o => {
-                  const { dateStr, relativeStr } = formatDateTime(o.createdAt);
-                  return (
-                    <tr key={o.id} className="hover:bg-muted/10 transition-colors">
-                      <td className="px-5 py-4 font-bold text-foreground">#{o.id}</td>
-                      <td className="px-5 py-4">
-                        <div className="flex flex-col">
-                          <span className="font-semibold text-foreground text-sm">{dateStr}</span>
-                          <span className="text-[11px] text-muted-foreground mt-0.5">{relativeStr}</span>
-                        </div>
+                </thead>
+                <tbody className="divide-y divide-border/60">
+                  {orders.length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="text-center text-muted-foreground py-16">
+                        <ClipboardList size={40} className="mx-auto mb-3 opacity-20" />
+                        <div className="font-semibold text-base">Belum ada transaksi</div>
+                        <p className="text-xs text-muted-foreground mt-1">Selesaikan pesanan dari POS atau Online untuk melihat riwayat</p>
                       </td>
-                      <td className="px-5 py-4">
-                        {o.orderType === "dine_in" && o.tableNumber ? (
+                    </tr>
+                  )}
+                  {orders.map(o => {
+                    const { dateStr, relativeStr } = formatDateTime(o.createdAt);
+                    return (
+                      <tr key={o.id} className="hover:bg-muted/10 transition-colors">
+                        <td className="px-5 py-4 font-bold text-foreground">#{o.id}</td>
+                        <td className="px-5 py-4">
                           <div className="flex flex-col">
-                            <span className="font-bold text-foreground text-sm">{o.tableNumber}</span>
-                            <div className="text-xs text-muted-foreground flex items-center gap-1.5 flex-wrap">
-                              <span>{o.customerName || "-"}</span>
-                              {o.isClaimReward && (
-                                <span className="text-[9px] font-black bg-amber-100 text-amber-805 px-1.5 py-0.2 rounded border border-amber-200 uppercase tracking-wide">
-                                  REWARD
-                                </span>
+                            <span className="font-semibold text-foreground text-sm">{dateStr}</span>
+                            <span className="text-[11px] text-muted-foreground mt-0.5">{relativeStr}</span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-4">
+                          {o.orderType === "dine_in" && o.tableNumber ? (
+                            <div className="flex flex-col">
+                              <span className="font-bold text-foreground text-sm">{o.tableNumber}</span>
+                              <div className="text-xs text-muted-foreground flex items-center gap-1.5 flex-wrap">
+                                <span>{o.customerName || "-"}</span>
+                                {o.isClaimReward && (
+                                  <span className="text-[9px] font-black bg-amber-100 text-amber-805 px-1.5 py-0.2 rounded border border-amber-200 uppercase tracking-wide">
+                                    REWARD
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex flex-col">
+                              <div className="font-semibold text-foreground text-sm flex items-center gap-1.5 flex-wrap">
+                                <span>{o.customerName || "-"}</span>
+                                {o.isClaimReward && (
+                                  <span className="text-[9px] font-black bg-amber-100 text-amber-805 px-1.5 py-0.2 rounded border border-amber-200 uppercase tracking-wide">
+                                    REWARD
+                                  </span>
+                                )}
+                              </div>
+                              {o.orderType === "delivery" && o.deliveryAddress && (
+                                <span className="text-xs text-muted-foreground truncate max-w-[160px] mt-0.5">{o.deliveryAddress}</span>
                               )}
                             </div>
+                          )}
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-bold border ${TYPE_MAP[o.orderType]?.cls || "bg-gray-100"}`}>
+                            {TYPE_MAP[o.orderType]?.label || o.orderType}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-bold border ${getPaymentDetails(o).cls}`}>
+                            {getPaymentDetails(o).label}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-bold border ${STATUS_MAP[o.status]?.cls || "bg-gray-100"}`}>
+                            {STATUS_MAP[o.status]?.label || o.status}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 font-extrabold text-foreground text-sm">{formatRp(Number(o.total))}</td>
+                        <td className="px-5 py-4 text-center">
+                          <button
+                            onClick={() => setViewId(o.id)}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-border bg-card hover:bg-muted text-foreground text-xs font-bold active:scale-95 transition-all shadow-sm"
+                          >
+                            <Eye size={13} /> View
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile Card List View */}
+            <div className="block md:hidden space-y-3 p-3">
+              {orders.length === 0 && (
+                <div className="text-center text-muted-foreground py-16 bg-card rounded-2xl">
+                  <ClipboardList size={40} className="mx-auto mb-3 opacity-20" />
+                  <div className="font-semibold text-base">Belum ada transaksi</div>
+                  <p className="text-xs text-muted-foreground mt-1">Selesaikan pesanan dari POS atau Online untuk melihat riwayat</p>
+                </div>
+              )}
+              {orders.map(o => {
+                const { dateStr, relativeStr } = formatDateTime(o.createdAt);
+                const paymentInfo = getPaymentDetails(o);
+                
+                return (
+                  <div 
+                    key={o.id}
+                    onClick={() => setViewId(o.id)}
+                    className="bg-card border border-card-border rounded-2xl p-4 shadow-sm active:scale-[0.98] transition-all cursor-pointer space-y-3"
+                  >
+                    {/* Header: ID & Time */}
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-sm text-foreground">#{o.id}</span>
+                      <div className="text-right">
+                        <span className="text-xs font-semibold text-foreground block">{dateStr}</span>
+                        <span className="text-[10px] text-muted-foreground">{relativeStr}</span>
+                      </div>
+                    </div>
+
+                    {/* Middle: Customer & Type Info */}
+                    <div className="flex justify-between items-center gap-2 pt-1">
+                      <div className="min-w-0">
+                        {o.orderType === "dine_in" && o.tableNumber ? (
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-bold text-xs bg-muted px-2 py-0.5 rounded text-foreground">
+                              {o.tableNumber}
+                            </span>
+                            <span className="text-xs text-muted-foreground truncate">{o.customerName || "-"}</span>
                           </div>
                         ) : (
-                          <div className="flex flex-col">
-                            <div className="font-semibold text-foreground text-sm flex items-center gap-1.5 flex-wrap">
-                              <span>{o.customerName || "-"}</span>
-                              {o.isClaimReward && (
-                                <span className="text-[9px] font-black bg-amber-100 text-amber-805 px-1.5 py-0.2 rounded border border-amber-200 uppercase tracking-wide">
-                                  REWARD
-                                </span>
-                              )}
-                            </div>
-                            {o.orderType === "delivery" && o.deliveryAddress && (
-                              <span className="text-xs text-muted-foreground truncate max-w-[160px] mt-0.5">{o.deliveryAddress}</span>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-xs font-semibold text-foreground truncate">{o.customerName || "-"}</span>
+                            {o.isClaimReward && (
+                              <span className="text-[9px] font-black bg-amber-100 text-amber-800 px-1.5 py-0.2 rounded border border-amber-200 uppercase tracking-wide">
+                                REWARD
+                              </span>
                             )}
                           </div>
                         )}
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-bold border ${TYPE_MAP[o.orderType]?.cls || "bg-gray-100"}`}>
+                        {o.orderType === "delivery" && o.deliveryAddress && (
+                          <p className="text-[10px] text-muted-foreground truncate mt-1 max-w-[200px]">{o.deliveryAddress}</p>
+                        )}
+                      </div>
+
+                      <div className="flex gap-1.5 flex-shrink-0">
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold border ${TYPE_MAP[o.orderType]?.cls || "bg-gray-100"}`}>
                           {TYPE_MAP[o.orderType]?.label || o.orderType}
                         </span>
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-bold border ${getPaymentDetails(o).cls}`}>
-                          {getPaymentDetails(o).label}
+                        <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold border ${paymentInfo.cls}`}>
+                          {paymentInfo.label}
                         </span>
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-bold border ${STATUS_MAP[o.status]?.cls || "bg-gray-100"}`}>
-                          {STATUS_MAP[o.status]?.label || o.status}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4 font-extrabold text-foreground text-sm">{formatRp(Number(o.total))}</td>
-                      <td className="px-5 py-4 text-center">
-                        <button
-                          onClick={() => setViewId(o.id)}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-border bg-card hover:bg-muted text-foreground text-xs font-bold active:scale-95 transition-all shadow-sm"
-                        >
-                          <Eye size={13} /> View
-                        </button>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                      </div>
+                    </div>
+
+                    {/* Footer: Status & Total */}
+                    <div className="flex justify-between items-center pt-2.5 border-t border-border/40">
+                      <span className={`inline-flex px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${STATUS_MAP[o.status]?.cls || "bg-gray-100"}`}>
+                        {STATUS_MAP[o.status]?.label || o.status}
+                      </span>
+                      
+                      <div className="flex items-center gap-2">
+                        <span className="font-extrabold text-primary text-sm">{formatRp(Number(o.total))}</span>
+                        <ChevronRight size={16} className="text-muted-foreground" />
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
 
