@@ -272,6 +272,7 @@ export default function POSPage() {
     }
   }, [tenant]);
   const [paymentMethod, setPaymentMethod] = useState("cash");
+  const [cashReceived, setCashReceived] = useState<string>('');
   const [success, setSuccess] = useState(false);
   const queryClient = useQueryClient();
 
@@ -529,6 +530,7 @@ export default function POSPage() {
           notes: i.notes || null,
         })),
         paymentMethod: paymentMethod as any,
+        cashReceived: Number(cashReceived) || 0,
         subtotal,
         discount,
         tax: taxAmount,
@@ -758,6 +760,11 @@ export default function POSPage() {
     }
     metaRows.push({ label: "Nama", value: order.customerName || "-" });
     metaRows.push({ label: "Pembayaran", value: getPaymentLabel(order.paymentMethod) });
+        if (order.paymentMethod === "cash") {
+          metaRows.push({ label: "Uang Diterima", value: formatRp(order.cashReceived || 0) });
+          const change = (order.cashReceived || 0) - order.total;
+          metaRows.push({ label: "Kembalian", value: formatRp(change > 0 ? change : 0) });
+        }
     metaRows.push({ label: "Kasir", value: order.employeeName || "Kasir Utama" });
 
     const formattedMetaLines: string[] = [];
@@ -1396,6 +1403,24 @@ export default function POSPage() {
               </button>
             ))}
           </div>
+            {/* Cash input for Tunai */}
+            {paymentMethod === "cash" && (
+              <div className="mt-2 space-y-1">
+                <label className="text-xs font-semibold text-muted-foreground">Uang Diterima</label>
+                <input
+                  type="number"
+                  value={cashReceived}
+                  onChange={e => setCashReceived(e.target.value)}
+                  placeholder="Masukkan jumlah uang tunai..."
+                  className="w-full px-3 py-2 text-sm border border-input rounded bg-background focus:outline-none"
+                />
+                {cashReceived && (
+                  <div className={`mt-1 text-sm ${Number(cashReceived) - total >= 0 ? "text-green-600" : "text-red-600"}`}>
+                    {Number(cashReceived) - total >= 0 ? "Kembalian: " + formatRp(Number(cashReceived) - total) : "Kurang: " + formatRp(Math.abs(Number(cashReceived) - total))}
+                  </div>
+                )}
+              </div>
+            )}
 
           {success && (
             <div className="flex items-center gap-2 text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg px-3 py-2 text-sm font-medium">
@@ -1406,7 +1431,7 @@ export default function POSPage() {
           <button
             data-testid="button-checkout"
             onClick={handleCheckoutClick}
-            disabled={cart.length === 0 || createOrder.isPending}
+            disabled={cart.length === 0 || createOrder.isPending || (paymentMethod === "cash" && (!cashReceived || Number(cashReceived) < total))}
             className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-bold text-sm hover:opacity-90 active:scale-95 transition-all disabled:opacity-40"
           >
             {createOrder.isPending ? "Memproses..." : `Bayar ${formatRp(total)}`}
