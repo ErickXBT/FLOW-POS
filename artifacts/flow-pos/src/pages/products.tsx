@@ -93,6 +93,8 @@ function ProductForm({ initial, categories, onSubmit, onClose, loading, business
   let initialIsBundle = false;
   let initialBundleProducts: any[] = [];
   let initialBundleBannerImageUrl = "";
+  let initialShowInPos = true;
+  let initialShowInCustomerMenu = true;
   if (initial?.variantSettings) {
     try {
       const parsed = JSON.parse(initial.variantSettings);
@@ -100,6 +102,8 @@ function ProductForm({ initial, categories, onSubmit, onClose, loading, business
         initialIsBundle = true;
         initialBundleProducts = parsed.bundleProducts || [];
         initialBundleBannerImageUrl = parsed.bannerImageUrl || "";
+        initialShowInPos = parsed.showInPos !== false;
+        initialShowInCustomerMenu = parsed.showInCustomerMenu !== false;
       }
     } catch (e) {}
   }
@@ -107,6 +111,8 @@ function ProductForm({ initial, categories, onSubmit, onClose, loading, business
   const [isBundle, setIsBundle] = useState(initialIsBundle);
   const [bundleProducts, setBundleProducts] = useState<{ id: number; name: string; qty: number }[]>(initialBundleProducts);
   const [bundleBannerImageUrl, setBundleBannerImageUrl] = useState(initialBundleBannerImageUrl);
+  const [bundleShowInPos, setBundleShowInPos] = useState(initialShowInPos);
+  const [bundleShowInCustomerMenu, setBundleShowInCustomerMenu] = useState(initialShowInCustomerMenu);
   const [selectedAddProdId, setSelectedAddProdId] = useState("");
   const [selectedAddProdQty, setSelectedAddProdQty] = useState(1);
 
@@ -646,6 +652,30 @@ function ProductForm({ initial, categories, onSubmit, onClose, loading, business
                     onChange={e => setBundleBannerImageUrl(e.target.value)}
                     className="w-full px-3 py-2 rounded-xl border border-input bg-background text-xs focus:outline-none focus:ring-1 focus:ring-amber-500/20"
                   />
+                  {/* Visibility targets for bundle banner */}
+                  <div className="space-y-1.5 pt-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground block">Tampilkan Banner Promo Di:</span>
+                    <div className="flex gap-4">
+                      <label className="flex items-center gap-1.5 cursor-pointer font-semibold text-[10px] text-muted-foreground">
+                        <input
+                          type="checkbox"
+                          checked={bundleShowInPos}
+                          onChange={e => setBundleShowInPos(e.target.checked)}
+                          className="w-3.5 h-3.5 rounded text-amber-500 focus:ring-amber-500 border-input bg-background"
+                        />
+                        Kasir (POS)
+                      </label>
+                      <label className="flex items-center gap-1.5 cursor-pointer font-semibold text-[10px] text-muted-foreground">
+                        <input
+                          type="checkbox"
+                          checked={bundleShowInCustomerMenu}
+                          onChange={e => setBundleShowInCustomerMenu(e.target.checked)}
+                          className="w-3.5 h-3.5 rounded text-amber-500 focus:ring-amber-500 border-input bg-background"
+                        />
+                        Menu Pelanggan
+                      </label>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
@@ -900,7 +930,9 @@ function ProductForm({ initial, categories, onSubmit, onClose, loading, business
               variantSettingsStr = JSON.stringify({
                 isBundle: true,
                 bundleProducts: cleanBundle,
-                bannerImageUrl: bundleBannerImageUrl || undefined
+                bannerImageUrl: bundleBannerImageUrl || undefined,
+                showInPos: bundleShowInPos,
+                showInCustomerMenu: bundleShowInCustomerMenu
               });
             } else {
               const cleanVariants = (businessType === "fashion" && !hasSizes)

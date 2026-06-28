@@ -308,7 +308,7 @@ export default function POSPage() {
       if (p.variantSettings) {
         try {
           const parsed = JSON.parse(p.variantSettings);
-          if (parsed.isBundle && parsed.bannerImageUrl) {
+          if (parsed.isBundle && parsed.bannerImageUrl && parsed.showInPos !== false) {
             const exists = list.some(b => b.linkedProductId === p.id);
             if (!exists) {
               list.push({
