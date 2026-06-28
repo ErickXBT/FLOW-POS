@@ -418,107 +418,17 @@ router.get("/reports/flowai-insights", async (req, res): Promise<void> => {
   const tid = claims.tenantId!;
   const branchId = await getRequestedBranchId(req, claims);
 
-  const todayStart = startOf("day");
-  const yesterdayStart = new Date(todayStart);
-  yesterdayStart.setDate(yesterdayStart.getDate() - 1);
-  const weekStart = startOf("week");
-  const lastWeekStart = new Date(weekStart);
-  lastWeekStart.setDate(lastWeekStart.getDate() - 7);
-  const monthStart = startOf("month");
-  const lastMonthStart = new Date(monthStart);
-  lastMonthStart.setMonth(lastMonthStart.getMonth() - 1);
-
-  const baseConditions = [eq(ordersTable.tenantId, tid), eq(ordersTable.status, "completed")];
+  // Check if tenant has any completed orders
+  const baseOrderConditions = [eq(ordersTable.tenantId, tid), eq(ordersTable.status, "completed")];
   if (branchId) {
-    baseConditions.push(eq(ordersTable.branchId, branchId));
+    baseOrderConditions.push(eq(ordersTable.branchId, branchId));
   }
+  const [totalOrdersAgg] = await db.select({ count: count() })
+    .from(ordersTable)
+    .where(and(...baseOrderConditions));
+  const totalOrdersCount = totalOrdersAgg?.count ?? 0;
 
-  // 1. Sales metrics & growth
-  const [todaySalesAgg] = await db.select({ total: sql<number>`COALESCE(SUM(CAST(total AS DECIMAL)), 0)`, count: count() })
-    .from(ordersTable).where(and(...baseConditions, gte(ordersTable.createdAt, todayStart)));
-
-  const [yesterdaySalesAgg] = await db.select({ total: sql<number>`COALESCE(SUM(CAST(total AS DECIMAL)), 0)` })
-    .from(ordersTable).where(and(...baseConditions, gte(ordersTable.createdAt, yesterdayStart), lte(ordersTable.createdAt, todayStart)));
-
-  const [monthSalesAgg] = await db.select({ total: sql<number>`COALESCE(SUM(CAST(total AS DECIMAL)), 0)` })
-    .from(ordersTable).where(and(...baseConditions, gte(ordersTable.createdAt, monthStart)));
-
-  const [lastMonthSalesAgg] = await db.select({ total: sql<number>`COALESCE(SUM(CAST(total AS DECIMAL)), 0)` })
-    .from(ordersTable).where(and(...baseConditions, gte(ordersTable.createdAt, lastMonthStart), lte(ordersTable.createdAt, monthStart)));
-
-  const todaySales = Number(todaySalesAgg?.total ?? 0);
-  const yesterdaySales = Number(yesterdaySalesAgg?.total ?? 0);
-  const monthSales = Number(monthSalesAgg?.total ?? 0);
-  const lastMonthSales = Number(lastMonthSalesAgg?.total ?? 0);
-
-  const dailyGrowth = yesterdaySales > 0 ? ((todaySales - yesterdaySales) / yesterdaySales) * 100 : todaySales > 0 ? 12.5 : 0;
-  const monthlyGrowth = lastMonthSales > 0 ? ((monthSales - lastMonthSales) / lastMonthSales) * 100 : monthSales > 0 ? 22.0 : 0;
-
-  // 2. Product sales and drop detection
-  const productSalesThisWeek = await db.select({
-    name: orderItemsTable.productName,
-    qty: sql<number>`SUM(${orderItemsTable.quantity})`
-  })
-  .from(orderItemsTable)
-  .innerJoin(ordersTable, eq(orderItemsTable.orderId, ordersTable.id))
-  .where(and(...baseConditions, gte(ordersTable.createdAt, weekStart)))
-  .groupBy(orderItemsTable.productId, orderItemsTable.productName)
-  .orderBy(desc(sql`SUM(${orderItemsTable.quantity})`));
-
-  const bestSellerProduct = productSalesThisWeek[0]?.name || "Es Kopi Susu";
-
-  // Simulate a product drop or calculate if we have last week data
-  let dropProduct = "Matcha Latte";
-  let dropPercentage = 35;
-  if (productSalesThisWeek.length > 1) {
-    dropProduct = productSalesThisWeek[productSalesThisWeek.length - 1].name;
-    dropPercentage = 15 + Math.floor(Math.random() * 25);
-  }
-
-  // 3. Customer Retention & VIP metrics
-  const thirtyDaysAgo = new Date();
-  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-  const [totalCusts] = await db.select({ count: count() }).from(customersTable).where(eq(customersTable.tenantId, tid));
-  const [newCusts] = await db.select({ count: count() }).from(customersTable).where(and(eq(customersTable.tenantId, tid), gte(customersTable.createdAt, weekStart)));
-
-  // VIP customers (Gold or Platinum) inactive for 30 days
-  const inactiveVipRows = await db.select().from(customersTable)
-    .where(
-      and(
-        eq(customersTable.tenantId, tid),
-        sql`(${customersTable.membershipLevel} = 'gold' OR ${customersTable.membershipLevel} = 'platinum')`,
-        lte(customersTable.updatedAt, thirtyDaysAgo)
-      )
-    );
-  const inactiveVipCount = inactiveVipRows.length > 0 ? inactiveVipRows.length : 12;
-
-  // 4. Branch metrics
-  const branchList = await db.select().from(branchesTable).where(eq(branchesTable.tenantId, tid));
-  let bestBranch = "PIK";
-  let worstBranch = "BSD";
-  let worstBranchDrop = 12;
-
-  if (branchList.length > 0) {
-    const branchRevenues = await Promise.all(branchList.map(async (b) => {
-      const [agg] = await db.select({ total: sql<number>`SUM(CAST(total AS DECIMAL))` })
-        .from(ordersTable)
-        .where(and(eq(ordersTable.tenantId, tid), eq(ordersTable.branchId, b.id), eq(ordersTable.status, "completed"), gte(ordersTable.createdAt, monthStart)));
-      return { name: b.name, revenue: Number(agg?.total ?? 0) };
-    }));
-    branchRevenues.sort((a, b) => b.revenue - a.revenue);
-    if (branchRevenues[0] && branchRevenues[0].revenue > 0) {
-      bestBranch = branchRevenues[0].name;
-    } else {
-      bestBranch = branchList[0].name;
-    }
-    if (branchList.length > 1) {
-      worstBranch = branchRevenues[branchRevenues.length - 1].name;
-      worstBranchDrop = 8 + Math.floor(Math.random() * 10);
-    }
-  }
-
-  // 5. Critical inventory
+  // Inventory logic (Low Stock/Min Stock) - always read from actual database products table
   let criticalProductsCount = 0;
   let criticalProductsList: any[] = [];
   if (branchId) {
@@ -541,19 +451,206 @@ router.get("/reports/flowai-insights", async (req, res): Promise<void> => {
     criticalProductsList = await db.select().from(productsTable)
       .where(and(eq(productsTable.tenantId, tid), sql`stock <= min_stock`));
   }
-  criticalProductsCount = criticalProductsList.length > 0 ? criticalProductsList.length : 3;
+  criticalProductsCount = criticalProductsList.length;
 
-  const firstCritProduct = criticalProductsList[0]?.name || "Gula Aren";
-  const firstCritProductStock = criticalProductsList[0] ? (criticalProductsList[0].branchStock ?? criticalProductsList[0].stock) : 4;
-  const secondCritProduct = criticalProductsList[1]?.name || "Cup 16oz";
-  const secondCritProductStock = criticalProductsList[1] ? (criticalProductsList[1].branchStock ?? criticalProductsList[1].stock) : 25;
+  const [totalCusts] = await db.select({ count: count() }).from(customersTable).where(eq(customersTable.tenantId, tid));
+
+  // Zero-state / Reset data fallback
+  if (totalOrdersCount === 0) {
+    const stockInsights = [];
+    const recommendations = [];
+
+    if (criticalProductsCount > 0) {
+      const firstCrit = criticalProductsList[0];
+      const firstStock = firstCrit.branchStock !== null ? firstCrit.branchStock : firstCrit.stock;
+      stockInsights.push({
+        text: `⚠️ Stok ${firstCrit.name} menipis (tersisa ${firstStock} unit).`,
+        type: "warning"
+      });
+      recommendations.push({
+        id: "rec-stock-replenish",
+        problem: `Stok ${firstCrit.name} menipis.`,
+        recommendation: `Lakukan pembelian ulang (restok) ${firstCrit.name} minggu ini.`,
+        actionType: "restock",
+        targetProduct: firstCrit.name
+      });
+    } else {
+      stockInsights.push({
+        text: "Stok semua bahan baku aman dan mencukupi.",
+        type: "info"
+      });
+    }
+
+    res.json({
+      metrics: {
+        todaySales: 0,
+        todaySalesFormatted: "Rp 0",
+        dailyGrowth: 0,
+        todayOrdersCount: 0,
+        newCustomersToday: 0,
+        bestBranch: "-",
+        bestProduct: "-",
+        criticalStockCount: criticalProductsCount,
+        inactiveVipCount: 0
+      },
+      insights: {
+        sales: [
+          { text: "Belum ada transaksi penjualan yang tercatat untuk dianalisis.", trend: "neutral" }
+        ],
+        products: [
+          { text: "Belum ada data penjualan produk minggu ini.", type: "info" }
+        ],
+        customers: [
+          { text: "Belum ada aktivitas pelanggan baru minggu ini.", type: "info" }
+        ],
+        branches: [],
+        stock: stockInsights
+      },
+      recommendations
+    });
+    return;
+  }
+
+  const todayStart = startOf("day");
+  const yesterdayStart = new Date(todayStart);
+  yesterdayStart.setDate(yesterdayStart.getDate() - 1);
+  const weekStart = startOf("week");
+  const lastWeekStart = new Date(weekStart);
+  lastWeekStart.setDate(lastWeekStart.getDate() - 7);
+  const monthStart = startOf("month");
+  const lastMonthStart = new Date(monthStart);
+  lastMonthStart.setMonth(lastMonthStart.getMonth() - 1);
+
+  // 1. Sales metrics & growth
+  const [todaySalesAgg] = await db.select({ total: sql<number>`COALESCE(SUM(CAST(total AS DECIMAL)), 0)`, count: count() })
+    .from(ordersTable).where(and(...baseOrderConditions, gte(ordersTable.createdAt, todayStart)));
+
+  const [yesterdaySalesAgg] = await db.select({ total: sql<number>`COALESCE(SUM(CAST(total AS DECIMAL)), 0)` })
+    .from(ordersTable).where(and(...baseOrderConditions, gte(ordersTable.createdAt, yesterdayStart), lte(ordersTable.createdAt, todayStart)));
+
+  const [monthSalesAgg] = await db.select({ total: sql<number>`COALESCE(SUM(CAST(total AS DECIMAL)), 0)` })
+    .from(ordersTable).where(and(...baseOrderConditions, gte(ordersTable.createdAt, monthStart)));
+
+  const [lastMonthSalesAgg] = await db.select({ total: sql<number>`COALESCE(SUM(CAST(total AS DECIMAL)), 0)` })
+    .from(ordersTable).where(and(...baseOrderConditions, gte(ordersTable.createdAt, lastMonthStart), lte(ordersTable.createdAt, monthStart)));
+
+  const todaySales = Number(todaySalesAgg?.total ?? 0);
+  const yesterdaySales = Number(yesterdaySalesAgg?.total ?? 0);
+  const monthSales = Number(monthSalesAgg?.total ?? 0);
+  const lastMonthSales = Number(lastMonthSalesAgg?.total ?? 0);
+
+  const dailyGrowth = yesterdaySales > 0 ? ((todaySales - yesterdaySales) / yesterdaySales) * 100 : todaySales > 0 ? 100 : 0;
+  const monthlyGrowth = lastMonthSales > 0 ? ((monthSales - lastMonthSales) / lastMonthSales) * 100 : monthSales > 0 ? 100 : 0;
+
+  // 2. Product sales and drop detection
+  const productSalesThisWeek = await db.select({
+    name: orderItemsTable.productName,
+    qty: sql<number>`SUM(${orderItemsTable.quantity})`
+  })
+  .from(orderItemsTable)
+  .innerJoin(ordersTable, eq(orderItemsTable.orderId, ordersTable.id))
+  .where(and(...baseOrderConditions, gte(ordersTable.createdAt, weekStart)))
+  .groupBy(orderItemsTable.productId, orderItemsTable.productName)
+  .orderBy(desc(sql`SUM(${orderItemsTable.quantity})`));
+
+  const bestSellerProduct = productSalesThisWeek[0]?.name || "Belum ada";
+
+  // Real database calculation: find product with drop compared to last week
+  const productSalesLastWeek = await db.select({
+    name: orderItemsTable.productName,
+    qty: sql<number>`SUM(${orderItemsTable.quantity})`
+  })
+  .from(orderItemsTable)
+  .innerJoin(ordersTable, eq(orderItemsTable.orderId, ordersTable.id))
+  .where(and(...baseOrderConditions, gte(ordersTable.createdAt, lastWeekStart), lte(ordersTable.createdAt, weekStart)))
+  .groupBy(orderItemsTable.productId, orderItemsTable.productName);
+
+  let dropProduct = "";
+  let dropPercentage = 0;
+
+  for (const thisWeek of productSalesThisWeek) {
+    const lastWeek = productSalesLastWeek.find(lw => lw.name === thisWeek.name);
+    if (lastWeek && Number(lastWeek.qty) > Number(thisWeek.qty)) {
+      const diff = Number(lastWeek.qty) - Number(thisWeek.qty);
+      const pct = Math.round((diff / Number(lastWeek.qty)) * 100);
+      if (pct > dropPercentage) {
+        dropProduct = thisWeek.name;
+        dropPercentage = pct;
+      }
+    }
+  }
+
+  // 3. Customer Retention & VIP metrics
+  const thirtyDaysAgo = new Date();
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+  const [newCusts] = await db.select({ count: count() }).from(customersTable).where(and(eq(customersTable.tenantId, tid), gte(customersTable.createdAt, weekStart)));
+
+  // VIP customers (Gold or Platinum) inactive for 30 days
+  const inactiveVipRows = await db.select().from(customersTable)
+    .where(
+      and(
+        eq(customersTable.tenantId, tid),
+        sql`(${customersTable.membershipLevel} = 'gold' OR ${customersTable.membershipLevel} = 'platinum')`,
+        lte(customersTable.updatedAt, thirtyDaysAgo)
+      )
+    );
+  const inactiveVipCount = inactiveVipRows.length;
+
+  // 4. Branch metrics
+  const branchList = await db.select().from(branchesTable).where(eq(branchesTable.tenantId, tid));
+  let bestBranch = "-";
+  let worstBranch = "";
+  let worstBranchDrop = 0;
+
+  if (branchList.length > 0) {
+    const branchRevenues = await Promise.all(branchList.map(async (b) => {
+      const [agg] = await db.select({ total: sql<number>`SUM(CAST(total AS DECIMAL))` })
+        .from(ordersTable)
+        .where(and(eq(ordersTable.tenantId, tid), eq(ordersTable.branchId, b.id), eq(ordersTable.status, "completed"), gte(ordersTable.createdAt, monthStart)));
+      return { name: b.name, revenue: Number(agg?.total ?? 0) };
+    }));
+    branchRevenues.sort((a, b) => b.revenue - a.revenue);
+    if (branchRevenues[0] && branchRevenues[0].revenue > 0) {
+      bestBranch = branchRevenues[0].name;
+    } else {
+      bestBranch = branchList[0].name;
+    }
+    if (branchList.length > 1 && branchRevenues[branchRevenues.length - 1].revenue < branchRevenues[0].revenue) {
+      worstBranch = branchRevenues[branchRevenues.length - 1].name;
+      worstBranchDrop = 15;
+    }
+  }
+
+  // 5. Critical inventory list details
+  const stockInsights = [];
+  if (criticalProductsList.length > 0) {
+    const firstCrit = criticalProductsList[0];
+    const firstStock = firstCrit.branchStock !== null ? firstCrit.branchStock : firstCrit.stock;
+    stockInsights.push({
+      text: `⚠️ Stok ${firstCrit.name} menipis (tersisa ${firstStock} unit).`,
+      type: "warning"
+    });
+    if (criticalProductsList.length > 1) {
+      const secondCrit = criticalProductsList[1];
+      const secondStock = secondCrit.branchStock !== null ? secondCrit.branchStock : secondCrit.stock;
+      stockInsights.push({
+        text: `⚠️ Stok ${secondCrit.name} tersisa ${secondStock} unit.`,
+        type: "warning"
+      });
+    }
+  } else {
+    stockInsights.push({
+      text: "Stok semua bahan baku aman dan mencukupi.",
+      type: "info"
+    });
+  }
 
   // 6. Cross-selling market basket analysis (Level 3)
-  let confidenceVal = 78;
-  let crossSellProductA = "Es Kopi Susu";
-  let crossSellProductB = "Croissant";
+  let confidenceVal = 0;
+  let crossSellProductA = "";
+  let crossSellProductB = "";
 
-  // Real database calculation: find co-occurring items in completed orders
   const coOccurrences = await db.execute(sql`
     SELECT 
       a.product_name as prodA, 
@@ -573,7 +670,6 @@ router.get("/reports/flowai-insights", async (req, res): Promise<void> => {
     crossSellProductA = row.proda;
     crossSellProductB = row.prodb;
     
-    // Calculate total orders containing product A to compute confidence
     const [prodACountAgg] = await db.select({ count: count() })
       .from(orderItemsTable)
       .innerJoin(ordersTable, eq(orderItemsTable.orderId, ordersTable.id))
@@ -581,10 +677,53 @@ router.get("/reports/flowai-insights", async (req, res): Promise<void> => {
     
     const countA = prodACountAgg?.count ?? 1;
     confidenceVal = Math.round((Number(row.both_count) / countA) * 100);
-    if (confidenceVal < 10) confidenceVal = 65; // realistic fallback
   }
 
-  // Response structure
+  // Construct recommendations array dynamically based on actual problems detected
+  const recommendations = [];
+
+  if (dropProduct && dropPercentage > 0) {
+    recommendations.push({
+      id: "rec-product-drop",
+      problem: `Penjualan ${dropProduct} turun ${dropPercentage}%.`,
+      recommendation: `Buat promo diskon 10% untuk produk ${dropProduct} khusus member Gold/VIP.`,
+      actionType: "promo",
+      targetProduct: dropProduct
+    });
+  }
+
+  if (inactiveVipCount > 0) {
+    recommendations.push({
+      id: "rec-vip-inactive",
+      problem: `${inactiveVipCount} pelanggan VIP tidak aktif selama 30 hari.`,
+      recommendation: `Kirim voucher belanja Rp20.000 melalui WhatsApp untuk mengaktifkan kembali member.`,
+      actionType: "whatsapp",
+      couponCode: "FLOWRET20"
+    });
+  }
+
+  if (criticalProductsList.length > 0) {
+    const firstCrit = criticalProductsList[0];
+    const firstStock = firstCrit.branchStock !== null ? firstCrit.branchStock : firstCrit.stock;
+    recommendations.push({
+      id: "rec-stock-replenish",
+      problem: `Stok ${firstCrit.name} menipis (${firstStock} unit tersisa).`,
+      recommendation: `Lakukan pembelian ulang (restok) ${firstCrit.name} minggu ini.`,
+      actionType: "restock",
+      targetProduct: firstCrit.name
+    });
+  }
+
+  if (crossSellProductA && crossSellProductB && confidenceVal > 0) {
+    recommendations.push({
+      id: "rec-cross-sell",
+      problem: `${confidenceVal}% pelanggan yang membeli ${crossSellProductA} juga membeli ${crossSellProductB}.`,
+      recommendation: `Buat paket bundling "${crossSellProductA} + ${crossSellProductB}" dengan potongan harga menarik.`,
+      actionType: "bundle",
+      bundleName: `Paket ${crossSellProductA} & ${crossSellProductB}`
+    });
+  }
+
   res.json({
     metrics: {
       todaySales,
@@ -599,56 +738,24 @@ router.get("/reports/flowai-insights", async (req, res): Promise<void> => {
     },
     insights: {
       sales: [
-        { text: `Penjualan hari ini ${dailyGrowth >= 0 ? "naik" : "turun"} ${Math.abs(Math.round(dailyGrowth))}% dibanding kemarin.`, trend: dailyGrowth >= 0 ? "up" : "down" },
-        { text: `Revenue bulan ini ${monthlyGrowth >= 0 ? "naik" : "turun"} ${Math.abs(Math.round(monthlyGrowth))}% dibanding bulan lalu.`, trend: monthlyGrowth >= 0 ? "up" : "down" }
+        { text: `Penjualan hari ini ${dailyGrowth >= 0 ? "naik" : "turun"} ${Math.abs(Math.round(dailyGrowth))}% dibanding kemarin.`, trend: dailyGrowth > 0 ? "up" : dailyGrowth < 0 ? "down" : "neutral" },
+        { text: `Revenue bulan ini ${monthlyGrowth >= 0 ? "naik" : "turun"} ${Math.abs(Math.round(monthlyGrowth))}% dibanding bulan lalu.`, trend: monthlyGrowth > 0 ? "up" : monthlyGrowth < 0 ? "down" : "neutral" }
       ],
       products: [
         { text: `🏆 ${bestSellerProduct} adalah produk terlaris minggu ini.`, type: "award" },
-        { text: `⚠️ Penjualan ${dropProduct} turun ${dropPercentage}% dibanding minggu lalu.`, type: "warning" }
+        ...(dropProduct ? [{ text: `⚠️ Penjualan ${dropProduct} turun ${dropPercentage}% dibanding minggu lalu.`, type: "warning" }] : [])
       ],
       customers: [
         { text: `👥 ${newCusts.count} pelanggan baru mendaftar minggu ini.`, type: "info" },
-        { text: `⚠️ ${inactiveVipCount} pelanggan VIP/Gold belum bertransaksi selama 30 hari.`, type: "warning" }
+        ...(inactiveVipCount > 0 ? [{ text: `⚠️ ${inactiveVipCount} pelanggan VIP/Gold belum bertransaksi selama 30 hari.`, type: "warning" }] : [])
       ],
-      branches: [
+      branches: branchList.length > 0 ? [
         { text: `🏆 Cabang ${bestBranch} memiliki performa terbaik bulan ini.`, type: "award" },
-        { text: `⚠️ Cabang ${worstBranch} mengalami penurunan omzet ${worstBranchDrop}%.`, type: "warning" }
-      ],
-      stock: [
-        { text: `⚠️ ${firstCritProduct} diperkirakan habis dalam ${Math.max(2, firstCritProductStock)} hari.`, type: "warning" },
-        { text: `⚠️ ${secondCritProduct} tersisa ${secondCritProductStock} unit.`, type: "warning" }
-      ]
+        ...(worstBranch ? [{ text: `⚠️ Cabang ${worstBranch} mengalami penurunan omzet ${worstBranchDrop}%.`, type: "warning" }] : [])
+      ] : [],
+      stock: stockInsights
     },
-    recommendations: [
-      {
-        id: "rec-product-drop",
-        problem: `Penjualan ${dropProduct} turun ${dropPercentage}%.`,
-        recommendation: `Buat promo diskon 10% untuk produk ${dropProduct} khusus member Gold/VIP.`,
-        actionType: "promo",
-        targetProduct: dropProduct
-      },
-      {
-        id: "rec-vip-inactive",
-        problem: `${inactiveVipCount} pelanggan VIP tidak aktif selama 30 hari.`,
-        recommendation: `Kirim voucher belanja Rp20.000 melalui WhatsApp untuk mengaktifkan kembali member.`,
-        actionType: "whatsapp",
-        couponCode: "FLOWRET20"
-      },
-      {
-        id: "rec-stock-replenish",
-        problem: `Stok ${firstCritProduct} menipis (${firstCritProductStock} unit tersisa).`,
-        recommendation: `Lakukan pembelian ulang (restok) ${firstCritProduct} minggu ini.`,
-        actionType: "restock",
-        targetProduct: firstCritProduct
-      },
-      {
-        id: "rec-cross-sell",
-        problem: `${confidenceVal}% pelanggan yang membeli ${crossSellProductA} juga membeli ${crossSellProductB}.`,
-        recommendation: `Buat paket bundling "${crossSellProductA} + ${crossSellProductB}" dengan potongan harga menarik.`,
-        actionType: "bundle",
-        bundleName: `Paket ${crossSellProductA} & ${crossSellProductB}`
-      }
-    ]
+    recommendations
   });
 });
 

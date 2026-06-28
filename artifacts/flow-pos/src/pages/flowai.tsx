@@ -177,7 +177,13 @@ export default function FlowAIPage() {
                 <div className="space-y-1.5">
                   {insights.sales.map((ins: any, idx: number) => (
                     <div key={idx} className="flex items-start gap-2.5 text-xs text-foreground bg-muted/20 p-2.5 rounded-xl border border-border/40">
-                      {ins.trend === "up" ? <TrendingUp size={14} className="text-green-500 mt-0.5" /> : <TrendingDown size={14} className="text-red-500 mt-0.5" />}
+                      {ins.trend === "up" ? (
+                        <TrendingUp size={14} className="text-green-500 mt-0.5" />
+                      ) : ins.trend === "down" ? (
+                        <TrendingDown size={14} className="text-red-500 mt-0.5" />
+                      ) : (
+                        <Info size={14} className="text-blue-500 mt-0.5" />
+                      )}
                       <span className="leading-normal font-medium">{ins.text}</span>
                     </div>
                   ))}
@@ -190,7 +196,13 @@ export default function FlowAIPage() {
                 <div className="space-y-1.5">
                   {insights.products.map((ins: any, idx: number) => (
                     <div key={idx} className="flex items-start gap-2.5 text-xs text-foreground bg-muted/20 p-2.5 rounded-xl border border-border/40">
-                      {ins.type === "award" ? <Award size={14} className="text-amber-500 mt-0.5" /> : <AlertTriangle size={14} className="text-red-500 mt-0.5" />}
+                      {ins.type === "award" ? (
+                        <Award size={14} className="text-amber-500 mt-0.5" />
+                      ) : ins.type === "info" ? (
+                        <Info size={14} className="text-blue-500 mt-0.5" />
+                      ) : (
+                        <AlertTriangle size={14} className="text-red-500 mt-0.5" />
+                      )}
                       <span className="leading-normal font-medium">{ins.text}</span>
                     </div>
                   ))}
@@ -216,7 +228,7 @@ export default function FlowAIPage() {
                 <div className="space-y-1.5">
                   {insights.stock.map((ins: any, idx: number) => (
                     <div key={idx} className="flex items-start gap-2.5 text-xs text-foreground bg-muted/20 p-2.5 rounded-xl border border-border/40">
-                      <AlertTriangle size={14} className="text-amber-500 mt-0.5" />
+                      {ins.type === "info" ? <Info size={14} className="text-blue-500 mt-0.5" /> : <AlertTriangle size={14} className="text-amber-500 mt-0.5" />}
                       <span className="leading-normal font-medium">{ins.text}</span>
                     </div>
                   ))}
@@ -235,38 +247,46 @@ export default function FlowAIPage() {
             <p className="text-[10px] text-muted-foreground leading-normal">Optimalkan penjualan, retensi, dan efisiensi bahan baku secara realtime dengan rekomendasi siap pakai di bawah ini.</p>
             
             <div className="space-y-3">
-              {recommendations.map((rec: any) => (
-                <div key={rec.id} className="p-4 rounded-xl border border-border bg-muted/10 space-y-3 flex flex-col justify-between hover:border-primary/20 transition-colors">
-                  <div className="space-y-1">
-                    <span className="text-[9px] font-extrabold uppercase bg-primary/10 text-primary px-2 py-0.5 rounded">
-                      {rec.actionType === "whatsapp" ? "CRM WhatsApp" : rec.actionType === "promo" ? "Diskon Pemasaran" : rec.actionType === "bundle" ? "Bundling Menu" : "Inventori"}
-                    </span>
-                    <h3 className="font-bold text-[11px] text-foreground leading-snug mt-1">{rec.problem}</h3>
-                    <p className="text-[10px] text-muted-foreground leading-relaxed mt-0.5">{rec.recommendation}</p>
-                  </div>
-                  
-                  <button
-                    onClick={() => handleApplyRecommendation(rec)}
-                    disabled={runningAction === rec.id}
-                    className={`w-full py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm active:scale-97 flex items-center justify-center gap-1 cursor-pointer ${
-                      rec.actionType === "whatsapp"
-                        ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                        : rec.actionType === "restock"
-                          ? "bg-blue-600 hover:bg-blue-700 text-white"
-                          : "bg-primary text-primary-foreground hover:opacity-90"
-                    }`}
-                  >
-                    {runningAction === rec.id ? (
-                      "Memproses..."
-                    ) : (
-                      <>
-                        {rec.actionType === "whatsapp" ? <MessageSquare size={12} /> : rec.actionType === "bundle" ? <Layers size={12} /> : <Check size={12} />}
-                        {rec.actionType === "whatsapp" ? "Kirim Notifikasi Retensi" : rec.actionType === "restock" ? "Buka Inventori" : "Terapkan Rekomendasi"}
-                      </>
-                    )}
-                  </button>
+              {recommendations.length === 0 ? (
+                <div className="text-center py-6 text-xs text-muted-foreground bg-muted/10 border border-border rounded-xl">
+                  Belum ada rekomendasi tindakan AI saat ini.
                 </div>
-              ))}
+              ) : (
+                recommendations.map((rec: any) => (
+                  <div key={rec.id} className="p-4 rounded-xl border border-border bg-muted/10 space-y-3 flex flex-col justify-between hover:border-primary/20 transition-colors">
+                    <div className="space-y-1">
+                      <span className="text-[9px] font-extrabold uppercase bg-primary/10 text-primary px-2 py-0.5 rounded">
+                        {rec.actionType === "whatsapp" ? "CRM WhatsApp" : rec.actionType === "promo" ? "Diskon Pemasaran" : rec.actionType === "bundle" ? "Bundling Menu" : rec.actionType === "restock" ? "Inventori" : "Rekomendasi"}
+                      </span>
+                      <h3 className="font-bold text-[11px] text-foreground leading-snug mt-1">{rec.problem}</h3>
+                      <p className="text-[10px] text-muted-foreground leading-relaxed mt-0.5">{rec.recommendation}</p>
+                    </div>
+                    
+                    {rec.actionType !== "info" && (
+                      <button
+                        onClick={() => handleApplyRecommendation(rec)}
+                        disabled={runningAction === rec.id}
+                        className={`w-full py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm active:scale-97 flex items-center justify-center gap-1 cursor-pointer ${
+                          rec.actionType === "whatsapp"
+                            ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                            : rec.actionType === "restock"
+                              ? "bg-blue-600 hover:bg-blue-700 text-white"
+                              : "bg-primary text-primary-foreground hover:opacity-90"
+                        }`}
+                      >
+                        {runningAction === rec.id ? (
+                          "Memproses..."
+                        ) : (
+                          <>
+                            {rec.actionType === "whatsapp" ? <MessageSquare size={12} /> : rec.actionType === "bundle" ? <Layers size={12} /> : <Check size={12} />}
+                            {rec.actionType === "whatsapp" ? "Kirim Notifikasi Retensi" : rec.actionType === "restock" ? "Buka Inventori" : "Terapkan Rekomendasi"}
+                          </>
+                        )}
+                      </button>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
