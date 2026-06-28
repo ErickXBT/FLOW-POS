@@ -1125,33 +1125,33 @@ export default function POSPage() {
             </div>
           )}
           {cart.map(item => (
-            <div key={item.id} className="flex items-center gap-2 p-2 rounded-lg bg-background border border-border">
+            <div key={item.id} className="flex items-center gap-2 p-2 xl:p-2.5 rounded-lg bg-background border border-border">
               <div className="flex-1 min-w-0">
-                <div className="text-xs font-semibold text-foreground truncate">{item.name}</div>
+                <div className="text-xs xl:text-sm font-semibold xl:font-medium text-foreground truncate">{item.name}</div>
                 {item.selectedVariant && (
-                  <div className="text-[9px] text-muted-foreground font-medium bg-muted/40 px-1 py-0.2 rounded inline-block mt-0.5">
+                  <div className="text-[9px] xl:text-[10px] text-muted-foreground mt-0.5 font-medium bg-muted/40 px-1 py-0.2 xl:px-1.5 xl:py-0.5 rounded inline-block">
                     Varian: {item.selectedVariant}
                   </div>
                 )}
                 {item.selectedToppings && item.selectedToppings.length > 0 && (
-                  <div className="text-[9px] text-muted-foreground font-medium bg-muted/40 px-1 py-0.2 rounded block mt-0.5">
+                  <div className="text-[9px] xl:text-[10px] text-muted-foreground mt-0.5 font-medium bg-muted/40 px-1 py-0.2 xl:px-1.5 xl:py-0.5 rounded block">
                     Toppings: {item.selectedToppings.join(", ")}
                   </div>
                 )}
                 {item.notes && (
-                  <div className="text-[9px] text-amber-600 italic block mt-0.5">
+                  <div className="text-[9px] xl:text-[10px] text-amber-600 italic block mt-0.5">
                     "{item.notes}"
                   </div>
                 )}
-                <div className="text-xs text-primary font-bold mt-0.5">{formatRp(item.price)}</div>
+                <div className="text-xs xl:text-sm text-primary font-bold xl:font-semibold mt-0.5 xl:mt-1">{formatRp(item.price)}</div>
               </div>
               <div className="flex items-center gap-1.5 flex-shrink-0">
-                <button onClick={() => updateQty(item.id, -1)} className="w-5.5 h-5.5 rounded bg-muted flex items-center justify-center hover:bg-muted/80 transition-colors">
-                  <Minus size={10} />
+                <button onClick={() => updateQty(item.id, -1)} className="w-5.5 h-5.5 xl:w-6 xl:h-6 rounded bg-muted flex items-center justify-center hover:bg-muted/80 transition-colors">
+                  <Minus className="w-2.5 h-2.5 xl:w-3 xl:h-3" />
                 </button>
-                <span className="w-5 text-center text-xs font-bold">{item.quantity}</span>
-                <button onClick={() => updateQty(item.id, 1)} className="w-5.5 h-5.5 rounded bg-primary text-primary-foreground flex items-center justify-center hover:opacity-90 transition-opacity">
-                  <Plus size={10} />
+                <span className="w-5 xl:w-6 text-center text-xs xl:text-sm font-bold">{item.quantity}</span>
+                <button onClick={() => updateQty(item.id, 1)} className="w-5.5 h-5.5 xl:w-6 xl:h-6 rounded bg-primary text-primary-foreground flex items-center justify-center hover:opacity-90 transition-opacity">
+                  <Plus className="w-2.5 h-2.5 xl:w-3 xl:h-3" />
                 </button>
               </div>
             </div>
@@ -1159,17 +1159,19 @@ export default function POSPage() {
         </div>
 
         {/* Summary & Checkout */}
-        <div className="border-t border-border p-3 space-y-2 text-xs">
+        <div className="border-t border-border p-3 xl:p-4 space-y-2 xl:space-y-3 text-xs xl:text-sm">
           <div className="space-y-1">
-            <div className="flex justify-between text-muted-foreground text-[11px]">
+            <div className="flex justify-between text-muted-foreground text-[11px] xl:text-sm">
               <span>Subtotal</span><span>{formatRp(subtotal)}</span>
             </div>
             
-            {/* Coupon & Manual Discount on the same line */}
-            <div className="flex gap-2 py-1">
+            {/* Coupon & Manual Discount side-by-side on tablet, separate on desktop */}
+            <div className="flex flex-row xl:flex-col gap-2 xl:gap-0 py-1 xl:space-y-1.5">
               {activeCoupons.length > 0 && (
-                <div className="flex-1 flex flex-col gap-0.5">
-                  <label className="text-[9px] text-muted-foreground font-medium">Kupon Promo</label>
+                <div className="flex-1 xl:flex xl:items-center xl:justify-between xl:py-1 xl:border-b xl:border-border/40">
+                  <span className="flex items-center gap-1 text-[9px] xl:text-xs font-semibold text-muted-foreground xl:text-primary">
+                    <Gift className="w-2.5 h-2.5 xl:w-3.5 xl:h-3.5" /> <span className="xl:inline">Kupon Promo</span>
+                  </span>
                   <select
                     value={selectedCouponCode}
                     onChange={e => {
@@ -1179,7 +1181,7 @@ export default function POSPage() {
                         setDiscount(0);
                       }
                     }}
-                    className="w-full px-1 py-0.5 border border-input rounded text-[10px] bg-background focus:outline-none text-foreground font-medium"
+                    className="w-full xl:w-44 px-1 xl:px-2 py-0.5 xl:py-1 border border-input rounded text-[10px] xl:text-xs bg-background focus:outline-none text-foreground font-medium"
                   >
                     <option value="">Pilih...</option>
                     {activeCoupons.map(cp => (
@@ -1191,8 +1193,8 @@ export default function POSPage() {
                 </div>
               )}
 
-              <div className="flex-1 flex flex-col gap-0.5">
-                <label className="text-[9px] text-muted-foreground font-medium">Diskon (Rp)</label>
+              <div className="flex-1 xl:flex xl:items-center xl:justify-between xl:py-1">
+                <label className="text-[9px] xl:text-xs text-muted-foreground font-medium">Diskon (Rp)</label>
                 <input
                   type="number"
                   value={discount}
@@ -1200,31 +1202,31 @@ export default function POSPage() {
                     setSelectedCouponCode("");
                     setDiscount(Math.max(0, Number(e.target.value)));
                   }}
-                  className="w-full text-right px-1.5 py-0.5 border border-input rounded text-[10px] bg-background"
+                  className="w-full xl:w-24 text-right px-1.5 xl:px-2 py-0.5 border border-input rounded text-[10px] xl:text-xs bg-background"
                 />
               </div>
             </div>
 
             {serviceChargePct > 0 && (
-              <div className="flex justify-between text-muted-foreground text-[11px]">
+              <div className="flex justify-between text-muted-foreground text-[11px] xl:text-sm">
                 <span>Biaya Servis ({serviceChargePct}%)</span>
                 <span>{formatRp(serviceChargeAmount)}</span>
               </div>
             )}
             {taxPct > 0 && (
-              <div className="flex justify-between text-muted-foreground text-[11px]">
+              <div className="flex justify-between text-muted-foreground text-[11px] xl:text-sm">
                 <span>Pajak ({taxPct}%)</span>
                 <span>{formatRp(taxAmount)}</span>
               </div>
             )}
-            <div className="flex justify-between font-bold text-sm text-foreground pt-1 border-t border-border mt-1">
+            <div className="flex justify-between font-bold text-sm xl:text-base text-foreground pt-1 border-t border-border mt-1">
               <span>Total</span><span className="text-primary">{formatRp(total)}</span>
             </div>
           </div>
 
           {/* Order Type Selector */}
           <div className="space-y-1.5 py-1.5 border-t border-border">
-            <div className="grid grid-cols-3 gap-1">
+            <div className="grid grid-cols-3 gap-1 xl:gap-1.5">
               {[
                 { value: "dine_in", label: isFashion ? "Fitting Room" : "Dine In", icon: isFashion ? "👚" : "🪑" },
                 { value: "take_away", label: isFashion ? "Ambil" : "Bawa Pulang", icon: "🛍️" },
@@ -1243,20 +1245,20 @@ export default function POSPage() {
                       setTableNumber("");
                     }
                   }}
-                  className={`flex items-center justify-center gap-1.5 py-1 px-1 rounded-md border text-[10px] font-semibold transition-all ${
+                  className={`flex flex-row xl:flex-col items-center justify-center gap-1 xl:gap-0.5 py-1 xl:py-2 px-1 rounded-md xl:rounded-lg border text-[10px] font-semibold transition-all ${
                     orderType === ot.value
                       ? "border-primary bg-primary/10 text-primary shadow-sm"
                       : "border-border text-muted-foreground hover:bg-muted/30"
                   }`}
                 >
-                  <span className="text-xs leading-none">{ot.icon}</span>
+                  <span className="text-xs xl:text-base leading-none xl:mb-0.5">{ot.icon}</span>
                   <span className="leading-none">{ot.label}</span>
                 </button>
               ))}
             </div>
 
-            {/* Priority Toggle (Inline) */}
-            <div className="flex items-center justify-between text-[10px] font-semibold text-destructive py-0.5">
+            {/* Priority Toggle */}
+            <div className="flex items-center justify-between p-1.5 xl:p-2 rounded-lg bg-destructive/5 border border-destructive/20 text-[10px] font-semibold text-destructive mt-1.5 xl:mt-2">
               <span className="flex items-center gap-1">
                 <span className="animate-pulse">🚨</span> Prioritaskan Pesanan (KDS)
               </span>
@@ -1264,123 +1266,126 @@ export default function POSPage() {
                 type="checkbox"
                 checked={isPriority}
                 onChange={e => setIsPriority(e.target.checked)}
-                className="w-3 h-3 rounded text-destructive focus:ring-destructive cursor-pointer bg-background border-input"
+                className="w-3.5 h-3.5 rounded text-destructive focus:ring-destructive cursor-pointer bg-background border-input"
               />
             </div>
 
-            {/* Customer & Location inputs (Side-by-side) */}
+            {/* Customer & Location inputs (Side-by-side on tablet, separate on desktop) */}
             {orderType === "dine_in" && (
-              <div className="flex gap-2">
+              <div className="flex flex-row xl:flex-col gap-2 xl:gap-1.5 mt-1.5">
                 <div className="flex-1 space-y-0.5">
-                  <label className="text-[9px] font-semibold text-muted-foreground block">Nama Pelanggan</label>
+                  <label className="text-[9px] xl:text-[10px] font-semibold text-muted-foreground block">Nama Pelanggan</label>
                   <input
                     type="text"
                     placeholder="Nama..."
                     value={customerName}
                     onChange={e => setCustomerName(e.target.value)}
-                    className="w-full px-2 py-1 border border-input rounded-md text-[10px] bg-background focus:outline-none"
+                    className="w-full px-2 py-1 xl:py-2 border border-input rounded-md xl:rounded-lg text-[10px] xl:text-xs bg-background focus:outline-none"
                   />
                 </div>
-                <div className="w-24 space-y-0.5">
-                  <label className="text-[9px] font-semibold text-muted-foreground block">{isFashion ? "Fitting Room" : "Meja"}</label>
+                <div className="w-24 xl:w-full space-y-0.5">
+                  <label className="text-[9px] xl:text-[10px] font-semibold text-muted-foreground block">{isFashion ? "Fitting Room" : "Meja"}</label>
                   <input
                     type="text"
                     placeholder={isFashion ? "Kabin..." : "Meja..."}
                     value={tableNumber}
                     onChange={e => setTableNumber(e.target.value)}
-                    className="w-full px-2 py-1 border border-input rounded-md text-[10px] bg-background focus:outline-none"
+                    className="w-full px-2 py-1 xl:py-2 border border-input rounded-md xl:rounded-lg text-[10px] xl:text-xs bg-background focus:outline-none"
                   />
                 </div>
               </div>
             )}
 
             {orderType === "take_away" && (
-              <div className="space-y-0.5">
-                <label className="text-[9px] font-semibold text-muted-foreground block">Nama Pelanggan</label>
+              <div className="space-y-0.5 mt-1.5">
+                <label className="text-[9px] xl:text-[10px] font-semibold text-muted-foreground block">Nama Pelanggan</label>
                 <input
                   type="text"
                   placeholder="Nama pelanggan..."
                   value={customerName}
                   onChange={e => setCustomerName(e.target.value)}
-                  className="w-full px-2 py-1 border border-input rounded-md text-[10px] bg-background focus:outline-none"
+                  className="w-full px-2 py-1 xl:py-2 border border-input rounded-md xl:rounded-lg text-[10px] xl:text-xs bg-background focus:outline-none"
                 />
               </div>
             )}
 
             {orderType === "delivery" && (
-              <div className="space-y-1">
-                <div className="flex gap-2">
+              <div className="space-y-1.5 mt-1.5">
+                <div className="flex flex-row xl:flex-col gap-2 xl:gap-1.5">
                   <div className="flex-1 space-y-0.5">
-                    <label className="text-[9px] font-semibold text-muted-foreground block">Nama Pelanggan</label>
+                    <label className="text-[9px] xl:text-[10px] font-semibold text-muted-foreground block">Nama Pelanggan</label>
                     <input
                       type="text"
                       placeholder="Nama..."
                       value={customerName}
                       onChange={e => setCustomerName(e.target.value)}
-                      className="w-full px-2 py-1 border border-input rounded-md text-[10px] bg-background focus:outline-none"
+                      className="w-full px-2 py-1 xl:py-2 border border-input rounded-md xl:rounded-lg text-[10px] xl:text-xs bg-background focus:outline-none"
                     />
                   </div>
                   <div className="flex-1 space-y-0.5">
-                    <label className="text-[9px] font-semibold text-muted-foreground block">No. Telepon</label>
+                    <label className="text-[9px] xl:text-[10px] font-semibold text-muted-foreground block">No. Telepon</label>
                     <input
                       type="text"
                       placeholder="0812..."
                       value={customerPhone}
                       onChange={e => setCustomerPhone(e.target.value)}
-                      className="w-full px-2 py-1 border border-input rounded-md text-[10px] bg-background focus:outline-none"
+                      className="w-full px-2 py-1 xl:py-2 border border-input rounded-md xl:rounded-lg text-[10px] xl:text-xs bg-background focus:outline-none"
                     />
                   </div>
                 </div>
                 <div className="space-y-0.5">
-                  <label className="text-[9px] font-semibold text-muted-foreground block">Alamat Pengiriman</label>
+                  <label className="text-[9px] xl:text-[10px] font-semibold text-muted-foreground block">Alamat Pengiriman</label>
                   <input
                     type="text"
                     placeholder="Alamat lengkap..."
                     value={deliveryAddress}
                     onChange={e => setDeliveryAddress(e.target.value)}
-                    className="w-full px-2 py-1 border border-input rounded-md text-[10px] bg-background focus:outline-none"
+                    className="w-full px-2 py-1 xl:py-2 border border-input rounded-md xl:rounded-lg text-[10px] xl:text-xs bg-background focus:outline-none"
                   />
                 </div>
               </div>
             )}
           </div>
 
-          {/* Payment method (4 columns, single row) */}
-          <div className="grid grid-cols-4 gap-1 border-t border-border pt-1.5">
+          {/* Payment method (4 columns on tablet, 2x2 grid on desktop) */}
+          <div className="grid grid-cols-4 xl:grid-cols-2 gap-1 xl:gap-2 border-t border-border pt-1.5 xl:pt-2 mt-1.5">
             {PAYMENT_METHODS.map(pm => (
               <button
                 key={pm.value}
                 type="button"
                 onClick={() => setPaymentMethod(pm.value)}
-                className={`flex flex-col items-center justify-center py-1 px-0.5 rounded-lg border text-[10px] font-medium transition-all ${
+                className={`flex flex-col xl:flex-row items-center justify-center xl:justify-start gap-1 xl:gap-2 py-1 xl:py-2.5 px-0.5 xl:px-3 rounded-lg border text-[10px] xl:text-sm font-medium transition-all ${
                   paymentMethod === pm.value
                     ? "border-primary bg-primary/10 text-primary shadow-sm"
                     : "border-border text-muted-foreground hover:border-primary/30"
                 }`}
               >
-                <span className="text-xs mb-0.5">{pm.icon}</span>
-                <span className="text-[9px] font-semibold leading-none">{pm.label}</span>
+                <span className="text-xs xl:text-base leading-none xl:leading-normal">{pm.icon}</span>
+                <span className="text-[9px] xl:text-sm font-semibold xl:font-medium leading-none xl:leading-normal">{pm.label}</span>
               </button>
             ))}
           </div>
 
-          {/* Cash input for Tunai (Inline row with change info) */}
+          {/* Cash input for Tunai (Inline row on tablet, separate on desktop) */}
           {paymentMethod === "cash" && (
-            <div className="mt-1 flex items-center gap-2 bg-muted/40 p-1.5 rounded-lg border border-border/40">
-              <div className="flex-1">
-                <input
-                  type="number"
-                  value={cashReceived}
-                  onChange={e => setCashReceived(e.target.value)}
-                  placeholder="Uang Tunai..."
-                  className="w-full px-2 py-1 text-xs border border-input rounded bg-background focus:outline-none"
-                />
-              </div>
-              {cashReceived && (
-                <div className={`text-[11px] font-bold whitespace-nowrap ${Number(cashReceived) - total >= 0 ? "text-green-600" : "text-red-600"}`}>
-                  {Number(cashReceived) - total >= 0 ? "Kembalian: " + formatRp(Number(cashReceived) - total) : "Kurang: " + formatRp(Math.abs(Number(cashReceived) - total))}
+            <div className="mt-1 xl:mt-2 flex flex-col xl:space-y-1 bg-muted/40 p-1.5 xl:p-2 rounded-lg border border-border/40">
+              <div className="flex flex-row xl:flex-col items-center xl:items-start gap-2 xl:gap-1">
+                <div className="flex-1 xl:w-full">
+                  <label className="hidden xl:block text-xs font-semibold text-muted-foreground mb-1">Uang Diterima</label>
+                  <input
+                    type="number"
+                    value={cashReceived}
+                    onChange={e => setCashReceived(e.target.value)}
+                    placeholder="Uang Tunai..."
+                    className="w-full px-2 py-1 text-xs xl:text-sm border border-input rounded bg-background focus:outline-none"
+                  />
                 </div>
-              )}
+                {cashReceived && (
+                  <div className={`text-[11px] xl:text-sm font-bold whitespace-nowrap xl:mt-1 ${Number(cashReceived) - total >= 0 ? "text-green-600" : "text-red-600"}`}>
+                    {Number(cashReceived) - total >= 0 ? "Kembalian: " + formatRp(Number(cashReceived) - total) : "Kurang: " + formatRp(Math.abs(Number(cashReceived) - total))}
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -1394,7 +1399,7 @@ export default function POSPage() {
             data-testid="button-checkout"
             onClick={handleCheckoutClick}
             disabled={cart.length === 0 || createOrder.isPending || (paymentMethod === "cash" && (!cashReceived || Number(cashReceived) < total))}
-            className="w-full py-2 bg-primary text-primary-foreground rounded-lg font-bold text-xs hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-40"
+            className="w-full py-2 xl:py-3 bg-primary text-primary-foreground rounded-lg xl:rounded-xl font-bold text-xs xl:text-sm hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-40"
           >
             {createOrder.isPending ? "Memproses..." : `Bayar ${formatRp(total)}`}
           </button>
