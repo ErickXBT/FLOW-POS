@@ -72,7 +72,7 @@ export const PrinterService = {
     }
 
     try {
-      const device = await navigator.bluetooth.requestDevice({
+      const device = await (navigator as any).bluetooth.requestDevice({
         acceptAllDevices: true,
         optionalServices: [
           "000018f0-0000-1000-8000-00805f9b34fb", // Standard ESC/POS
@@ -100,7 +100,6 @@ export const PrinterService = {
       }
 
       if (!service) {
-        // Fallback: search all primary services
         const primaryServices = await server.getPrimaryServices();
         if (primaryServices.length > 0) {
           service = primaryServices[0];
@@ -120,7 +119,6 @@ export const PrinterService = {
       connectedBleDevice = device;
       connectedBleCharacteristic = writeChar;
 
-      // Handle disconnection
       device.addEventListener("gattserverdisconnected", () => {
         connectedBleDevice = null;
         connectedBleCharacteristic = null;
@@ -140,12 +138,11 @@ export const PrinterService = {
     }
 
     try {
-      const device = await navigator.usb.requestDevice({ filters: [] });
+      const device = await (navigator as any).usb.requestDevice({ filters: [] });
       await device.open();
       await device.selectConfiguration(1);
       await device.claimInterface(0);
 
-      // Find OUT bulk endpoint
       let outEp: any = null;
       const iface = device.configuration?.interfaces[0];
       const alternate = iface?.alternates[0];
@@ -172,7 +169,6 @@ export const PrinterService = {
     }
   },
 
-  // Disconnect active devices
   disconnect() {
     if (connectedBleDevice?.gatt?.connected) {
       connectedBleDevice.gatt.disconnect();
@@ -188,7 +184,6 @@ export const PrinterService = {
     connectedUsbEndpoint = null;
   },
 
-  // Encode text and build binary ESC/POS print payload
   generateEscPosBytes(order: any, tenant: any, settings: PrinterSettings): Uint8Array {
     const cols = settings.paperSize === "80mm" ? 48 : 32;
     const encoder = new TextEncoder();
@@ -197,13 +192,11 @@ export const PrinterService = {
     const addBytes = (bytes: Uint8Array) => parts.push(bytes);
     const addText = (text: string) => parts.push(encoder.encode(text + "\n"));
 
-    // Margins logic for POS direct printer (represented as spacer pads)
     const marginLeft = settings.marginLeft ? Math.floor(settings.marginLeft / 4) : 0;
     const padMargin = (text: string) => " ".repeat(marginLeft) + text;
 
     addBytes(CMD_INIT);
 
-    // Header (Center align)
     addBytes(CMD_ALIGN_CENTER);
     addBytes(CMD_SIZE_DOUBLE);
     addText((tenant?.name || "Flow POS").toUpperCase());
@@ -215,7 +208,6 @@ export const PrinterService = {
     addBytes(CMD_ALIGN_LEFT);
     addText("-".repeat(cols));
 
-    // Order Meta
     const formattedDate = new Date(order.createdAt || new Date()).toLocaleString("id-ID", {
       day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
     });
@@ -231,7 +223,6 @@ export const PrinterService = {
     addText(padMargin(`Pembayaran: ${order.paymentMethod === "cash" ? "Tunai" : order.paymentMethod === "qris" ? "QRIS" : order.paymentMethod === "bank_transfer" ? "Transfer" : "E-Wallet"}`));
     addText("-".repeat(cols));
 
-    // Items
     (order.items || []).forEach((item: any) => {
       const qtyName = `${item.quantity}x ${item.productName || item.name}`;
       const priceStr = formatRp(Number(item.subtotal || item.price * item.quantity));
@@ -245,7 +236,6 @@ export const PrinterService = {
     });
     addText("-".repeat(cols));
 
-    // Totals
     addText(padMargin(padLine("Subtotal", formatRp(Number(order.subtotal)), cols - marginLeft)));
     if (Number(order.discount) > 0) {
       addText(padMargin(padLine("Diskon", `-${formatRp(Number(order.discount))}`, cols - marginLeft)));
@@ -264,7 +254,6 @@ export const PrinterService = {
     addBytes(CMD_SIZE_NORMAL);
     addText("-".repeat(cols));
 
-    // Footer
     addBytes(CMD_ALIGN_CENTER);
     addText("Terima kasih atas kunjungan Anda!");
     addText("Selamat menikmati!");
@@ -274,7 +263,6 @@ export const PrinterService = {
       addBytes(CMD_CUT);
     }
 
-    // Merge into single array
     const totalLength = parts.reduce((sum, p) => sum + p.length, 0);
     const merged = new Uint8Array(totalLength);
     let offset = 0;
@@ -286,7 +274,6 @@ export const PrinterService = {
     return merged;
   },
 
-  // Perform active print based on connectionMode settings
   async print(order: any, tenant: any, settings: PrinterSettings): Promise<void> {
     const { connectionMode } = settings;
 
@@ -295,8 +282,6 @@ export const PrinterService = {
         throw new Error("Printer Bluetooth belum tersambung. Sambungkan ulang di Pengaturan Printer.");
       }
       const bytes = this.generateEscPosBytes(order, tenant, settings);
-      
-      // Write in chunks of 20 bytes (standard safe BLE payload size) with a short delay
       const chunkSize = 20;
       for (let i = 0; i < bytes.length; i += chunkSize) {
         const chunk = bytes.slice(i, i + chunkSize);
@@ -316,15 +301,148 @@ export const PrinterService = {
     }
 
     if (connectionMode === "network") {
-      // Direct raw TCP is not possible due to sandbox. Fallback to API server print or browser print.
       throw new Error("Koneksi Network IP/LAN langsung dari browser memerlukan middleware khusus. Menggunakan mode cetak Browser Print.");
     }
 
-    // Default: Browser Print
+    this.printViaBrowser(order, tenant, settings);
+  },
+
+  generateBarcode128Svg(value: string, width = 1.5, height = 50): string {
+    if (!value) return "";
+    const CODE128_PATTERNS = [
+      "212222", "222122", "222221", "121223", "121322", "131222", "122213", "122312", "132212", "221213",
+      "221312", "231212", "112232", "122132", "122231", "113222", "123122", "123221", "223211", "221132",
+      "221231", "213212", "223112", "312131", "311222", "321122", "321221", "312212", "322112", "322211",
+      "212123", "212321", "232121", "111323", "131123", "131321", "112313", "132113", "132311", "211313",
+      "231113", "231311", "112133", "112331", "132131", "113123", "113321", "133121", "313121", "211331",
+      "231131", "213113", "213311", "213131", "311123", "311321", "331121", "312113", "312311", "332111",
+      "314111", "221411", "431111", "111224", "111422", "121124", "121421", "141122", "141221", "112214",
+      "112412", "122114", "122411", "142112", "142211", "241211", "221114", "413111", "241112", "134111",
+      "111242", "121142", "121241", "114212", "124112", "124211", "411212", "421112", "421211", "212141",
+      "214121", "412121", "111143", "111341", "131141", "114113", "114311", "411113", "411311", "113141",
+      "114131", "311141", "411131", "211412", "211214", "211232", "2331112"
+    ];
+
+    let sum = 104;
+    const codes: number[] = [104];
+    for (let i = 0; i < value.length; i++) {
+      const charCode = value.charCodeAt(i);
+      let val = charCode - 32;
+      if (val < 0 || val > 95) val = 0;
+      codes.push(val);
+      sum += val * (i + 1);
+    }
+    const checksum = sum % 103;
+    codes.push(checksum);
+    codes.push(106);
+
+    let pattern = "";
+    for (const code of codes) {
+      pattern += CODE128_PATTERNS[code];
+    }
+
+    let totalModules = 0;
+    for (let i = 0; i < pattern.length; i++) {
+      totalModules += parseInt(pattern[i]);
+    }
+
+    const totalWidth = totalModules * width;
+    let rects = "";
+    let currentX = 0;
+    for (let i = 0; i < pattern.length; i++) {
+      const w = parseInt(pattern[i]) * width;
+      if (i % 2 === 0) {
+        rects += `<rect x="${currentX}" y="0" width="${w}" height="${height}" fill="black" />`;
+      }
+      currentX += w;
+    }
+
+    return `<svg width="${totalWidth}" height="${height}" viewBox="0 0 ${totalWidth} ${height}" style="display: block;">${rects}</svg>`;
+  },
+
+  generateBarcodeEscPosBytes(items: Array<{ name: string; barcode: string; price: number; qty: number }>, settings: PrinterSettings): Uint8Array {
+    const parts: Uint8Array[] = [];
+    const encoder = new TextEncoder();
+    const cols = settings.paperSize === "80mm" ? 48 : 32;
+
+    const addBytes = (bytes: Uint8Array) => parts.push(bytes);
+    const addText = (text: string) => parts.push(encoder.encode(text + "\n"));
+
+    addBytes(CMD_INIT);
+
+    items.forEach(item => {
+      for (let q = 0; q < item.qty; q++) {
+        addBytes(CMD_ALIGN_CENTER);
+        
+        addBytes(CMD_SIZE_NORMAL);
+        addText(item.name.toUpperCase());
+
+        addBytes(new Uint8Array([0x1D, 0x68, 65])); // GS h: height 65 dots
+        addBytes(new Uint8Array([0x1D, 0x77, 2]));  // GS w: width module 2
+        addBytes(new Uint8Array([0x1D, 0x48, 2]));  // GS H: print content text below barcode
+        
+        const barcodeData = encoder.encode(item.barcode);
+        const cmdHeader = new Uint8Array([0x1D, 0x6B, 73, barcodeData.length + 2, 0x7B, 0x42]);
+        addBytes(cmdHeader);
+        addBytes(barcodeData);
+
+        addText("");
+        if (item.price > 0) {
+          addText(`Rp ${item.price.toLocaleString("id-ID")}`);
+        }
+        addText("\n" + "-".repeat(cols) + "\n");
+      }
+    });
+
+    addBytes(new Uint8Array([0x1B, 0x64, 4]));
+    if (settings.autoCut) {
+      addBytes(CMD_CUT);
+    }
+
+    const totalLength = parts.reduce((sum, p) => sum + p.length, 0);
+    const merged = new Uint8Array(totalLength);
+    let offset = 0;
+    parts.forEach(p => {
+      merged.set(p, offset);
+      offset += p.length;
+    });
+
+    return merged;
+  },
+
+  async printBarcodes(items: Array<{ name: string; barcode: string; price: number; qty: number }>, settings: PrinterSettings): Promise<void> {
+    const { connectionMode } = settings;
+
+    if (connectionMode === "bluetooth") {
+      if (!connectedBleCharacteristic) {
+        throw new Error("Printer Bluetooth belum tersambung. Sambungkan ulang di Pengaturan Printer.");
+      }
+      const bytes = this.generateBarcodeEscPosBytes(items, settings);
+      const chunkSize = 20;
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        const chunk = bytes.slice(i, i + chunkSize);
+        await connectedBleCharacteristic.writeValueWithoutResponse(chunk);
+        await new Promise(resolve => setTimeout(resolve, 15));
+      }
+      return;
+    }
+
+    if (connectionMode === "usb") {
+      if (!connectedUsbDevice || !connectedUsbEndpoint) {
+        throw new Error("Printer USB belum tersambung. Sambungkan ulang di Pengaturan Printer.");
+      }
+      const bytes = this.generateBarcodeEscPosBytes(items, settings);
+      await connectedUsbDevice.transferOut(connectedUsbEndpoint.endpointNumber, bytes);
+      return;
+    }
+
+    if (connectionMode === "network") {
+      throw new Error("Koneksi Network IP/LAN langsung dari browser memerlukan middleware khusus. Menggunakan mode cetak Browser Print.");
+    }
+
     this.printBarcodesViaBrowser(items, settings);
   },
 
-  // Render grid of labels for standard office/label sheet printing
   printBarcodesViaBrowser(items: Array<{ name: string; barcode: string; price: number; qty: number }>, settings: any): void {
     const cols = settings.columns || 2;
     const barcodeHeight = settings.barcodeHeight || 60;
@@ -334,7 +452,6 @@ export const PrinterService = {
       throw new Error("Pop-up Terblokir! Harap aktifkan izin pop-up browser.");
     }
 
-    // Flatten labels based on qty selection
     const labels: Array<{ name: string; barcode: string; price: number }> = [];
     items.forEach(item => {
       for (let i = 0; i < item.qty; i++) {
@@ -434,7 +551,6 @@ export const PrinterService = {
     printWindow.document.close();
   },
 
-  // Print utilizing native browser print window styled with custom margin/padding settings
   printViaBrowser(order: any, tenant: any, settings: PrinterSettings): void {
     const storeName = tenant?.name || "Flow POS Kasir";
     const storeAddress = tenant?.address || "";
@@ -443,7 +559,6 @@ export const PrinterService = {
 
     const paperWidth = settings.paperSize === "58mm" ? "280px" : "380px";
     
-    // Apply styling settings
     const fontSize = settings.fontSize || 12;
     const marginLeft = settings.marginLeft || 0;
     const marginRight = settings.marginRight || 0;
