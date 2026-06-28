@@ -1063,7 +1063,8 @@ export default function POSPage() {
 
       {/* Cart panel */}
       <div className={`w-80 lg:w-80 xl:w-96 h-full flex flex-col bg-card border-l border-border flex-shrink-0 ${showCartMobile ? "flex w-full lg:w-80 xl:w-96 overflow-y-auto lg:overflow-hidden pb-24 lg:pb-0" : "hidden lg:flex overflow-hidden"}`}>
-        <div className="px-4 py-4 border-b border-border flex items-center gap-2">
+        {/* Sticky Header */}
+        <div className="px-4 py-4 border-b border-border flex items-center gap-2 flex-shrink-0">
           <button
             onClick={() => setShowCartMobile(false)}
             className="lg:hidden p-1 mr-1 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
@@ -1086,232 +1087,195 @@ export default function POSPage() {
           )}
         </div>
 
-        {/* Shift Management Banner */}
-        <div className={`px-4 py-3 border-b flex items-center justify-between text-xs font-semibold ${
-          shiftActive 
-            ? "bg-green-500/10 border-green-500/25 text-green-700 dark:text-green-400" 
-            : "bg-amber-500/10 border-amber-500/25 text-amber-700 dark:text-amber-400"
-        }`}>
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className={`w-2 h-2 rounded-full flex-shrink-0 ${shiftActive ? "bg-green-500 animate-pulse" : "bg-amber-500"}`} />
-            <span className="truncate">
-              {shiftActive ? `Shift: ${activeCashierName}` : "Shift Kasir Nonaktif"}
-            </span>
+        {/* Scrollable Container (Items list & checkout configurations) */}
+        <div className="flex-1 overflow-y-auto min-h-0 flex flex-col">
+          {/* Shift Management Banner */}
+          <div className={`px-4 py-3 border-b flex items-center justify-between text-xs font-semibold flex-shrink-0 ${
+            shiftActive 
+              ? "bg-green-500/10 border-green-500/25 text-green-700 dark:text-green-400" 
+              : "bg-amber-500/10 border-amber-500/25 text-amber-700 dark:text-amber-400"
+          }`}>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${shiftActive ? "bg-green-500 animate-pulse" : "bg-amber-500"}`} />
+              <span className="truncate">
+                {shiftActive ? `Shift: ${activeCashierName}` : "Shift Kasir Nonaktif"}
+              </span>
+            </div>
+            {shiftActive ? (
+              <button
+                onClick={handleEndShift}
+                className="px-2.5 py-1 bg-destructive/10 hover:bg-destructive hover:text-white border border-destructive/20 text-destructive rounded-lg font-bold transition-all text-[11px]"
+              >
+                Akhiri Shift
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowShiftModal(true)}
+                className="px-2.5 py-1 bg-primary text-primary-foreground hover:opacity-90 rounded-lg font-bold transition-all shadow text-[11px]"
+              >
+                Mulai Shift
+              </button>
+            )}
           </div>
-          {shiftActive ? (
-            <button
-              onClick={handleEndShift}
-              className="px-2.5 py-1 bg-destructive/10 hover:bg-destructive hover:text-white border border-destructive/20 text-destructive rounded-lg font-bold transition-all"
-            >
-              Akhiri Shift
-            </button>
-          ) : (
-            <button
-              onClick={() => setShowShiftModal(true)}
-              className="px-2.5 py-1 bg-primary text-primary-foreground hover:opacity-90 rounded-lg font-bold transition-all shadow"
-            >
-              Mulai Shift
-            </button>
-          )}
-        </div>
 
-        {/* Cart items */}
-        <div className="flex-shrink-0 lg:flex-1 overflow-y-auto p-3 space-y-2 min-h-[140px]">
-          {cart.length === 0 && (
-            <div className="text-center text-muted-foreground py-12">
-              <ShoppingCart size={36} className="mx-auto mb-3 opacity-30" />
-              <div className="text-sm">Keranjang kosong</div>
-              <div className="text-xs opacity-70 mt-1">Klik produk untuk menambahkan</div>
-            </div>
-          )}
-          {cart.map(item => (
-            <div key={item.id} className="flex items-center gap-2 p-2 xl:p-2.5 rounded-lg bg-background border border-border">
-              <div className="flex-1 min-w-0">
-                <div className="text-xs xl:text-sm font-semibold xl:font-medium text-foreground truncate">{item.name}</div>
-                {item.selectedVariant && (
-                  <div className="text-[9px] xl:text-[10px] text-muted-foreground mt-0.5 font-medium bg-muted/40 px-1 py-0.2 xl:px-1.5 xl:py-0.5 rounded inline-block">
-                    Varian: {item.selectedVariant}
-                  </div>
-                )}
-                {item.selectedToppings && item.selectedToppings.length > 0 && (
-                  <div className="text-[9px] xl:text-[10px] text-muted-foreground mt-0.5 font-medium bg-muted/40 px-1 py-0.2 xl:px-1.5 xl:py-0.5 rounded block">
-                    Toppings: {item.selectedToppings.join(", ")}
-                  </div>
-                )}
-                {item.notes && (
-                  <div className="text-[9px] xl:text-[10px] text-amber-600 italic block mt-0.5">
-                    "{item.notes}"
-                  </div>
-                )}
-                <div className="text-xs xl:text-sm text-primary font-bold xl:font-semibold mt-0.5 xl:mt-1">{formatRp(item.price)}</div>
+          {/* Cart items */}
+          <div className="p-3 space-y-2 flex-shrink-0">
+            {cart.length === 0 && (
+              <div className="text-center text-muted-foreground py-8">
+                <ShoppingCart size={32} className="mx-auto mb-2 opacity-30" />
+                <div className="text-sm">Keranjang kosong</div>
+                <div className="text-xs opacity-70 mt-1">Klik produk untuk menambahkan</div>
               </div>
-              <div className="flex items-center gap-1.5 flex-shrink-0">
-                <button onClick={() => updateQty(item.id, -1)} className="w-5.5 h-5.5 xl:w-6 xl:h-6 rounded bg-muted flex items-center justify-center hover:bg-muted/80 transition-colors">
-                  <Minus className="w-2.5 h-2.5 xl:w-3 xl:h-3" />
-                </button>
-                <span className="w-5 xl:w-6 text-center text-xs xl:text-sm font-bold">{item.quantity}</span>
-                <button onClick={() => updateQty(item.id, 1)} className="w-5.5 h-5.5 xl:w-6 xl:h-6 rounded bg-primary text-primary-foreground flex items-center justify-center hover:opacity-90 transition-opacity">
-                  <Plus className="w-2.5 h-2.5 xl:w-3 xl:h-3" />
-                </button>
+            )}
+            {cart.map(item => (
+              <div key={item.id} className="flex items-center gap-2 p-2 xl:p-2.5 rounded-lg bg-background border border-border">
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs xl:text-sm font-semibold xl:font-medium text-foreground truncate">{item.name}</div>
+                  {item.selectedVariant && (
+                    <div className="text-[9px] xl:text-[10px] text-muted-foreground mt-0.5 font-medium bg-muted/40 px-1 py-0.2 xl:px-1.5 xl:py-0.5 rounded inline-block">
+                      Varian: {item.selectedVariant}
+                    </div>
+                  )}
+                  {item.selectedToppings && item.selectedToppings.length > 0 && (
+                    <div className="text-[9px] xl:text-[10px] text-muted-foreground mt-0.5 font-medium bg-muted/40 px-1 py-0.2 xl:px-1.5 xl:py-0.5 rounded block">
+                      Toppings: {item.selectedToppings.join(", ")}
+                    </div>
+                  )}
+                  {item.notes && (
+                    <div className="text-[9px] xl:text-[10px] text-amber-600 italic block mt-0.5">
+                      "{item.notes}"
+                    </div>
+                  )}
+                  <div className="text-xs xl:text-sm text-primary font-bold xl:font-semibold mt-0.5 xl:mt-1">{formatRp(item.price)}</div>
+                </div>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  <button onClick={() => updateQty(item.id, -1)} className="w-5.5 h-5.5 xl:w-6 xl:h-6 rounded bg-muted flex items-center justify-center hover:bg-muted/80 transition-colors">
+                    <Minus className="w-2.5 h-2.5 xl:w-3 xl:h-3" />
+                  </button>
+                  <span className="w-5 xl:w-6 text-center text-xs xl:text-sm font-bold">{item.quantity}</span>
+                  <button onClick={() => updateQty(item.id, 1)} className="w-5.5 h-5.5 xl:w-6 xl:h-6 rounded bg-primary text-primary-foreground flex items-center justify-center hover:opacity-90 transition-opacity">
+                    <Plus className="w-2.5 h-2.5 xl:w-3 xl:h-3" />
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
 
-        {/* Summary & Checkout */}
-        <div className="border-t border-border p-3 xl:p-4 space-y-2 xl:space-y-3 text-xs xl:text-sm">
-          <div className="space-y-1">
-            <div className="flex justify-between text-muted-foreground text-[11px] xl:text-sm">
-              <span>Subtotal</span><span>{formatRp(subtotal)}</span>
-            </div>
-            
-            {/* Coupon & Manual Discount side-by-side on tablet, separate on desktop */}
-            <div className="flex flex-row xl:flex-col gap-2 xl:gap-0 py-1 xl:space-y-1.5">
-              {activeCoupons.length > 0 && (
-                <div className="flex-1 xl:flex xl:items-center xl:justify-between xl:py-1 xl:border-b xl:border-border/40">
-                  <span className="flex items-center gap-1 text-[9px] xl:text-xs font-semibold text-muted-foreground xl:text-primary">
-                    <Gift className="w-2.5 h-2.5 xl:w-3.5 xl:h-3.5" /> <span className="xl:inline">Kupon Promo</span>
-                  </span>
-                  <select
-                    value={selectedCouponCode}
+          {/* Summary & Checkout (Inside Scrollable Container) */}
+          <div className="border-t border-border p-3 xl:p-4 space-y-2 xl:space-y-3 text-xs xl:text-sm flex-shrink-0">
+            <div className="space-y-1">
+              <div className="flex justify-between text-muted-foreground text-[11px] xl:text-sm">
+                <span>Subtotal</span><span>{formatRp(subtotal)}</span>
+              </div>
+              
+              {/* Coupon & Manual Discount side-by-side on tablet, separate on desktop */}
+              <div className="flex flex-row xl:flex-col gap-2 xl:gap-0 py-1 xl:space-y-1.5">
+                {activeCoupons.length > 0 && (
+                  <div className="flex-1 xl:flex xl:items-center xl:justify-between xl:py-1 xl:border-b xl:border-border/40">
+                    <span className="flex items-center gap-1 text-[9px] xl:text-xs font-semibold text-muted-foreground xl:text-primary">
+                      <Gift className="w-2.5 h-2.5 xl:w-3.5 xl:h-3.5" /> <span className="xl:inline">Kupon Promo</span>
+                    </span>
+                    <select
+                      value={selectedCouponCode}
+                      onChange={e => {
+                        const code = e.target.value;
+                        setSelectedCouponCode(code);
+                        if (!code) {
+                          setDiscount(0);
+                        }
+                      }}
+                      className="w-full xl:w-44 px-1 xl:px-2 py-0.5 xl:py-1 border border-input rounded text-[10px] xl:text-xs bg-background focus:outline-none text-foreground font-medium"
+                    >
+                      <option value="">Pilih...</option>
+                      {activeCoupons.map(cp => (
+                        <option key={cp.id} value={cp.code}>
+                          {cp.code} (-{cp.discount}%)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                <div className="flex-1 xl:flex xl:items-center xl:justify-between xl:py-1">
+                  <label className="text-[9px] xl:text-xs text-muted-foreground font-medium">Diskon (Rp)</label>
+                  <input
+                    type="number"
+                    value={discount}
                     onChange={e => {
-                      const code = e.target.value;
-                      setSelectedCouponCode(code);
-                      if (!code) {
-                        setDiscount(0);
-                      }
+                      setSelectedCouponCode("");
+                      setDiscount(Math.max(0, Number(e.target.value)));
                     }}
-                    className="w-full xl:w-44 px-1 xl:px-2 py-0.5 xl:py-1 border border-input rounded text-[10px] xl:text-xs bg-background focus:outline-none text-foreground font-medium"
-                  >
-                    <option value="">Pilih...</option>
-                    {activeCoupons.map(cp => (
-                      <option key={cp.id} value={cp.code}>
-                        {cp.code} (-{cp.discount}%)
-                      </option>
-                    ))}
-                  </select>
+                    className="w-full xl:w-24 text-right px-1.5 xl:px-2 py-0.5 border border-input rounded text-[10px] xl:text-xs bg-background"
+                  />
+                </div>
+              </div>
+
+              {serviceChargePct > 0 && (
+                <div className="flex justify-between text-muted-foreground text-[11px] xl:text-sm">
+                  <span>Biaya Servis ({serviceChargePct}%)</span>
+                  <span>{formatRp(serviceChargeAmount)}</span>
                 </div>
               )}
+              {taxPct > 0 && (
+                <div className="flex justify-between text-muted-foreground text-[11px] xl:text-sm">
+                  <span>Pajak ({taxPct}%)</span>
+                  <span>{formatRp(taxAmount)}</span>
+                </div>
+              )}
+              <div className="flex justify-between font-bold text-sm xl:text-base text-foreground pt-1 border-t border-border mt-1">
+                <span>Total</span><span className="text-primary">{formatRp(total)}</span>
+              </div>
+            </div>
 
-              <div className="flex-1 xl:flex xl:items-center xl:justify-between xl:py-1">
-                <label className="text-[9px] xl:text-xs text-muted-foreground font-medium">Diskon (Rp)</label>
+            {/* Order Type Selector */}
+            <div className="space-y-1.5 py-1.5 border-t border-border">
+              <div className="grid grid-cols-3 gap-1 xl:gap-1.5">
+                {[
+                  { value: "dine_in", label: isFashion ? "Fitting Room" : "Dine In", icon: isFashion ? "👚" : "🪑" },
+                  { value: "take_away", label: isFashion ? "Ambil" : "Bawa Pulang", icon: "🛍️" },
+                  { value: "delivery", label: isFashion ? "Kirim" : "Delivery", icon: "🛵" }
+                ].map(ot => (
+                  <button
+                    key={ot.value}
+                    type="button"
+                    onClick={() => {
+                      setOrderType(ot.value);
+                      if (ot.value !== "delivery") {
+                        setDeliveryAddress("");
+                        setCustomerPhone("");
+                      }
+                      if (ot.value !== "dine_in") {
+                        setTableNumber("");
+                      }
+                    }}
+                    className={`flex flex-row xl:flex-col items-center justify-center gap-1 xl:gap-0.5 py-1 xl:py-2 px-1 rounded-md xl:rounded-lg border text-[10px] font-semibold transition-all ${
+                      orderType === ot.value
+                        ? "border-primary bg-primary/10 text-primary shadow-sm"
+                        : "border-border text-muted-foreground hover:bg-muted/30"
+                    }`}
+                  >
+                    <span className="text-xs xl:text-base leading-none xl:mb-0.5">{ot.icon}</span>
+                    <span className="leading-none">{ot.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Priority Toggle */}
+              <div className="flex items-center justify-between p-1.5 xl:p-2 rounded-lg bg-destructive/5 border border-destructive/20 text-[10px] font-semibold text-destructive mt-1.5 xl:mt-2">
+                <span className="flex items-center gap-1">
+                  <span className="animate-pulse">🚨</span> Prioritaskan Pesanan (KDS)
+                </span>
                 <input
-                  type="number"
-                  value={discount}
-                  onChange={e => {
-                    setSelectedCouponCode("");
-                    setDiscount(Math.max(0, Number(e.target.value)));
-                  }}
-                  className="w-full xl:w-24 text-right px-1.5 xl:px-2 py-0.5 border border-input rounded text-[10px] xl:text-xs bg-background"
+                  type="checkbox"
+                  checked={isPriority}
+                  onChange={e => setIsPriority(e.target.checked)}
+                  className="w-3.5 h-3.5 rounded text-destructive focus:ring-destructive cursor-pointer bg-background border-input"
                 />
               </div>
-            </div>
 
-            {serviceChargePct > 0 && (
-              <div className="flex justify-between text-muted-foreground text-[11px] xl:text-sm">
-                <span>Biaya Servis ({serviceChargePct}%)</span>
-                <span>{formatRp(serviceChargeAmount)}</span>
-              </div>
-            )}
-            {taxPct > 0 && (
-              <div className="flex justify-between text-muted-foreground text-[11px] xl:text-sm">
-                <span>Pajak ({taxPct}%)</span>
-                <span>{formatRp(taxAmount)}</span>
-              </div>
-            )}
-            <div className="flex justify-between font-bold text-sm xl:text-base text-foreground pt-1 border-t border-border mt-1">
-              <span>Total</span><span className="text-primary">{formatRp(total)}</span>
-            </div>
-          </div>
-
-          {/* Order Type Selector */}
-          <div className="space-y-1.5 py-1.5 border-t border-border">
-            <div className="grid grid-cols-3 gap-1 xl:gap-1.5">
-              {[
-                { value: "dine_in", label: isFashion ? "Fitting Room" : "Dine In", icon: isFashion ? "👚" : "🪑" },
-                { value: "take_away", label: isFashion ? "Ambil" : "Bawa Pulang", icon: "🛍️" },
-                { value: "delivery", label: isFashion ? "Kirim" : "Delivery", icon: "🛵" }
-              ].map(ot => (
-                <button
-                  key={ot.value}
-                  type="button"
-                  onClick={() => {
-                    setOrderType(ot.value);
-                    if (ot.value !== "delivery") {
-                      setDeliveryAddress("");
-                      setCustomerPhone("");
-                    }
-                    if (ot.value !== "dine_in") {
-                      setTableNumber("");
-                    }
-                  }}
-                  className={`flex flex-row xl:flex-col items-center justify-center gap-1 xl:gap-0.5 py-1 xl:py-2 px-1 rounded-md xl:rounded-lg border text-[10px] font-semibold transition-all ${
-                    orderType === ot.value
-                      ? "border-primary bg-primary/10 text-primary shadow-sm"
-                      : "border-border text-muted-foreground hover:bg-muted/30"
-                  }`}
-                >
-                  <span className="text-xs xl:text-base leading-none xl:mb-0.5">{ot.icon}</span>
-                  <span className="leading-none">{ot.label}</span>
-                </button>
-              ))}
-            </div>
-
-            {/* Priority Toggle */}
-            <div className="flex items-center justify-between p-1.5 xl:p-2 rounded-lg bg-destructive/5 border border-destructive/20 text-[10px] font-semibold text-destructive mt-1.5 xl:mt-2">
-              <span className="flex items-center gap-1">
-                <span className="animate-pulse">🚨</span> Prioritaskan Pesanan (KDS)
-              </span>
-              <input
-                type="checkbox"
-                checked={isPriority}
-                onChange={e => setIsPriority(e.target.checked)}
-                className="w-3.5 h-3.5 rounded text-destructive focus:ring-destructive cursor-pointer bg-background border-input"
-              />
-            </div>
-
-            {/* Customer & Location inputs (Side-by-side on tablet, separate on desktop) */}
-            {orderType === "dine_in" && (
-              <div className="flex flex-row xl:flex-col gap-2 xl:gap-1.5 mt-1.5">
-                <div className="flex-1 space-y-0.5">
-                  <label className="text-[9px] xl:text-[10px] font-semibold text-muted-foreground block">Nama Pelanggan</label>
-                  <input
-                    type="text"
-                    placeholder="Nama..."
-                    value={customerName}
-                    onChange={e => setCustomerName(e.target.value)}
-                    className="w-full px-2 py-1 xl:py-2 border border-input rounded-md xl:rounded-lg text-[10px] xl:text-xs bg-background focus:outline-none"
-                  />
-                </div>
-                <div className="w-24 xl:w-full space-y-0.5">
-                  <label className="text-[9px] xl:text-[10px] font-semibold text-muted-foreground block">{isFashion ? "Fitting Room" : "Meja"}</label>
-                  <input
-                    type="text"
-                    placeholder={isFashion ? "Kabin..." : "Meja..."}
-                    value={tableNumber}
-                    onChange={e => setTableNumber(e.target.value)}
-                    className="w-full px-2 py-1 xl:py-2 border border-input rounded-md xl:rounded-lg text-[10px] xl:text-xs bg-background focus:outline-none"
-                  />
-                </div>
-              </div>
-            )}
-
-            {orderType === "take_away" && (
-              <div className="space-y-0.5 mt-1.5">
-                <label className="text-[9px] xl:text-[10px] font-semibold text-muted-foreground block">Nama Pelanggan</label>
-                <input
-                  type="text"
-                  placeholder="Nama pelanggan..."
-                  value={customerName}
-                  onChange={e => setCustomerName(e.target.value)}
-                  className="w-full px-2 py-1 xl:py-2 border border-input rounded-md xl:rounded-lg text-[10px] xl:text-xs bg-background focus:outline-none"
-                />
-              </div>
-            )}
-
-            {orderType === "delivery" && (
-              <div className="space-y-1.5 mt-1.5">
-                <div className="flex flex-row xl:flex-col gap-2 xl:gap-1.5">
+              {/* Customer & Location inputs (Side-by-side on tablet, separate on desktop) */}
+              {orderType === "dine_in" && (
+                <div className="flex flex-row xl:flex-col gap-2 xl:gap-1.5 mt-1.5">
                   <div className="flex-1 space-y-0.5">
                     <label className="text-[9px] xl:text-[10px] font-semibold text-muted-foreground block">Nama Pelanggan</label>
                     <input
@@ -1322,75 +1286,118 @@ export default function POSPage() {
                       className="w-full px-2 py-1 xl:py-2 border border-input rounded-md xl:rounded-lg text-[10px] xl:text-xs bg-background focus:outline-none"
                     />
                   </div>
-                  <div className="flex-1 space-y-0.5">
-                    <label className="text-[9px] xl:text-[10px] font-semibold text-muted-foreground block">No. Telepon</label>
+                  <div className="w-24 xl:w-full space-y-0.5">
+                    <label className="text-[9px] xl:text-[10px] font-semibold text-muted-foreground block">{isFashion ? "Fitting Room" : "Meja"}</label>
                     <input
                       type="text"
-                      placeholder="0812..."
-                      value={customerPhone}
-                      onChange={e => setCustomerPhone(e.target.value)}
+                      placeholder={isFashion ? "Kabin..." : "Meja..."}
+                      value={tableNumber}
+                      onChange={e => setTableNumber(e.target.value)}
                       className="w-full px-2 py-1 xl:py-2 border border-input rounded-md xl:rounded-lg text-[10px] xl:text-xs bg-background focus:outline-none"
                     />
                   </div>
                 </div>
-                <div className="space-y-0.5">
-                  <label className="text-[9px] xl:text-[10px] font-semibold text-muted-foreground block">Alamat Pengiriman</label>
+              )}
+
+              {orderType === "take_away" && (
+                <div className="space-y-0.5 mt-1.5">
+                  <label className="text-[9px] xl:text-[10px] font-semibold text-muted-foreground block">Nama Pelanggan</label>
                   <input
                     type="text"
-                    placeholder="Alamat lengkap..."
-                    value={deliveryAddress}
-                    onChange={e => setDeliveryAddress(e.target.value)}
+                    placeholder="Nama pelanggan..."
+                    value={customerName}
+                    onChange={e => setCustomerName(e.target.value)}
                     className="w-full px-2 py-1 xl:py-2 border border-input rounded-md xl:rounded-lg text-[10px] xl:text-xs bg-background focus:outline-none"
                   />
+                </div>
+              )}
+
+              {orderType === "delivery" && (
+                <div className="space-y-1.5 mt-1.5">
+                  <div className="flex flex-row xl:flex-col gap-2 xl:gap-1.5">
+                    <div className="flex-1 space-y-0.5">
+                      <label className="text-[9px] xl:text-[10px] font-semibold text-muted-foreground block">Nama Pelanggan</label>
+                      <input
+                        type="text"
+                        placeholder="Nama..."
+                        value={customerName}
+                        onChange={e => setCustomerName(e.target.value)}
+                        className="w-full px-2 py-1 xl:py-2 border border-input rounded-md xl:rounded-lg text-[10px] xl:text-xs bg-background focus:outline-none"
+                      />
+                    </div>
+                    <div className="flex-1 space-y-0.5">
+                      <label className="text-[9px] xl:text-[10px] font-semibold text-muted-foreground block">No. Telepon</label>
+                      <input
+                        type="text"
+                        placeholder="0812..."
+                        value={customerPhone}
+                        onChange={e => setCustomerPhone(e.target.value)}
+                        className="w-full px-2 py-1 xl:py-2 border border-input rounded-md xl:rounded-lg text-[10px] xl:text-xs bg-background focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-0.5">
+                    <label className="text-[9px] xl:text-[10px] font-semibold text-muted-foreground block">Alamat Pengiriman</label>
+                    <input
+                      type="text"
+                      placeholder="Alamat lengkap..."
+                      value={deliveryAddress}
+                      onChange={e => setDeliveryAddress(e.target.value)}
+                      className="w-full px-2 py-1 xl:py-2 border border-input rounded-md xl:rounded-lg text-[10px] xl:text-xs bg-background focus:outline-none"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Payment method (4 columns on tablet, 2x2 grid on desktop) */}
+            <div className="grid grid-cols-4 xl:grid-cols-2 gap-1 xl:gap-2 border-t border-border pt-1.5 xl:pt-2 mt-1.5">
+              {PAYMENT_METHODS.map(pm => (
+                <button
+                  key={pm.value}
+                  type="button"
+                  onClick={() => setPaymentMethod(pm.value)}
+                  className={`flex flex-col xl:flex-row items-center justify-center xl:justify-start gap-1 xl:gap-2 py-1 xl:py-2.5 px-0.5 xl:px-3 rounded-lg border text-[10px] xl:text-sm font-medium transition-all ${
+                    paymentMethod === pm.value
+                      ? "border-primary bg-primary/10 text-primary shadow-sm"
+                      : "border-border text-muted-foreground hover:border-primary/30"
+                  }`}
+                >
+                  <span className="text-xs xl:text-base leading-none xl:leading-normal">{pm.icon}</span>
+                  <span className="text-[9px] xl:text-sm font-semibold xl:font-medium leading-none xl:leading-normal">{pm.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Cash input for Tunai (Inline row on tablet, separate on desktop) */}
+            {paymentMethod === "cash" && (
+              <div className="mt-1 xl:mt-2 flex flex-col xl:space-y-1 bg-muted/40 p-1.5 xl:p-2 rounded-lg border border-border/40">
+                <div className="flex flex-row xl:flex-col items-center xl:items-start gap-2 xl:gap-1">
+                  <div className="flex-1 xl:w-full">
+                    <label className="hidden xl:block text-xs font-semibold text-muted-foreground mb-1">Uang Diterima</label>
+                    <input
+                      type="number"
+                      value={cashReceived}
+                      onChange={e => setCashReceived(e.target.value)}
+                      placeholder="Uang Tunai..."
+                      className="w-full px-2 py-1 text-xs xl:text-sm border border-input rounded bg-background focus:outline-none"
+                    />
+                  </div>
+                  {cashReceived && (
+                    <div className={`text-[11px] xl:text-sm font-bold whitespace-nowrap xl:mt-1 ${Number(cashReceived) - total >= 0 ? "text-green-600" : "text-red-600"}`}>
+                      {Number(cashReceived) - total >= 0 ? "Kembalian: " + formatRp(Number(cashReceived) - total) : "Kurang: " + formatRp(Math.abs(Number(cashReceived) - total))}
+                    </div>
+                  )}
                 </div>
               </div>
             )}
           </div>
+        </div>
 
-          {/* Payment method (4 columns on tablet, 2x2 grid on desktop) */}
-          <div className="grid grid-cols-4 xl:grid-cols-2 gap-1 xl:gap-2 border-t border-border pt-1.5 xl:pt-2 mt-1.5">
-            {PAYMENT_METHODS.map(pm => (
-              <button
-                key={pm.value}
-                type="button"
-                onClick={() => setPaymentMethod(pm.value)}
-                className={`flex flex-col xl:flex-row items-center justify-center xl:justify-start gap-1 xl:gap-2 py-1 xl:py-2.5 px-0.5 xl:px-3 rounded-lg border text-[10px] xl:text-sm font-medium transition-all ${
-                  paymentMethod === pm.value
-                    ? "border-primary bg-primary/10 text-primary shadow-sm"
-                    : "border-border text-muted-foreground hover:border-primary/30"
-                }`}
-              >
-                <span className="text-xs xl:text-base leading-none xl:leading-normal">{pm.icon}</span>
-                <span className="text-[9px] xl:text-sm font-semibold xl:font-medium leading-none xl:leading-normal">{pm.label}</span>
-              </button>
-            ))}
-          </div>
-
-          {/* Cash input for Tunai (Inline row on tablet, separate on desktop) */}
-          {paymentMethod === "cash" && (
-            <div className="mt-1 xl:mt-2 flex flex-col xl:space-y-1 bg-muted/40 p-1.5 xl:p-2 rounded-lg border border-border/40">
-              <div className="flex flex-row xl:flex-col items-center xl:items-start gap-2 xl:gap-1">
-                <div className="flex-1 xl:w-full">
-                  <label className="hidden xl:block text-xs font-semibold text-muted-foreground mb-1">Uang Diterima</label>
-                  <input
-                    type="number"
-                    value={cashReceived}
-                    onChange={e => setCashReceived(e.target.value)}
-                    placeholder="Uang Tunai..."
-                    className="w-full px-2 py-1 text-xs xl:text-sm border border-input rounded bg-background focus:outline-none"
-                  />
-                </div>
-                {cashReceived && (
-                  <div className={`text-[11px] xl:text-sm font-bold whitespace-nowrap xl:mt-1 ${Number(cashReceived) - total >= 0 ? "text-green-600" : "text-red-600"}`}>
-                    {Number(cashReceived) - total >= 0 ? "Kembalian: " + formatRp(Number(cashReceived) - total) : "Kurang: " + formatRp(Math.abs(Number(cashReceived) - total))}
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
+        {/* Sticky Checkout CTA Footer */}
+        <div className="border-t border-border p-3 bg-card flex-shrink-0">
           {success && (
-            <div className="flex items-center gap-2 text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg px-2 py-1.5 text-xs font-semibold">
+            <div className="flex items-center gap-2 text-green-700 dark:text-green-400 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg px-2 py-1.5 text-xs font-semibold mb-2">
               <Check size={14} /> Transaksi berhasil!
             </div>
           )}
@@ -1399,7 +1406,7 @@ export default function POSPage() {
             data-testid="button-checkout"
             onClick={handleCheckoutClick}
             disabled={cart.length === 0 || createOrder.isPending || (paymentMethod === "cash" && (!cashReceived || Number(cashReceived) < total))}
-            className="w-full py-2 xl:py-3 bg-primary text-primary-foreground rounded-lg xl:rounded-xl font-bold text-xs xl:text-sm hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-40"
+            className="w-full py-2.5 xl:py-3 bg-primary text-primary-foreground rounded-lg xl:rounded-xl font-bold text-xs xl:text-sm hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-40"
           >
             {createOrder.isPending ? "Memproses..." : `Bayar ${formatRp(total)}`}
           </button>
