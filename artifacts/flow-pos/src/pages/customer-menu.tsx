@@ -844,7 +844,7 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
   const [modalToppingsList, setModalToppingsList] = useState<{ name: string; price: number }[]>([]);
 
   const allBanners = useMemo(() => {
-    const list = [...promoBanners];
+    const list = promoBanners.filter((b: any) => b.showInCustomerMenu !== false);
     products.forEach((p: any) => {
       if (p.variantSettings) {
         try {

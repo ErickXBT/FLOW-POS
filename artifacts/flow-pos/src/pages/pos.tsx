@@ -303,7 +303,7 @@ export default function POSPage() {
   const products = productsData?.data || [];
 
   const allBanners = useMemo(() => {
-    const list = [...promoBanners];
+    const list = promoBanners.filter((b: any) => b.showInPos !== false);
     products.forEach((p: any) => {
       if (p.variantSettings) {
         try {

@@ -315,7 +315,7 @@ function OwnerDashboard() {
     }
   }, [marketingBanners, tenant?.id]);
 
-  const [newBanner, setNewBanner] = useState({ title: "", bgColor: "#1D4EF5", textColor: "#FFFFFF", imageUrl: "", linkedProductId: "" });
+  const [newBanner, setNewBanner] = useState({ title: "", bgColor: "#1D4EF5", textColor: "#FFFFFF", imageUrl: "", linkedProductId: "", showInPos: true, showInCustomerMenu: true });
   const [bannerType, setBannerType] = useState<"text" | "image">("text");
   const [bannerUploading, setBannerUploading] = useState(false);
   const [bannerUploadError, setBannerUploadError] = useState("");
@@ -909,7 +909,9 @@ function OwnerDashboard() {
       bgColor: bannerType === "text" ? newBanner.bgColor : "",
       textColor: bannerType === "text" ? newBanner.textColor : "",
       imageUrl: bannerType === "image" ? newBanner.imageUrl : "",
-      linkedProductId: newBanner.linkedProductId ? Number(newBanner.linkedProductId) : null
+      linkedProductId: newBanner.linkedProductId ? Number(newBanner.linkedProductId) : null,
+      showInPos: newBanner.showInPos,
+      showInCustomerMenu: newBanner.showInCustomerMenu
     };
 
     setMarketingBanners(prev => {
@@ -919,7 +921,7 @@ function OwnerDashboard() {
       }
       return next;
     });
-    setNewBanner({ title: "", bgColor: "#1D4EF5", textColor: "#FFFFFF", imageUrl: "", linkedProductId: "" });
+    setNewBanner({ title: "", bgColor: "#1D4EF5", textColor: "#FFFFFF", imageUrl: "", linkedProductId: "", showInPos: true, showInCustomerMenu: true });
   };
 
   const handleDeleteBanner = (id: number) => {
@@ -2420,6 +2422,31 @@ function OwnerDashboard() {
                       </select>
                     </div>
 
+                    {/* Visibility Settings (ON/OFF) */}
+                    <div className="space-y-1.5">
+                      <label className="block text-[10px] font-bold text-muted-foreground uppercase">Tampilkan Banner Di:</label>
+                      <div className="flex gap-4 py-1">
+                        <label className="flex items-center gap-1.5 cursor-pointer font-semibold text-[10px] text-muted-foreground">
+                          <input
+                            type="checkbox"
+                            checked={newBanner.showInPos !== false}
+                            onChange={e => setNewBanner(p => ({ ...p, showInPos: e.target.checked }))}
+                            className="w-3.5 h-3.5 rounded text-primary focus:ring-primary border-input bg-background"
+                          />
+                          Kasir (POS)
+                        </label>
+                        <label className="flex items-center gap-1.5 cursor-pointer font-semibold text-[10px] text-muted-foreground">
+                          <input
+                            type="checkbox"
+                            checked={newBanner.showInCustomerMenu !== false}
+                            onChange={e => setNewBanner(p => ({ ...p, showInCustomerMenu: e.target.checked }))}
+                            className="w-3.5 h-3.5 rounded text-primary focus:ring-primary border-input bg-background"
+                          />
+                          Menu Pelanggan
+                        </label>
+                      </div>
+                    </div>
+
                     <button
                       type="submit"
                       disabled={bannerUploading}
@@ -2437,7 +2464,7 @@ function OwnerDashboard() {
                         Belum ada banner promo dibuat
                       </div>
                     ) : (
-                      <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+                      <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1">
                         {marketingBanners.map(mb => (
                           <div key={mb.id} className="relative group rounded-xl overflow-hidden shadow-sm border border-border bg-card">
                             {mb.imageUrl ? (
@@ -2459,11 +2486,21 @@ function OwnerDashboard() {
                                 {mb.title}
                               </div>
                             )}
-                            {mb.linkedProductId && (
-                              <div className="absolute bottom-1 left-2 bg-black/60 text-white text-[8px] px-1.5 py-0.5 rounded-md font-bold z-10 max-w-[80%] truncate">
-                                🔗 {(productsResult?.data || []).find((p: any) => p.id === mb.linkedProductId)?.name || "Produk"}
+                            <div className="px-2.5 py-1.5 bg-muted/40 border-t border-border/60 flex items-center justify-between text-[8px] font-bold">
+                              <div className="flex items-center gap-1.5">
+                                <span className={`px-1.5 py-0.5 rounded ${mb.showInPos !== false ? "bg-green-500/10 text-green-600 border border-green-500/10" : "bg-muted text-muted-foreground/60 border border-border"}`}>
+                                  POS: {mb.showInPos !== false ? "ON" : "OFF"}
+                                </span>
+                                <span className={`px-1.5 py-0.5 rounded ${mb.showInCustomerMenu !== false ? "bg-green-500/10 text-green-600 border border-green-500/10" : "bg-muted text-muted-foreground/60 border border-border"}`}>
+                                  Pelanggan: {mb.showInCustomerMenu !== false ? "ON" : "OFF"}
+                                </span>
                               </div>
-                            )}
+                              {mb.linkedProductId && (
+                                <span className="text-muted-foreground max-w-[50%] truncate">
+                                  🔗 {(productsResult?.data || []).find((p: any) => p.id === mb.linkedProductId)?.name || "Produk"}
+                                </span>
+                              )}
+                            </div>
                             <button
                               type="button"
                               onClick={() => handleDeleteBanner(mb.id)}
