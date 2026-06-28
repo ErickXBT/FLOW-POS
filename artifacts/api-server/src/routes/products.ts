@@ -94,7 +94,14 @@ async function upsertBranchProduct(tenantId: number, branchId: number, productId
     .limit(1);
 
   if (branchProd) {
-    const updatePayload: any = { updatedAt: new Date() };
+    const updatePayload: any = {
+      updatedAt: new Date(),
+      name: product.name,
+      description: product.description,
+      imageUrl: product.imageUrl,
+      variantSettings: product.variantSettings,
+      publicMenuCategoryId,
+    };
     if (updates.price !== undefined) updatePayload.price = String(updates.price);
     if (updates.promoPrice !== undefined) updatePayload.promoPrice = updates.promoPrice !== null ? String(updates.promoPrice) : null;
     if (updates.isAvailable !== undefined) updatePayload.isAvailable = updates.isAvailable;
@@ -365,6 +372,17 @@ router.patch("/products/:id", async (req, res): Promise<void> => {
   const body = UpdateProductBody.safeParse(req.body);
   if (!body.success) { res.status(400).json({ error: body.error.message }); return; }
 
+  const updateData: any = { ...body.data, updatedAt: new Date() };
+  if (body.data.price != null) updateData.price = String(body.data.price);
+  if (body.data.costPrice != null) updateData.costPrice = String(body.data.costPrice);
+
+  const [product] = await db.update(productsTable)
+    .set(updateData)
+    .where(and(eq(productsTable.id, params.data.id), eq(productsTable.tenantId, claims.tenantId!)))
+    .returning();
+
+  if (!product) { res.status(404).json({ error: "Product not found" }); return; }
+
   const branchId = await getRequestedBranchId(req, claims);
   if (branchId) {
     const updates: any = {};
@@ -373,7 +391,20 @@ router.patch("/products/:id", async (req, res): Promise<void> => {
     if (body.data.stock !== undefined) updates.stock = body.data.stock;
     
     await upsertBranchProduct(claims.tenantId!, branchId, params.data.id, updates);
-    
+  }
+
+  await logActivity({
+    tenantId: claims.tenantId,
+    userId: claims.userId,
+    userName: claims.role === "owner" ? "Owner" : "Manager",
+    userRole: claims.role,
+    action: "edit_product",
+    module: "products",
+    details: { productId: product.id, name: product.name, price: Number(product.price) },
+    ipAddress: req.ip,
+  });
+
+  if (branchId) {
     const [row] = await db
       .select({
         product: productsTable,
@@ -394,35 +425,14 @@ router.patch("/products/:id", async (req, res): Promise<void> => {
           eq(publicMenuProductsTable.branchId, branchId)
         )
       )
-      .where(and(eq(productsTable.id, params.data.id), eq(productsTable.tenantId, claims.tenantId!)))
+      .where(and(eq(productsTable.id, product.id), eq(productsTable.tenantId, claims.tenantId!)))
       .limit(1);
 
-    if (!row) { res.status(404).json({ error: "Product not found" }); return; }
-    res.json(formatProduct(row.product, row.categoryName, row.branchProduct));
-    return;
+    if (row) {
+      res.json(formatProduct(row.product, row.categoryName, row.branchProduct));
+      return;
+    }
   }
-
-  const updateData: any = { ...body.data, updatedAt: new Date() };
-  if (body.data.price != null) updateData.price = String(body.data.price);
-  if (body.data.costPrice != null) updateData.costPrice = String(body.data.costPrice);
-
-  const [product] = await db.update(productsTable)
-    .set(updateData)
-    .where(and(eq(productsTable.id, params.data.id), eq(productsTable.tenantId, claims.tenantId!)))
-    .returning();
-
-  if (!product) { res.status(404).json({ error: "Product not found" }); return; }
-
-  await logActivity({
-    tenantId: claims.tenantId,
-    userId: claims.userId,
-    userName: claims.role === "owner" ? "Owner" : "Manager",
-    userRole: claims.role,
-    action: "edit_product",
-    module: "products",
-    details: { productId: product.id, name: product.name, price: Number(product.price) },
-    ipAddress: req.ip,
-  });
 
   res.json(formatProduct(product));
 });

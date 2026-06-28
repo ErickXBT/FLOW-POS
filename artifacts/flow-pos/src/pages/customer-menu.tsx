@@ -845,7 +845,7 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
 
   const allBanners = useMemo(() => {
     const list = promoBanners.filter((b: any) => b.showInCustomerMenu !== false);
-    products.forEach((p: any) => {
+    products.filter((p: any) => p.isAvailable !== false && p.isActive !== false).forEach((p: any) => {
       if (p.variantSettings) {
         try {
           const parsed = JSON.parse(p.variantSettings);

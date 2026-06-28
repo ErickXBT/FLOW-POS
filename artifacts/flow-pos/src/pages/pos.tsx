@@ -304,7 +304,7 @@ export default function POSPage() {
 
   const allBanners = useMemo(() => {
     const list = promoBanners.filter((b: any) => b.showInPos !== false);
-    products.forEach((p: any) => {
+    products.filter((p: any) => p.isActive !== false).forEach((p: any) => {
       if (p.variantSettings) {
         try {
           const parsed = JSON.parse(p.variantSettings);
@@ -988,7 +988,7 @@ export default function POSPage() {
         {/* Product grid */}
         <div className="flex-1 overflow-y-auto p-4">
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-            {products.map(product => {
+            {products.filter((p: any) => p.isActive !== false).map(product => {
               const cartItems = cart.filter(i => i.productId === product.id);
               const totalQuantity = cartItems.reduce((sum, item) => sum + item.quantity, 0);
               return (
