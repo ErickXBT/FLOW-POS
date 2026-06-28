@@ -1,4 +1,5 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import flowLogo from "@assets/FLOW_LOGO_1780799864457.png";
 import { Switch, Route, Router as WouterRouter, useLocation } from "wouter";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useAuth, type AuthUser, type UserRole, hasPermission } from "@/hooks/use-auth";
@@ -159,9 +160,74 @@ function DashboardFallback({ user }: { user: AuthUser }) {
   return null;
 }
 
+function GlobalSplashScreen() {
+  const [showSplash, setShowSplash] = useState(true);
+  const [fadeOut, setFadeOut] = useState(false);
+
+  useEffect(() => {
+    const fadeTimer = setTimeout(() => {
+      setFadeOut(true);
+    }, 1800);
+
+    const hideTimer = setTimeout(() => {
+      setShowSplash(false);
+    }, 2300);
+
+    return () => {
+      clearTimeout(fadeTimer);
+      clearTimeout(hideTimer);
+    };
+  }, []);
+
+  if (!showSplash) return null;
+
+  return (
+    <div 
+      className={`fixed inset-0 flex flex-col items-center justify-center bg-primary transition-opacity duration-500 ${fadeOut ? "opacity-0 pointer-events-none" : "opacity-100"}`}
+      style={{ zIndex: 99999 }}
+    >
+      <div className="flex flex-col items-center gap-4">
+        <div className="relative flex items-center justify-center">
+          <div className="absolute w-24 h-24 rounded-full bg-white/10 animate-ping duration-1000" />
+          <img 
+            src={flowLogo} 
+            alt="Flow Logo" 
+            className="h-12 relative z-10 brightness-0 invert" 
+            style={{
+              animation: "scaleUpLogo 1.2s cubic-bezier(0.34, 1.56, 0.64, 1) forwards"
+            }}
+          />
+        </div>
+        <div className="w-16 h-1 bg-white/20 rounded-full overflow-hidden mt-4 relative">
+          <div 
+            className="h-full bg-white rounded-full" 
+            style={{
+              width: "100%",
+              animation: "loadProgress 1.6s ease-in-out infinite",
+              transformOrigin: "left"
+            }}
+          />
+        </div>
+      </div>
+      <style>{`
+        @keyframes scaleUpLogo {
+          0% { transform: scale(0.6); opacity: 0; }
+          100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes loadProgress {
+          0% { transform: scaleX(0); }
+          50% { transform: scaleX(0.7); }
+          100% { transform: scaleX(1); transform: translateX(100%); }
+        }
+      `}</style>
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      <GlobalSplashScreen />
       <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
         <AppRoutes />
       </WouterRouter>
