@@ -15,6 +15,8 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus, Search, Edit2, Trash2, Package, X, Star, Tag, UploadCloud } from "lucide-react";
 import { Barcode128 } from "@/components/barcode128";
+import { useToast } from "@/hooks/use-toast";
+import { PrinterService } from "@/lib/printer-service";
 
 function formatRp(v: number) {
   return `Rp ${v.toLocaleString("id-ID")}`;
@@ -31,6 +33,7 @@ interface ProductFormProps {
 }
 
 function ProductForm({ initial, categories, onSubmit, onClose, loading, businessType, products = [] }: ProductFormProps) {
+  const { toast } = useToast();
   const [form, setForm] = useState({
     name: initial?.name || "",
     sku: initial?.sku || "",
@@ -304,51 +307,42 @@ function ProductForm({ initial, categories, onSubmit, onClose, loading, business
                     <Barcode128 value={form.barcode} />
                     <button
                       type="button"
-                      onClick={() => {
-                        const printWindow = window.open("", "_blank");
-                        if (!printWindow) return;
-                        const svgHtml = document.getElementById(`barcode-svg-${form.barcode}`)?.outerHTML || "";
-                        printWindow.document.write(`
-                          <html>
-                            <head>
-                              <title>Cetak Barcode - ${form.barcode}</title>
-                              <style>
-                                body {
-                                  display: flex;
-                                  flex-direction: column;
-                                  align-items: center;
-                                  justify-content: center;
-                                  height: 100vh;
-                                  margin: 0;
-                                  font-family: monospace;
-                                }
-                                .print-box {
-                                  text-align: center;
-                                  padding: 20px;
-                                  border: 1px solid #ccc;
-                                  border-radius: 8px;
-                                  background: white;
-                                }
-                              </style>
-                            </head>
-                            <body>
-                              <div class="print-box">
-                                ${svgHtml}
-                                <div style="margin-top: 8px; font-size: 14px; font-weight: bold; letter-spacing: 2px;">${form.barcode}</div>
-                                <div style="font-size: 11px; margin-top: 2px;">${form.name || ""}</div>
-                              </div>
-                              <script>
-                                window.onload = function() {
-                                  window.print();
-                                  setTimeout(function() { window.close(); }, 500);
-                                };
-                              </script>
-                            </body>
-                          </html>
-                        `);
-                        printWindow.document.close();
+                      onClick={async () => {
+                        let settings = {
+                          connectionMode: "browser_print" as const,
+                          deviceName: "",
+                          ipAddress: "192.168.1.100",
+                          port: "9100",
+                          paperSize: "58mm" as const,
+                          autoPrint: true,
+                          autoCut: false,
+                          fontSize: 12,
+                          marginLeft: 0,
+                          marginRight: 0,
+                          alignment: "left" as const,
+                        };
+
+                        try {
+                          const stored = localStorage.getItem("flow_printer_settings");
+                          if (stored) {
+                            settings = { ...settings, ...JSON.parse(stored) };
+                          }
+                        } catch (e) {}
+
+                        try {
+                          await PrinterService.printBarcodes(
+                            [{ name: form.name, barcode: form.barcode, price: Number(form.price), qty: 1 }],
+                            settings
+                          );
+                          toast({
+                            title: "Cetak Sukses",
+                            description: "Barcode telah dikirim ke printer."
+                          });
+                        } catch (err: any) {
+                          alert(err.message || "Gagal mencetak barcode.");
+                        }
                       }}
-                      className="px-3.5 py-1.5 bg-amber-400 hover:bg-amber-500 text-black text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow"
+                      className="px-3.5 py-1.5 bg-amber-400 hover:bg-amber-500 text-black text-xs font-bold rounded-lg transition-colors flex items-center gap-1.5 shadow cursor-pointer"
                     >
                       🖨️ Cetak Barcode
                     </button>
@@ -983,6 +977,9 @@ export default function ProductsPage() {
   const [showCatForm, setShowCatForm] = useState(false);
   const [editProduct, setEditProduct] = useState<any>(null);
   const [editCat, setEditCat] = useState<any>(null);
+  const [selectedProductIds, setSelectedProductIds] = useState<number[]>([]);
+  const [showBarcodeBatchModal, setShowBarcodeBatchModal] = useState(false);
+  const { toast } = useToast();
   const qc = useQueryClient();
 
   const { data: tenant } = useGetTenant();
@@ -1120,15 +1117,23 @@ export default function ProductsPage() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          {selectedProductIds.length > 0 && (
+            <button
+              onClick={() => setShowBarcodeBatchModal(true)}
+              className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-semibold transition-all shadow-sm cursor-pointer"
+            >
+              🖨️ Cetak Barcode ({selectedProductIds.length})
+            </button>
+          )}
           <button
             onClick={() => setShowCatForm(true)}
-            className="flex items-center gap-2 px-4 py-2.5 border border-border/80 bg-card hover:bg-muted text-foreground rounded-xl text-sm font-semibold transition-all shadow-sm"
+            className="flex items-center gap-2 px-4 py-2.5 border border-border/80 bg-card hover:bg-muted text-foreground rounded-xl text-sm font-semibold transition-all shadow-sm cursor-pointer"
           >
             <Plus size={16} /> Kategori
           </button>
           <button
             onClick={() => setShowForm(true)}
-            className="flex items-center gap-2 px-4 py-2.5 bg-amber-400 hover:bg-amber-500 text-black rounded-xl text-sm font-bold transition-all shadow-sm"
+            className="flex items-center gap-2 px-4 py-2.5 bg-amber-400 hover:bg-amber-500 text-black rounded-xl text-sm font-bold transition-all shadow-sm cursor-pointer"
           >
             <Plus size={16} /> {isFashion ? "Tambah Produk" : "Add Item"}
           </button>
@@ -1182,12 +1187,57 @@ export default function ProductsPage() {
             <p className="text-sm text-muted-foreground mt-1">Mulai dengan menambahkan produk baru</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="space-y-4">
+            {/* Selection Utility Bar */}
+            <div className="flex items-center justify-between px-3.5 py-2.5 bg-muted/30 border border-border/40 rounded-xl text-xs">
+              <label className="flex items-center gap-2.5 font-semibold text-muted-foreground select-none cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={products.length > 0 && products.every(p => selectedProductIds.includes(p.id))}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setSelectedProductIds(products.map(p => p.id));
+                    } else {
+                      setSelectedProductIds([]);
+                    }
+                  }}
+                  className="w-4 h-4 rounded border-input text-amber-500 focus:ring-amber-500/20 cursor-pointer bg-background"
+                />
+                <span>Pilih Semua Produk Halaman Ini</span>
+              </label>
+
+              {selectedProductIds.length > 0 && (
+                <button
+                  onClick={() => setSelectedProductIds([])}
+                  className="text-red-500 font-bold hover:underline cursor-pointer"
+                >
+                  Batal Pilih ({selectedProductIds.length})
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {products.map(p => (
               <div
                 key={p.id}
                 className="bg-card border border-card-border/60 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-amber-400/20 transition-all duration-200 flex items-center justify-between gap-4"
               >
+                {/* Selection Checkbox for Batch Barcode Print */}
+                <div className="flex-shrink-0">
+                  <input
+                    type="checkbox"
+                    checked={selectedProductIds.includes(p.id)}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedProductIds(prev => [...prev, p.id]);
+                      } else {
+                        setSelectedProductIds(prev => prev.filter(id => id !== p.id));
+                      }
+                    }}
+                    className="w-4 h-4 rounded border-input text-amber-500 focus:ring-amber-500/20 cursor-pointer bg-background"
+                  />
+                </div>
+
                 <div className="flex items-center gap-4 flex-1 min-w-0">
                   {/* Product Image */}
                   <div className="relative w-24 h-24 rounded-xl overflow-hidden bg-muted flex-shrink-0 border border-border/40">
@@ -1301,6 +1351,7 @@ export default function ProductsPage() {
               </div>
             ))}
           </div>
+          </div>
         )
       ) : isCatLoading ? (
         <div className="p-12 text-center text-muted-foreground font-medium">Memuat kategori...</div>
@@ -1384,6 +1435,215 @@ export default function ProductsPage() {
           loading={updateCategory.isPending}
         />
       )}
+      {showBarcodeBatchModal && (
+        <BarcodeBatchModal
+          selectedProducts={products.filter(p => selectedProductIds.includes(p.id))}
+          onClose={() => setShowBarcodeBatchModal(false)}
+          onRemoveProduct={(id) => setSelectedProductIds(prev => prev.filter(pId => pId !== id))}
+          onClearSelection={() => setSelectedProductIds([])}
+        />
+      )}
+    </div>
+  );
+}
+
+// Modal component for configuring and printing batch barcodes
+interface BarcodeBatchModalProps {
+  selectedProducts: any[];
+  onClose: () => void;
+  onRemoveProduct: (id: number) => void;
+  onClearSelection: () => void;
+}
+
+function BarcodeBatchModal({ selectedProducts, onClose, onRemoveProduct, onClearSelection }: BarcodeBatchModalProps) {
+  const { toast } = useToast();
+  const [quantities, setQuantities] = useState<Record<number, number>>(() => {
+    const initial: Record<number, number> = {};
+    selectedProducts.forEach(p => {
+      initial[p.id] = 1;
+    });
+    return initial;
+  });
+
+  const [columns, setColumns] = useState(3);
+  const [barcodeHeight, setBarcodeHeight] = useState(60);
+  const [isPrinting, setIsPrinting] = useState(false);
+
+  const handleQtyChange = (id: number, val: number) => {
+    setQuantities(prev => ({
+      ...prev,
+      [id]: Math.max(1, val)
+    }));
+  };
+
+  const handlePrint = async () => {
+    if (selectedProducts.length === 0) return;
+
+    setIsPrinting(true);
+    let settings = {
+      connectionMode: "browser_print" as const,
+      deviceName: "",
+      ipAddress: "192.168.1.100",
+      port: "9100",
+      paperSize: "58mm" as const,
+      autoPrint: true,
+      autoCut: false,
+      fontSize: 12,
+      marginLeft: 0,
+      marginRight: 0,
+      alignment: "left" as const,
+    };
+
+    try {
+      const stored = localStorage.getItem("flow_printer_settings");
+      if (stored) {
+        settings = { ...settings, ...JSON.parse(stored) };
+      }
+    } catch (e) {}
+
+    const printItems = selectedProducts.map(p => ({
+      name: p.name,
+      barcode: p.barcode || p.sku || `PROD${p.id}`,
+      price: Number(p.price),
+      qty: quantities[p.id] || 1
+    }));
+
+    try {
+      await PrinterService.printBarcodes(printItems, {
+        ...settings,
+        columns,
+        barcodeHeight,
+      } as any);
+
+      toast({
+        title: "Cetak Barcode Sukses",
+        description: `${printItems.reduce((acc, item) => acc + item.qty, 0)} barcode telah dikirim ke printer.`,
+      });
+      onClose();
+      onClearSelection();
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Gagal mencetak barcode.");
+    } finally {
+      setIsPrinting(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="bg-card border border-card-border rounded-2xl shadow-xl w-full max-w-xl flex flex-col max-h-[90vh]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
+          <div>
+            <h2 className="font-bold text-foreground text-lg">Cetak Barcode Massal</h2>
+            <p className="text-[11px] text-muted-foreground mt-0.5">Cetak barcode terpilih secara bersamaan</p>
+          </div>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground transition-colors cursor-pointer"><X size={20} /></button>
+        </div>
+
+        <div className="p-6 overflow-y-auto space-y-5 flex-1">
+          {/* Settings Section */}
+          <div className="bg-muted/30 p-4 rounded-xl border border-border/40 space-y-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Opsi Cetak Barcode</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-1">
+                <span className="text-[10px] text-muted-foreground font-semibold">Kolom per Baris (Browser Print)</span>
+                <select
+                  value={columns}
+                  onChange={e => setColumns(Number(e.target.value))}
+                  className="w-full px-3 py-2 border border-input rounded-xl bg-background text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/20 text-foreground"
+                >
+                  <option value={1}>1 Barcode (Label Roll)</option>
+                  <option value={2}>2 Kolom (Kertas Sedang)</option>
+                  <option value={3}>3 Kolom (A4/Grid Label)</option>
+                  <option value={4}>4 Kolom (Grid Padat)</option>
+                </select>
+              </div>
+
+              <div className="space-y-1">
+                <span className="text-[10px] text-muted-foreground font-semibold">Tinggi Barcode (px)</span>
+                <input
+                  type="number"
+                  min={30}
+                  max={150}
+                  value={barcodeHeight}
+                  onChange={e => setBarcodeHeight(Number(e.target.value))}
+                  className="w-full px-3 py-2 border border-input rounded-xl bg-background text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/20 text-foreground"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Selected Products List */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between border-b pb-1.5 border-border">
+              <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Daftar Produk Terpilih ({selectedProducts.length})</span>
+              <button
+                type="button"
+                onClick={onClearSelection}
+                className="text-[10px] font-bold text-red-500 hover:underline cursor-pointer"
+              >
+                Hapus Semua
+              </button>
+            </div>
+
+            <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+              {selectedProducts.map((p) => (
+                <div key={p.id} className="flex items-center justify-between gap-4 p-3 bg-muted/20 border border-border/40 rounded-xl">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-bold text-sm text-foreground truncate">{p.name}</div>
+                    <div className="text-[10px] text-muted-foreground font-mono mt-0.5">SKU/Barcode: {p.barcode || p.sku || "-"}</div>
+                  </div>
+
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5 border border-border rounded-lg bg-background p-1">
+                      <button
+                        type="button"
+                        onClick={() => handleQtyChange(p.id, (quantities[p.id] || 1) - 1)}
+                        className="p-1 hover:bg-muted text-muted-foreground rounded transition-colors text-xs font-bold w-5 h-5 flex items-center justify-center cursor-pointer"
+                      >
+                        -
+                      </button>
+                      <input
+                        type="number"
+                        min={1}
+                        value={quantities[p.id] || 1}
+                        onChange={e => handleQtyChange(p.id, Number(e.target.value))}
+                        className="w-10 text-center text-xs font-bold focus:outline-none bg-transparent"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleQtyChange(p.id, (quantities[p.id] || 1) + 1)}
+                        className="p-1 hover:bg-muted text-muted-foreground rounded transition-colors text-xs font-bold w-5 h-5 flex items-center justify-center cursor-pointer"
+                      >
+                        +
+                      </button>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => onRemoveProduct(p.id)}
+                      className="p-1.5 text-red-500 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex gap-3 px-6 pb-6 pt-4 border-t border-border">
+          <button onClick={onClose} className="flex-1 py-2.5 border border-border rounded-xl text-sm font-medium hover:bg-muted transition-colors cursor-pointer">Batal</button>
+          <button
+            onClick={handlePrint}
+            disabled={isPrinting || selectedProducts.length === 0}
+            className="flex-1 py-2.5 bg-amber-400 hover:bg-amber-500 text-black rounded-xl text-sm font-bold disabled:opacity-50 transition-colors cursor-pointer"
+          >
+            {isPrinting ? "Mencetak..." : "Mulai Cetak Barcode"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

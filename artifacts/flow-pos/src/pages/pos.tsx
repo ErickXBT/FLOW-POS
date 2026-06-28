@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Banknote, Smartphone, QrCode, X, Check, Package, Sparkles, Gift, Percent, Printer, Download, ArrowLeft } from "lucide-react";
 import { useActiveBranch } from "@/hooks/use-active-branch";
 import { Link } from "wouter";
+import { PrinterService } from "@/lib/printer-service";
 
 const PAYMENT_METHODS = [
   { value: "cash", label: "Tunai", icon: <Banknote size={18} /> },
@@ -446,6 +447,7 @@ export default function POSPage() {
     });
 
     setSelectedProduct(null);
+    setShowCartMobile(true);
   };
 
   const addToCart = (product: any) => {
@@ -453,6 +455,7 @@ export default function POSPage() {
       handleOpenDetailModal(product);
     } else {
       addToCartDirect(product);
+      setShowCartMobile(true);
     }
   };
 
@@ -569,160 +572,55 @@ export default function POSPage() {
         setTimeout(() => setSuccess(false), 3000);
         setLastCreatedOrder(data);
         setShowSuccessModal(true);
+        
+        // Auto print receipt if enabled
+        try {
+          const stored = localStorage.getItem("flow_printer_settings");
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            if (parsed.autoPrint) {
+              setTimeout(() => {
+                handlePrintReceipt(data);
+              }, 600);
+            }
+          }
+        } catch (e) {
+          console.error("Auto-print error:", e);
+        }
       }
     });
   };
 
-  const handlePrintReceipt = (order: any) => {
+  const handlePrintReceipt = async (order: any) => {
     if (!order) return;
-    const storeName = tenant?.name || "Flow POS Kasir";
-    const storeAddress = tenant?.address || "";
-    const storePhone = tenant?.phone || "";
     
-    let paperSize = "58mm";
+    let settings = {
+      connectionMode: "browser_print" as const,
+      deviceName: "",
+      ipAddress: "192.168.1.100",
+      port: "9100",
+      paperSize: "58mm" as const,
+      autoPrint: true,
+      autoCut: false,
+      fontSize: 12,
+      marginLeft: 0,
+      marginRight: 0,
+      alignment: "left" as const,
+    };
+
     try {
       const stored = localStorage.getItem("flow_printer_settings");
       if (stored) {
-        const parsed = JSON.parse(stored);
-        if (parsed.paperSize) paperSize = parsed.paperSize;
+        settings = { ...settings, ...JSON.parse(stored) };
       }
     } catch (e) {}
 
-    const paperWidth = paperSize === "58mm" ? "280px" : "380px";
-
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) {
-      alert("Pop-up Terblokir! Silakan izinkan pop-up di browser Anda untuk mencetak struk.");
-      return;
+    try {
+      await PrinterService.print(order, tenant, settings);
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Gagal mencetak struk.");
     }
-
-    const formattedDate = new Date(order.createdAt).toLocaleString("id-ID", {
-      day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit"
-    });
-
-    const itemsHtml = (order.items || []).map((item: any) => `
-      <div class="item-row">
-        <span>${item.quantity}x ${item.productName || item.name}</span>
-        <span>${formatRp(Number(item.subtotal))}</span>
-      </div>
-      ${item.variantSelection ? `
-      <div class="item-row" style="font-size: 10px; color: #555; margin-top: -2px; margin-bottom: 2px;">
-        <span>&nbsp;&nbsp;Varian: ${item.variantSelection}</span>
-        <span></span>
-      </div>` : ""}
-      ${item.notes ? `
-      <div class="item-row" style="font-size: 10px; color: #555; margin-top: -2px; margin-bottom: 2px; font-style: italic;">
-        <span>&nbsp;&nbsp;"${item.notes}"</span>
-        <span></span>
-      </div>` : ""}
-    `).join("");
-
-    let totalsHtml = `
-      <div class="item-row">
-        <span>Subtotal</span>
-        <span>${formatRp(Number(order.subtotal))}</span>
-      </div>
-    `;
-
-    if (Number(order.discount) > 0) {
-      totalsHtml += `
-        <div class="item-row">
-          <span>Diskon</span>
-          <span>-${formatRp(Number(order.discount))}</span>
-        </div>
-      `;
-    }
-    if (Number(order.serviceCharge) > 0) {
-      totalsHtml += `
-        <div class="item-row">
-          <span>Biaya Servis</span>
-          <span>${formatRp(Number(order.serviceCharge))}</span>
-        </div>
-      `;
-    }
-    if (Number(order.tax) > 0) {
-      totalsHtml += `
-        <div class="item-row">
-          <span>Pajak (PB1)</span>
-          <span>${formatRp(Number(order.tax))}</span>
-        </div>
-      `;
-    }
-
-    const htmlContent = `
-      <html>
-        <head>
-          <title>Nota - ${storeName}</title>
-          <style>
-            @media print {
-              body { margin: 0; padding: 10px; }
-            }
-            body {
-              font-family: 'Courier New', Courier, monospace;
-              width: ${paperWidth};
-              font-size: 12px;
-              color: #000;
-              margin: 0 auto;
-              padding: 20px;
-              background-color: #fff;
-            }
-            .text-center { text-align: center; }
-            .divider { border-top: 1px dashed #000; margin: 8px 0; }
-            .item-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
-            .footer-msg { font-size: 11px; margin-top: 15px; }
-          </style>
-        </head>
-        <body>
-          <div class="text-center">
-            <h3 style="margin: 0 0 4px 0;">${storeName.toUpperCase()}</h3>
-            ${storeAddress ? `<p style="margin: 0 0 2px 0; font-size: 10px;">${storeAddress}</p>` : ""}
-            ${storePhone ? `<p style="margin: 0 0 8px 0; font-size: 10px;">Telp: ${storePhone}</p>` : ""}
-          </div>
-          <div class="divider"></div>
-          <div>
-            <p style="margin: 0 0 4px 0;">Nota: ${order.orderNumber}</p>
-            <p style="margin: 0 0 4px 0;">Tanggal: ${formattedDate}</p>
-            <p style="margin: 0 0 4px 0;">Tipe: ${
-              isFashion
-                ? order.orderType === "dine_in" ? "Fitting Room" : order.orderType === "take_away" ? "Ambil di Toko" : "Kirim Kurir"
-                : order.orderType === "dine_in" ? "Dine In" : order.orderType === "take_away" ? "Take Away" : "Delivery"
-            }</p>
-            <p style="margin: 0 0 4px 0;">Pelanggan: ${order.customerName || "-"}</p>
-            ${order.orderType === "dine_in" && order.tableNumber ? `<p style="margin: 0 0 4px 0;">${isFashion ? "Fitting Room" : "Meja"}: ${order.tableNumber}</p>` : ""}
-            ${order.orderType === "delivery" && order.deliveryAddress ? `<p style="margin: 0 0 4px 0;">Alamat: ${order.deliveryAddress}</p>` : ""}
-            <p style="margin: 0 0 4px 0;">Pembayaran: ${order.paymentMethod === "cash" ? "Tunai" : order.paymentMethod === "qris" ? "QRIS" : order.paymentMethod === "bank_transfer" ? "Transfer" : order.paymentMethod === "ewallet" ? "E-Wallet" : order.paymentMethod || "-"}</p>
-            ${order.paymentMethod === "cash" ? `
-            <p style="margin: 0 0 4px 0;">Uang Diterima: ${formatRp(Number(order.cashReceived || 0))}</p>
-            <p style="margin: 0 0 4px 0;">Kembalian: ${formatRp(Math.max(0, Number(order.cashReceived || 0) - Number(order.total)))}</p>
-            ` : ""}
-            <p style="margin: 0 0 4px 0;">Kasir: ${order.employeeName || "Kasir Utama"}</p>
-          </div>
-          <div class="divider"></div>
-          ${itemsHtml}
-          <div class="divider"></div>
-          ${totalsHtml}
-          <div class="divider"></div>
-          <div class="item-row" style="font-weight: bold; font-size: 14px;">
-            <span>TOTAL</span>
-            <span>${formatRp(Number(order.total))}</span>
-          </div>
-          <div class="divider"></div>
-          <div class="text-center footer-msg">
-            <p style="margin: 0 0 4px 0;">Terima kasih atas kunjungan Anda!</p>
-            <p style="margin: 0 0 8px 0;">Selamat menikmati 🍽️</p>
-          </div>
-        </body>
-      </html>
-    `;
-
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
-    printWindow.focus();
-    
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 500);
   };
 
   const handleDownloadReceipt = (order: any) => {
@@ -1010,7 +908,7 @@ export default function POSPage() {
   return (
     <div className="flex h-[calc(100vh-56px)] overflow-hidden">
       {/* Products panel */}
-      <div className={`flex-1 flex flex-col overflow-hidden border-r border-border ${showCartMobile ? "hidden md:flex" : "flex"}`}>
+      <div className={`flex-1 flex flex-col overflow-hidden border-r border-border ${showCartMobile ? "hidden lg:flex" : "flex"}`}>
         {/* Promo Banners */}
         {allBanners.length > 0 && (
           <div className="px-4 py-2 bg-muted/10 border-b border-border flex-shrink-0">
@@ -1019,16 +917,16 @@ export default function POSPage() {
                 <div
                   key={pb.id}
                   onClick={() => handleBannerClick(pb)}
-                  className={`flex-none h-16 sm:h-20 rounded-xl overflow-hidden shadow-sm border border-border relative group flex items-center justify-center bg-card cursor-pointer hover:border-primary/50 hover:shadow transition-all ${
-                    pb.imageUrl ? "w-auto" : "w-56 sm:w-64"
+                  className={`flex-none h-16 xl:h-20 rounded-xl overflow-hidden shadow-sm border border-border relative group flex items-center justify-center bg-card cursor-pointer hover:border-primary/50 hover:shadow transition-all ${
+                    pb.imageUrl ? "w-max min-w-max" : "w-56 xl:w-64"
                   }`}
                 >
                   {pb.imageUrl ? (
-                    <div className="relative h-full w-auto">
-                      <img src={pb.imageUrl} alt={pb.title || "Promo"} className="h-full w-auto object-contain rounded-xl" />
+                    <div className="relative h-full w-max min-w-max">
+                      <img src={pb.imageUrl} alt={pb.title || "Promo"} className="h-full w-auto object-contain max-w-none rounded-xl" />
                       {pb.title && (
                         <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-black/20 to-transparent flex flex-col justify-end p-2">
-                          <div className="text-white font-bold text-[10px] sm:text-xs leading-snug line-clamp-2 drop-shadow">
+                          <div className="text-white font-bold text-[10px] xl:text-xs leading-snug line-clamp-2 drop-shadow">
                             {pb.title}
                           </div>
                         </div>
@@ -1039,7 +937,7 @@ export default function POSPage() {
                       style={{ backgroundColor: pb.bgColor, color: pb.textColor }}
                       className="w-full h-full p-2.5 flex flex-col justify-between"
                     >
-                      <div className="font-bold text-[10px] sm:text-xs leading-snug line-clamp-2">{pb.title}</div>
+                      <div className="font-bold text-[10px] xl:text-xs leading-snug line-clamp-2">{pb.title}</div>
                       <div className="text-[8px] font-bold uppercase tracking-wider opacity-80 flex items-center gap-1">
                         <Sparkles size={8} className="text-amber-400" /> Promo Aktif
                       </div>
@@ -1104,7 +1002,7 @@ export default function POSPage() {
                   } ${product.stock === 0 ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
                   {totalQuantity > 0 && (
-                    <div className="absolute top-2 right-2 w-5 h-5 bg-primary text-primary-foreground rounded-full text-xs flex items-center justify-center font-bold">
+                    <div className="absolute top-2 right-2 w-5 h-5 bg-primary text-primary-foreground rounded-full text-xs flex items-center justify-center font-bold z-10">
                       {totalQuantity}
                     </div>
                   )}
@@ -1164,11 +1062,11 @@ export default function POSPage() {
       </div>
 
       {/* Cart panel */}
-      <div className={`w-80 xl:w-96 flex flex-col bg-card border-l border-border flex-shrink-0 ${showCartMobile ? "flex w-full md:w-80 lg:w-96 overflow-y-auto md:overflow-hidden h-full pb-24 md:pb-0" : "hidden md:flex"}`}>
+      <div className={`w-80 lg:w-80 xl:w-96 h-full flex flex-col bg-card border-l border-border flex-shrink-0 ${showCartMobile ? "flex w-full lg:w-80 xl:w-96 overflow-y-auto lg:overflow-hidden pb-24 lg:pb-0" : "hidden lg:flex overflow-hidden"}`}>
         <div className="px-4 py-4 border-b border-border flex items-center gap-2">
           <button
             onClick={() => setShowCartMobile(false)}
-            className="md:hidden p-1 mr-1 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
+            className="lg:hidden p-1 mr-1 text-muted-foreground hover:text-foreground hover:bg-muted rounded-lg transition-colors"
           >
             <ArrowLeft size={16} />
           </button>
@@ -1218,7 +1116,7 @@ export default function POSPage() {
         </div>
 
         {/* Cart items */}
-        <div className="flex-shrink-0 md:flex-1 overflow-visible md:overflow-y-auto p-3 space-y-2">
+        <div className="flex-shrink-0 lg:flex-1 overflow-visible lg:overflow-y-auto p-3 space-y-2">
           {cart.length === 0 && (
             <div className="text-center text-muted-foreground py-12">
               <ShoppingCart size={36} className="mx-auto mb-3 opacity-30" />
@@ -2110,7 +2008,7 @@ export default function POSPage() {
       <button
         type="button"
         onClick={() => setShowCartMobile(!showCartMobile)}
-        className="md:hidden fixed bottom-6 right-6 z-40 bg-primary text-primary-foreground p-4 rounded-full shadow-lg flex items-center gap-2 hover:scale-105 active:scale-95 transition-all"
+        className="lg:hidden fixed bottom-6 right-6 z-40 bg-primary text-primary-foreground p-4 rounded-full shadow-lg flex items-center gap-2 hover:scale-105 active:scale-95 transition-all"
       >
         {showCartMobile ? (
           <>

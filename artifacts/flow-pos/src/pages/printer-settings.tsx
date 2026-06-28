@@ -6,16 +6,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useGetTenant } from "@workspace/api-client-react";
-
-interface PrinterSettings {
-  connectionMode: "browser_print" | "bluetooth" | "usb" | "network";
-  deviceName: string;
-  ipAddress: string;
-  port: string;
-  paperSize: "58mm" | "80mm";
-  autoPrint: boolean;
-  autoCut: boolean;
-}
+import { PrinterService, type PrinterSettings } from "@/lib/printer-service";
 
 const DEFAULT_SETTINGS: PrinterSettings = {
   connectionMode: "browser_print",
@@ -25,6 +16,10 @@ const DEFAULT_SETTINGS: PrinterSettings = {
   paperSize: "58mm",
   autoPrint: true,
   autoCut: false,
+  fontSize: 12,
+  marginLeft: 0,
+  marginRight: 0,
+  alignment: "left",
 };
 
 export default function PrinterSettingsPage() {
@@ -32,7 +27,6 @@ export default function PrinterSettingsPage() {
   const { data: tenant } = useGetTenant();
   const [settings, setSettings] = useState<PrinterSettings>(DEFAULT_SETTINGS);
   const [isScanning, setIsScanning] = useState(false);
-  const [scannedDevices, setScannedDevices] = useState<Array<{ name: string; type: string; address?: string }>>([]);
   const [pingStatus, setPingStatus] = useState<"idle" | "testing" | "success" | "failed">("idle");
 
   // Load settings on mount
@@ -64,27 +58,34 @@ export default function PrinterSettingsPage() {
     }
   };
 
-  const startScan = () => {
+  const startScan = async () => {
     setIsScanning(true);
-    setScannedDevices([]);
-    
-    // Simulate Bluetooth/USB device discovery
-    setTimeout(() => {
+    try {
       if (settings.connectionMode === "bluetooth") {
-        setScannedDevices([
-          { name: "MPT-II (Portable Mini Printer)", type: "Bluetooth", address: "00:11:22:33:AA:BB" },
-          { name: "RPP02N (58mm Thermal)", type: "Bluetooth", address: "AA:BB:CC:DD:EE:FF" },
-          { name: "EP-58A (Bluetooth Printer)", type: "Bluetooth", address: "88:99:A6:B5:C4:D3" }
-        ]);
+        const name = await PrinterService.connectBluetooth();
+        setSettings(p => ({ ...p, deviceName: name }));
+        toast({
+          title: "Printer Bluetooth Terhubung",
+          description: `${name} terhubung sebagai printer POS utama.`,
+        });
       } else if (settings.connectionMode === "usb") {
-        setScannedDevices([
-          { name: "RP80 Thermal Printer (USB)", type: "USB" },
-          { name: "XP-80C Receipt Printer (USB)", type: "USB" },
-          { name: "Generic POS-58 Printer (USB)", type: "USB" }
-        ]);
+        const name = await PrinterService.connectUsb();
+        setSettings(p => ({ ...p, deviceName: name }));
+        toast({
+          title: "Printer USB Terhubung",
+          description: `${name} terhubung sebagai printer POS utama.`,
+        });
       }
+    } catch (err: any) {
+      console.error(err);
+      toast({
+        title: "Koneksi Gagal",
+        description: err.message || "Gagal menghubungi perangkat printer.",
+        variant: "destructive",
+      });
+    } finally {
       setIsScanning(false);
-    }, 2000);
+    }
   };
 
   const handleTestPing = () => {
@@ -98,7 +99,6 @@ export default function PrinterSettingsPage() {
     }
     setPingStatus("testing");
     setTimeout(() => {
-      // Simulate ping success for local IPs, fail for empty/bad formats
       const isValidIp = /^(?:[0-9]{1,3}\.){3}[0-9]{1,3}$/.test(settings.ipAddress);
       if (isValidIp) {
         setPingStatus("success");
@@ -117,98 +117,47 @@ export default function PrinterSettingsPage() {
     }, 1500);
   };
 
-  // Generate functional HTML receipt layout and open print dialog
-  const printTestPage = () => {
-    const storeName = tenant?.name || "Flow POS Kasir";
-    const storeAddress = tenant?.address || "Jl. Sudirman No. 100, Jakarta";
-    const storePhone = tenant?.phone || "0812-3456-7890";
-    const paperWidth = settings.paperSize === "58mm" ? "280px" : "380px";
+  const printTestPage = async () => {
+    const testOrder = {
+      id: "TEST-0001",
+      orderNumber: "TEST-0001",
+      createdAt: new Date().toISOString(),
+      orderType: "dine_in",
+      tableNumber: "Meja #12",
+      paymentMethod: "cash",
+      employeeName: "Kasir Utama",
+      customerName: "Pelanggan Tes",
+      subtotal: 0,
+      discount: 0,
+      tax: 0,
+      serviceCharge: 0,
+      total: 0,
+      items: [
+        {
+          quantity: 1,
+          productName: "Test Print Connection",
+          name: "Test Print Connection",
+          price: 0,
+          subtotal: 0,
+          variantSelection: "STATUS: KONEKSI OK"
+        }
+      ]
+    };
 
-    const printWindow = window.open("", "_blank");
-    if (!printWindow) {
+    try {
+      await PrinterService.print(testOrder, tenant, settings);
       toast({
-        title: "Pop-up Terblokir",
-        description: "Silakan izinkan pop-up di browser Anda untuk mencetak struk.",
+        title: "Cetak Berhasil",
+        description: "Halaman test koneksi telah dikirim ke printer.",
+      });
+    } catch (err: any) {
+      console.error(err);
+      toast({
+        title: "Cetak Gagal",
+        description: err.message || "Terjadi kesalahan saat mengirim data cetak.",
         variant: "destructive",
       });
-      return;
     }
-
-    const htmlContent = `
-      <html>
-        <head>
-          <title>Test Print - ${storeName}</title>
-          <style>
-            @media print {
-              body { margin: 0; padding: 10px; }
-            }
-            body {
-              font-family: 'Courier New', Courier, monospace;
-              width: ${paperWidth};
-              font-size: 12px;
-              color: #000;
-              margin: 0 auto;
-              padding: 20px;
-              background-color: #fff;
-            }
-            .text-center { text-align: center; }
-            .divider { border-top: 1px dashed #000; margin: 8px 0; }
-            .item-row { display: flex; justify-content: space-between; margin-bottom: 4px; }
-            .footer-msg { font-size: 11px; margin-top: 15px; }
-            .barcode { font-family: monospace; font-size: 10px; border: 1px solid #000; padding: 4px; display: inline-block; margin-top: 8px; }
-          </style>
-        </head>
-        <body>
-          <div class="text-center">
-            <h3 style="margin: 0 0 4px 0;">${storeName.toUpperCase()}</h3>
-            <p style="margin: 0 0 2px 0; font-size: 10px;">${storeAddress}</p>
-            <p style="margin: 0 0 8px 0; font-size: 10px;">Telp: ${storePhone}</p>
-          </div>
-          <div class="divider"></div>
-          <div>
-            <p style="margin: 0 0 4px 0;">Tanggal: ${new Date().toLocaleString("id-ID")}</p>
-            <p style="margin: 0 0 4px 0;">Tipe: HALAMAN TEST KONEKSI</p>
-            <p style="margin: 0 0 4px 0;">Mode: ${settings.connectionMode.toUpperCase()}</p>
-            <p style="margin: 0 0 4px 0;">Ukuran: ${settings.paperSize}</p>
-          </div>
-          <div class="divider"></div>
-          <div class="item-row">
-            <span>1x Test Print Connection</span>
-            <span>Rp 0</span>
-          </div>
-          <div class="item-row">
-            <span>   [STATUS: OK]</span>
-            <span></span>
-          </div>
-          <div class="divider"></div>
-          <div class="item-row" style="font-weight: bold;">
-            <span>TOTAL</span>
-            <span>Rp 0</span>
-          </div>
-          <div class="divider"></div>
-          <div class="text-center footer-msg">
-            <p style="margin: 0 0 4px 0; font-weight: bold;">PRINTER BERHASIL DIKONFIGURASI</p>
-            <p style="margin: 0 0 8px 0;">Terima kasih telah menggunakan Flow POS</p>
-            <div class="barcode">*FLOWPOS-TEST*</div>
-          </div>
-        </body>
-      </html>
-    `;
-
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
-    printWindow.focus();
-    
-    // Trigger print dialog
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 500);
-
-    toast({
-      title: "Halaman Tes Dikirim",
-      description: "Memulai print dialog bawaan browser untuk tes cetak.",
-    });
   };
 
   return (
@@ -219,7 +168,7 @@ export default function PrinterSettingsPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Link href="/pos">
-              <a className="p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-600 dark:text-slate-400 hover:text-primary dark:hover:text-primary transition-all">
+              <a className="p-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-slate-600 dark:text-slate-400 hover:text-primary dark:hover:text-primary transition-all cursor-pointer">
                 <ArrowLeft size={18} />
               </a>
             </Link>
@@ -231,7 +180,7 @@ export default function PrinterSettingsPage() {
           
           <button
             onClick={handleSave}
-            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground font-bold text-xs rounded-xl hover:opacity-90 active:scale-95 transition-all shadow-md shadow-primary/20"
+            className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground font-bold text-xs rounded-xl hover:opacity-90 active:scale-95 transition-all shadow-md shadow-primary/20 cursor-pointer"
           >
             <Save size={14} />
             <span>Simpan Konfigurasi</span>
@@ -287,10 +236,10 @@ export default function PrinterSettingsPage() {
                   <button
                     key={mode.id}
                     onClick={() => {
-                      setSettings(p => ({ ...p, connectionMode: mode.id as any }));
-                      setScannedDevices([]);
+                      setSettings(p => ({ ...p, connectionMode: mode.id as any, deviceName: "" }));
+                      PrinterService.disconnect();
                     }}
-                    className={`flex items-start gap-3 p-4 rounded-xl border text-left transition-all ${
+                    className={`flex items-start gap-3 p-4 rounded-xl border text-left transition-all cursor-pointer ${
                       settings.connectionMode === mode.id
                         ? "border-primary bg-primary/5 dark:bg-primary/10 ring-1 ring-primary"
                         : "border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50"
@@ -332,10 +281,10 @@ export default function PrinterSettingsPage() {
                   <button
                     onClick={startScan}
                     disabled={isScanning}
-                    className="flex items-center gap-1.5 text-xs text-primary font-bold hover:underline disabled:opacity-50"
+                    className="flex items-center gap-1.5 text-xs text-primary font-bold hover:underline disabled:opacity-50 cursor-pointer"
                   >
                     <RefreshCw size={12} className={isScanning ? "animate-spin" : ""} />
-                    <span>{isScanning ? "Memindai..." : "Pindai Perangkat"}</span>
+                    <span>{isScanning ? "Menghubungkan..." : "Hubungkan Printer Baru"}</span>
                   </button>
                 </div>
 
@@ -347,51 +296,41 @@ export default function PrinterSettingsPage() {
                         {settings.connectionMode === "bluetooth" ? "BT" : "USB"}
                       </div>
                     </div>
-                    <div className="text-xs font-bold text-slate-700 dark:text-slate-300">Mencari port printer aktif...</div>
-                    <div className="text-[10px] text-slate-400 mt-0.5">Pastikan kabel terhubung atau bluetooth aktif</div>
+                    <div className="text-xs font-bold text-slate-700 dark:text-slate-300">Hubungkan perangkat printer...</div>
+                    <div className="text-[10px] text-slate-400 mt-0.5">Pilih printer pada dialog sistem browser Anda</div>
                   </div>
                 )}
 
-                {!isScanning && scannedDevices.length === 0 && (
+                {!isScanning && !settings.deviceName && (
                   <div className="text-center py-6 border border-slate-100 dark:border-slate-800/80 rounded-xl text-slate-400 dark:text-slate-500 text-xs">
-                    Belum ada perangkat terpilih. Klik Pindai Perangkat untuk memulai.
+                    Belum ada perangkat terhubung. Klik "Hubungkan Printer Baru" di atas.
                   </div>
                 )}
 
-                {!isScanning && scannedDevices.length > 0 && (
-                  <div className="divide-y divide-slate-100 dark:divide-slate-800/60 border border-slate-100 dark:border-slate-800 rounded-xl overflow-hidden">
-                    {scannedDevices.map((device, index) => (
+                {!isScanning && settings.deviceName && (
+                  <div className="divide-y divide-slate-100 dark:divide-slate-800/60 border border-slate-100 dark:border-slate-800 rounded-xl overflow-hidden bg-white dark:bg-slate-900">
+                    <div className="w-full flex items-center justify-between p-3.5 text-xs bg-primary/5 dark:bg-primary/10 text-primary font-semibold">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                        <div>
+                          <div className="font-bold text-slate-800 dark:text-white">{settings.deviceName}</div>
+                          <div className="text-[10px] text-slate-400 mt-0.5">Koneksi Aktif ({settings.connectionMode.toUpperCase()})</div>
+                        </div>
+                      </div>
                       <button
-                        key={index}
                         onClick={() => {
-                          setSettings(p => ({ ...p, deviceName: device.name }));
+                          PrinterService.disconnect();
+                          setSettings(p => ({ ...p, deviceName: "" }));
                           toast({
-                            title: "Perangkat Dipilih",
-                            description: `${device.name} ditautkan sebagai printer POS utama.`,
+                            title: "Perangkat Terputus",
+                            description: "Hubungan printer telah dilepas.",
                           });
                         }}
-                        className={`w-full flex items-center justify-between p-3.5 text-left text-xs transition-colors ${
-                          settings.deviceName === device.name
-                            ? "bg-primary/5 dark:bg-primary/10 text-primary font-semibold"
-                            : "bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-700 dark:text-slate-300"
-                        }`}
+                        className="text-[10px] text-red-500 hover:underline cursor-pointer"
                       >
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-emerald-500" />
-                          <div>
-                            <div className="font-bold">{device.name}</div>
-                            {device.address && <div className="text-[10px] text-slate-400 font-mono mt-0.5">{device.address}</div>}
-                          </div>
-                        </div>
-                        {settings.deviceName === device.name ? (
-                          <div className="flex items-center gap-1 text-[10px] text-primary font-bold">
-                            <Check size={14} /> Terhubung
-                          </div>
-                        ) : (
-                          <span className="text-[10px] text-slate-400 border border-slate-200 dark:border-slate-700 px-2 py-0.5 rounded-lg">Hubungkan</span>
-                        )}
+                        Putuskan
                       </button>
-                    ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -428,7 +367,7 @@ export default function PrinterSettingsPage() {
                   <button
                     onClick={handleTestPing}
                     disabled={pingStatus === "testing"}
-                    className="px-3.5 py-2 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 font-semibold text-xs rounded-xl transition-all flex items-center gap-2 text-slate-700 dark:text-slate-300"
+                    className="px-3.5 py-2 border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800 font-semibold text-xs rounded-xl transition-all flex items-center gap-2 text-slate-700 dark:text-slate-300 cursor-pointer"
                   >
                     {pingStatus === "testing" ? (
                       <>
@@ -468,7 +407,7 @@ export default function PrinterSettingsPage() {
                   <button
                     key={size.value}
                     onClick={() => setSettings(p => ({ ...p, paperSize: size.value as any }))}
-                    className={`p-4 rounded-xl border text-left transition-all ${
+                    className={`p-4 rounded-xl border text-left transition-all cursor-pointer ${
                       settings.paperSize === size.value
                         ? "border-primary bg-primary/5 dark:bg-primary/10 ring-1 ring-primary"
                         : "border-slate-100 dark:border-slate-800 hover:border-slate-200 dark:hover:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50"
@@ -480,6 +419,65 @@ export default function PrinterSettingsPage() {
                 ))}
               </div>
             </div>
+
+            {/* Layout Customization Settings Panel */}
+            <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+              <div>
+                <h3 className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider">Kustomisasi Ukuran & Penempatan</h3>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Sesuaikan ukuran font, margin kiri/kanan, dan posisi struk agar pas di kertas cetak.</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">Ukuran Font Struk (px)</span>
+                  <input
+                    type="number"
+                    min={8}
+                    max={24}
+                    value={settings.fontSize || 12}
+                    onChange={e => setSettings(p => ({ ...p, fontSize: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground"
+                  />
+                </div>
+                
+                <div className="space-y-1">
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">Rata Halaman (System Print)</span>
+                  <select
+                    value={settings.alignment || "left"}
+                    onChange={e => setSettings(p => ({ ...p, alignment: e.target.value as any }))}
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground"
+                  >
+                    <option value="left">Rata Kiri</option>
+                    <option value="center">Rata Tengah (Centered)</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">Margin Kiri Halaman (px)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={settings.marginLeft || 0}
+                    onChange={e => setSettings(p => ({ ...p, marginLeft: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <span className="text-[10px] text-slate-500 dark:text-slate-400 font-semibold">Margin Kanan Halaman (px)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={settings.marginRight || 0}
+                    onChange={e => setSettings(p => ({ ...p, marginRight: Number(e.target.value) }))}
+                    className="w-full px-3 py-2 border border-slate-200 dark:border-slate-800 rounded-xl bg-background text-xs focus:outline-none focus:ring-2 focus:ring-primary/20 text-foreground"
+                  />
+                </div>
+              </div>
+            </div>
+
           </div>
 
           {/* Configuration Summary & Action Panel - Right column */}
@@ -514,7 +512,7 @@ export default function PrinterSettingsPage() {
               <div className="pt-2 space-y-2">
                 <button
                   onClick={printTestPage}
-                  className="w-full py-3 bg-slate-900 hover:bg-slate-850 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold text-xs rounded-xl active:scale-95 transition-all flex items-center justify-center gap-2 border border-slate-800"
+                  className="w-full py-3 bg-slate-900 hover:bg-slate-850 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold text-xs rounded-xl active:scale-95 transition-all flex items-center justify-center gap-2 border border-slate-800 cursor-pointer"
                 >
                   <Printer size={14} />
                   <span>Cetak Halaman Tes</span>
