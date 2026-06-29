@@ -16,6 +16,8 @@ export interface SubscriptionUpgradeRequest {
   requestedPlan: SubscriptionUpgradeRequestRequestedPlan;
   billingCycle: SubscriptionUpgradeRequestBillingCycle;
   status: SubscriptionUpgradeRequestStatus;
+  /** @nullable */
+  transferReceipt?: string | null;
   createdAt: string;
   updatedAt: string;
 }

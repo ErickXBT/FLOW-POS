@@ -29,9 +29,9 @@ export default function RegisterPage({ onLogin }: { onLogin: (token: string, use
 
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
   const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [installments, setInstallments] = useState(1);
+  const [showSuccessPopup, setShowSuccessPopup] = useState(false);
 
-  const handleRegisterSubmit = async (selectedCycle: "monthly" | "yearly", chosenInstallments: number) => {
+  const handleRegisterSubmit = async (selectedCycle: "monthly" | "yearly", receipt: string | null) => {
     setError("");
     setShowPaymentModal(false);
     registerMutation.mutate({
@@ -45,13 +45,16 @@ export default function RegisterPage({ onLogin }: { onLogin: (token: string, use
         address: form.address || undefined,
         plan: form.plan as any,
         billingInterval: selectedCycle,
-        installments: chosenInstallments,
+        transferReceipt: receipt || undefined,
       }
     }, {
       onSuccess: (data) => {
         setStoredToken(data.token);
-        onLogin(data.token, data.user);
-        setLocation("/dashboard");
+        setShowSuccessPopup(true);
+        setTimeout(() => {
+          onLogin(data.token, data.user);
+          setLocation("/dashboard");
+        }, 3500);
       },
       onError: (err: any) => setError(err?.data?.error || "Pendaftaran gagal"),
     });
@@ -60,10 +63,9 @@ export default function RegisterPage({ onLogin }: { onLogin: (token: string, use
   const handleButtonClick = () => {
     setError("");
     if (form.plan === "starter" || form.plan === "business") {
-      setInstallments(1);
       setShowPaymentModal(true);
     } else {
-      handleRegisterSubmit("monthly", 1);
+      handleRegisterSubmit("monthly", null);
     }
   };
 
@@ -321,12 +323,28 @@ export default function RegisterPage({ onLogin }: { onLogin: (token: string, use
         <PaymentModal
           billingCycle={billingCycle}
           plan={form.plan}
-          installments={installments}
-          setInstallments={setInstallments}
           onClose={() => setShowPaymentModal(false)}
-          onConfirm={() => handleRegisterSubmit(billingCycle, installments)}
+          onConfirm={(receipt: string | null) => handleRegisterSubmit(billingCycle, receipt)}
           loading={registerMutation.isPending}
         />
+      )}
+
+      {showSuccessPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-md animate-fade-in font-sans">
+          <div className="bg-card border border-card-border rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl animate-scale-up">
+            <div className="w-20 h-20 bg-green-100 dark:bg-green-950/30 rounded-full flex items-center justify-center mx-auto mb-6 border-2 border-green-500 animate-bounce">
+              <Check className="text-green-600 dark:text-green-400 w-10 h-10 stroke-[3]" />
+            </div>
+            <h3 className="text-xl font-bold text-foreground mb-2">Pendaftaran Berhasil!</h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              Akun dan bisnis Anda telah berhasil dibuat. Bukti transfer telah diterima dan akan diverifikasi oleh Admin.
+            </p>
+            <div className="flex justify-center items-center gap-2 text-xs font-semibold text-primary">
+              <span className="w-2 h-2 bg-primary rounded-full animate-ping" />
+              Mengalihkan Anda ke dashboard...
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
@@ -335,26 +353,39 @@ export default function RegisterPage({ onLogin }: { onLogin: (token: string, use
 function PaymentModal({
   billingCycle,
   plan,
-  installments,
-  setInstallments,
   onClose,
   onConfirm,
   loading
 }: {
   billingCycle: "monthly" | "yearly";
   plan: string;
-  installments: number;
-  setInstallments: (n: number) => void;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: (receipt: string | null) => void;
   loading: boolean;
 }) {
   const isStarter = plan === "starter";
   const packageName = isStarter ? "FlowApp UMKM" : "FlowApp Multi";
   
   // Pricing logic
-  const monthlyPrice = isStarter ? 169000 : 299000;
-  const yearlyPrice = isStarter ? 1723800 : 3049800;
+  const monthlyPrice = isStarter ? 249000 : 299000;
+  const yearlyPrice = isStarter ? 2040000 : 3000000;
+
+  const [receipt, setReceipt] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setFileName(file.name);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setReceipt(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const totalTransfer = billingCycle === "yearly" ? yearlyPrice : monthlyPrice;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in font-sans">
@@ -368,7 +399,7 @@ function PaymentModal({
         </div>
 
         {/* Body */}
-        <div className="p-6 space-y-5">
+        <div className="p-6 space-y-4">
           <div className="bg-primary/5 border border-primary/10 rounded-xl p-4 space-y-1.5">
             <div className="text-[10px] font-bold text-primary uppercase tracking-wider">Paket Pilihan</div>
             <div className="text-sm font-bold text-foreground">{packageName} ({billingCycle === "yearly" ? "Tahunan" : "Bulanan"})</div>
@@ -376,7 +407,7 @@ function PaymentModal({
               {billingCycle === "monthly" ? (
                 <>Harga: <span className="font-semibold text-foreground">Rp {monthlyPrice.toLocaleString("id-ID")}/bulan</span></>
               ) : (
-                <>Harga: <span className="font-semibold text-foreground">Rp {yearlyPrice.toLocaleString("id-ID")}/tahun</span> <span className="text-green-600 font-semibold">(Hemat 15%)</span></>
+                <>Harga: <span className="font-semibold text-foreground">Rp {yearlyPrice.toLocaleString("id-ID")}/tahun</span> <span className="text-green-600 font-semibold">(Hemat 50%)</span></>
               )}
             </div>
           </div>
@@ -399,57 +430,35 @@ function PaymentModal({
             </div>
           </div>
 
-          {billingCycle === "yearly" && (
-            <div className="space-y-2.5">
-              <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Metode Pembayaran (Cicilan)</div>
-              <div className="grid grid-cols-1 gap-2">
-                {[
-                  { id: 1, label: "Bayar Penuh (1x Lunas)", price: yearlyPrice },
-                  { id: 2, label: "Cicilan 2x (2 Bulan)", price: Math.ceil(yearlyPrice / 2) },
-                  { id: 3, label: "Cicilan 3x (3 Bulan)", price: Math.ceil(yearlyPrice / 3) },
-                ].map(opt => (
-                  <label
-                    key={opt.id}
-                    className={`flex items-center justify-between p-3 border rounded-xl cursor-pointer transition-all ${
-                      installments === opt.id
-                        ? "border-primary bg-primary/5 font-semibold"
-                        : "border-border hover:bg-muted/10"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="radio"
-                        name="installments"
-                        checked={installments === opt.id}
-                        onChange={() => setInstallments(opt.id)}
-                        className="w-4 h-4 text-primary border-border focus:ring-primary cursor-pointer"
-                      />
-                      <span className="text-xs text-foreground">{opt.label}</span>
-                    </div>
-                    <span className="text-xs text-foreground font-bold">
-                      Rp {opt.price.toLocaleString("id-ID")}{opt.id > 1 && " / bayar"}
-                    </span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          )}
+          <div className="space-y-2">
+            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Unggah Bukti Transfer (Screenshot)</div>
+            <label className="flex flex-col items-center justify-center border border-dashed border-border rounded-xl p-4 bg-muted/10 hover:bg-muted/20 cursor-pointer transition-colors relative overflow-hidden">
+              <input
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleFileChange}
+              />
+              {receipt ? (
+                <div className="flex flex-col items-center">
+                  <img src={receipt} alt="Bukti Transfer" className="h-20 object-contain rounded mb-1" />
+                  <span className="text-[10px] text-muted-foreground truncate max-w-[200px]">{fileName}</span>
+                  <span className="text-[10px] text-primary font-semibold mt-1">Ubah Gambar</span>
+                </div>
+              ) : (
+                <div className="text-center py-2">
+                  <div className="text-xl mb-1">📸</div>
+                  <span className="text-xs text-muted-foreground font-medium">Klik untuk unggah Bukti Transfer</span>
+                  <span className="block text-[9px] text-muted-foreground/60 mt-0.5">Format: JPG, PNG, WEBP</span>
+                </div>
+              )}
+            </label>
+          </div>
 
-          {billingCycle === "monthly" && (
-            <div className="flex justify-between items-center bg-muted/40 p-3 rounded-xl border border-border">
-              <span className="text-xs font-semibold text-muted-foreground">Total Transfer</span>
-              <span className="text-sm font-bold text-foreground">Rp {monthlyPrice.toLocaleString("id-ID")}</span>
-            </div>
-          )}
-
-          {billingCycle === "yearly" && (
-            <div className="flex justify-between items-center bg-muted/40 p-3 rounded-xl border border-border">
-              <span className="text-xs font-semibold text-muted-foreground">Transfer Pertama</span>
-              <span className="text-sm font-bold text-foreground">
-                Rp {Math.ceil(yearlyPrice / installments).toLocaleString("id-ID")}
-              </span>
-            </div>
-          )}
+          <div className="flex justify-between items-center bg-muted/40 p-3 rounded-xl border border-border">
+            <span className="text-xs font-semibold text-muted-foreground">Total Transfer</span>
+            <span className="text-sm font-bold text-foreground">Rp {totalTransfer.toLocaleString("id-ID")}</span>
+          </div>
         </div>
 
         {/* Footer */}
@@ -461,8 +470,8 @@ function PaymentModal({
             Batal
           </button>
           <button
-            onClick={onConfirm}
-            disabled={loading}
+            onClick={() => onConfirm(receipt)}
+            disabled={loading || !receipt}
             className="flex-1 py-2.5 bg-primary text-primary-foreground rounded-xl text-xs font-semibold hover:opacity-90 disabled:opacity-50 font-sans border-0 cursor-pointer"
           >
             {loading ? "Memproses..." : "Saya Sudah Transfer"}

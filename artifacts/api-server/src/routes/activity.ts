@@ -29,6 +29,9 @@ export async function logActivity(params: {
   details?: any;
   ipAddress?: string;
 }) {
+  if (params.userName && params.userName.startsWith("Preview:")) {
+    return;
+  }
   try {
     await db.insert(activityLogsTable).values({
       tenantId: params.tenantId,

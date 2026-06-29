@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, sql } from "drizzle-orm";
-import { db, usersTable, tenantsTable, subscriptionsTable, employeesTable, branchesTable, customRolesTable, platformSettingsTable, branchSettingsTable, publicMenusTable, userSessionsTable } from "@workspace/db";
+import { db, usersTable, tenantsTable, subscriptionsTable, employeesTable, branchesTable, customRolesTable, platformSettingsTable, branchSettingsTable, publicMenusTable, userSessionsTable, subscriptionUpgradeRequestsTable } from "@workspace/db";
 import nodemailer from "nodemailer";
 import { LoginBody, RegisterBody } from "@workspace/api-zod";
 import { logger } from "../lib/logger";
@@ -8,6 +8,7 @@ import * as crypto from "crypto";
 import * as jwt from "jsonwebtoken";
 import bcryptjs from "bcryptjs";
 import { logActivity, createSession, endSession } from "./activity";
+import { uploadTransferReceipt } from "../lib/storage";
 
 const router: IRouter = Router();
 const JWT_SECRET = process.env.SESSION_SECRET;
@@ -64,6 +65,10 @@ export async function verifySession(req: any): Promise<{ userId: number; tenantI
   const token = auth.slice(7);
   const claims = verifyToken(token);
   if (!claims) return null;
+
+  if ((claims as any).impersonating) {
+    return claims;
+  }
 
   const tokenHash = hashToken(token);
 
@@ -311,15 +316,27 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   const parsed = RegisterBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
-  const { name, email, password, businessName, businessType, phone, address, plan, billingInterval, installments } = parsed.data;
+  const { name, email, password, businessName, businessType, phone, address, plan, billingInterval, installments, transferReceipt } = parsed.data;
   const existing = await db.select().from(usersTable).where(eq(usersTable.email, email.toLowerCase()));
   if (existing.length > 0) { res.status(400).json({ error: "Email sudah terdaftar" }); return; }
 
   const selectedPlan = plan || "trial";
   const dbPlan = selectedPlan === "custom" ? "enterprise" : selectedPlan;
 
+  const planPrices: Record<string, { monthly: string; yearly: string }> = {
+    trial: { monthly: "0", yearly: "0" },
+    starter: { monthly: "249000", yearly: "2040000" },
+    business: { monthly: "299000", yearly: "3000000" },
+    pro: { monthly: "749000", yearly: "6741000" },
+    enterprise: { monthly: "0", yearly: "0" },
+  };
+
+  const interval = billingInterval === "yearly" ? "yearly" : "monthly";
+  const price = planPrices[dbPlan]?.[interval] || "0";
+  const isPaidPlan = dbPlan === "starter" || dbPlan === "business";
+
   const expiresAt = new Date();
-  if (dbPlan === "trial") {
+  if (dbPlan === "trial" || isPaidPlan) {
     expiresAt.setDate(expiresAt.getDate() + 7); // Uji coba gratis 7 hari
   } else if (billingInterval === "yearly") {
     expiresAt.setDate(expiresAt.getDate() + 365); // Tahunan 365 hari
@@ -327,17 +344,10 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     expiresAt.setDate(expiresAt.getDate() + 30); // Bulanan 30 hari
   }
 
-  const planPrices: Record<string, { monthly: string; yearly: string }> = {
-    trial: { monthly: "0", yearly: "0" },
-    starter: { monthly: "169000", yearly: "1723800" },
-    business: { monthly: "299000", yearly: "3049800" },
-    pro: { monthly: "749000", yearly: "6741000" },
-    enterprise: { monthly: "0", yearly: "0" },
-  };
-
-  const interval = billingInterval === "yearly" ? "yearly" : "monthly";
-  const price = planPrices[dbPlan]?.[interval] || "0";
-  const tenantStatus = dbPlan === "trial" ? "trial" : "active";
+  const tenantStatus = "trial";
+  const tenantPlan = isPaidPlan ? "trial" : dbPlan;
+  const subPlan = isPaidPlan ? "trial" : dbPlan;
+  const subPrice = isPaidPlan ? "0" : price;
 
   // Generate a unique slug based on business name
   const baseSlug = businessName.toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, "");
@@ -358,7 +368,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     phone: phone ?? null,
     address: address ?? null,
     email: email.toLowerCase(),
-    subscriptionPlan: dbPlan,
+    subscriptionPlan: tenantPlan,
     subscriptionExpiresAt: expiresAt,
   }).returning();
 
@@ -396,11 +406,27 @@ router.post("/auth/register", async (req, res): Promise<void> => {
 
   await db.insert(subscriptionsTable).values({
     tenantId: tenant.id,
-    plan: dbPlan,
+    plan: subPlan,
     status: "active",
-    price,
+    price: subPrice,
     expiresAt,
   });
+
+  if (isPaidPlan && transferReceipt) {
+    try {
+      const receiptUrl = await uploadTransferReceipt(transferReceipt, "receipt.png", tenant.id);
+      await db.insert(subscriptionUpgradeRequestsTable).values({
+        tenantId: tenant.id,
+        requestedPlan: dbPlan,
+        billingCycle: interval,
+        status: "pending",
+        transferReceipt: receiptUrl,
+      });
+      logger.info({ tenantId: tenant.id, plan: dbPlan, receiptUrl }, "Successfully created pending registration subscription request");
+    } catch (err: any) {
+      logger.error(err, "Failed to upload transfer receipt during registration");
+    }
+  }
 
   const [user] = await db.insert(usersTable).values({
     name,

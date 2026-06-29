@@ -336,9 +336,9 @@ router.patch("/admin/tenants/:id/subscription", async (req, res): Promise<void> 
   const isYearly = expiresDays && Number(expiresDays) >= 360;
   const computedPrice =
     subscriptionPlan === "starter"
-      ? (isYearly ? "1723800" : "169000")
+      ? (isYearly ? "2040000" : "249000")
       : subscriptionPlan === "business"
-      ? (isYearly ? "3049800" : "299000")
+      ? (isYearly ? "3000000" : "299000")
       : subscriptionPlan === "pro"
       ? (isYearly ? "6741000" : "749000")
       : "0";
@@ -727,6 +727,7 @@ router.get("/admin/subscription-upgrades", async (req, res): Promise<void> => {
     requestedPlan: subscriptionUpgradeRequestsTable.requestedPlan,
     billingCycle: subscriptionUpgradeRequestsTable.billingCycle,
     status: subscriptionUpgradeRequestsTable.status,
+    transferReceipt: subscriptionUpgradeRequestsTable.transferReceipt,
     createdAt: subscriptionUpgradeRequestsTable.createdAt,
     updatedAt: subscriptionUpgradeRequestsTable.updatedAt,
   })
@@ -741,6 +742,7 @@ router.get("/admin/subscription-upgrades", async (req, res): Promise<void> => {
     requestedPlan: item.requestedPlan,
     billingCycle: item.billingCycle,
     status: item.status,
+    transferReceipt: item.transferReceipt,
     createdAt: item.createdAt.toISOString(),
     updatedAt: item.updatedAt.toISOString(),
   })));

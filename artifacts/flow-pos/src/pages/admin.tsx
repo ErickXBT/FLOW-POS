@@ -524,6 +524,7 @@ function SubscriptionUpgradesTab() {
   const { data: requests, isLoading } = useListSubscriptionUpgradeRequests();
   const approveMutation = useApproveSubscriptionUpgradeRequest();
   const rejectMutation = useRejectSubscriptionUpgradeRequest();
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   
   const handleApprove = async (id: number) => {
     if (!confirm("Apakah Anda yakin ingin menyetujui permintaan upgrade ini?")) return;
@@ -580,6 +581,7 @@ function SubscriptionUpgradesTab() {
                 <th className="p-3 font-semibold">Tenant</th>
                 <th className="p-3 font-semibold">Paket yang Diminta</th>
                 <th className="p-3 font-semibold">Siklus Tagihan</th>
+                <th className="p-3 font-semibold">Bukti Transfer</th>
                 <th className="p-3 font-semibold">Tanggal Pengajuan</th>
                 <th className="p-3 font-semibold text-right">Aksi</th>
               </tr>
@@ -597,6 +599,18 @@ function SubscriptionUpgradesTab() {
                     </span>
                   </td>
                   <td className="p-3 capitalize font-medium">{req.billingCycle === "yearly" ? "Tahunan" : "Bulanan"}</td>
+                  <td className="p-3">
+                    {req.transferReceipt ? (
+                      <button
+                        onClick={() => setPreviewImage(req.transferReceipt || null)}
+                        className="px-2.5 py-1.5 bg-primary/10 text-primary rounded-lg font-semibold hover:bg-primary/20 transition-colors cursor-pointer text-[10px] border-0"
+                      >
+                        Lihat Bukti
+                      </button>
+                    ) : (
+                      <span className="text-muted-foreground font-semibold text-[10px]">-</span>
+                    )}
+                  </td>
                   <td className="p-3 text-muted-foreground">
                     {new Date(req.createdAt).toLocaleDateString("id-ID", {
                       day: "2-digit",
@@ -626,6 +640,31 @@ function SubscriptionUpgradesTab() {
               ))}
             </tbody>
           </table>
+        </div>
+      )}
+
+      {previewImage && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in font-sans">
+          <div className="bg-card border border-card-border rounded-2xl max-w-lg w-full p-4 relative shadow-2xl animate-scale-up">
+            <button
+              onClick={() => setPreviewImage(null)}
+              className="absolute top-3 right-3 text-muted-foreground hover:text-foreground p-1 bg-muted/40 hover:bg-muted/60 rounded-full border-0 cursor-pointer transition-colors"
+            >
+              <X size={18} />
+            </button>
+            <h3 className="font-bold text-foreground text-sm mb-3">Bukti Transfer</h3>
+            <div className="bg-muted/10 rounded-xl overflow-hidden flex items-center justify-center border border-border max-h-[70vh]">
+              <img src={previewImage} alt="Bukti Transfer" className="max-w-full max-h-[60vh] object-contain" />
+            </div>
+            <div className="mt-4 flex justify-end">
+              <button
+                onClick={() => setPreviewImage(null)}
+                className="px-4 py-2 bg-primary text-primary-foreground rounded-lg font-semibold text-xs hover:opacity-90 border-0 cursor-pointer"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

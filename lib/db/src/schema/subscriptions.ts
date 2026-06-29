@@ -34,6 +34,7 @@ export const subscriptionUpgradeRequestsTable = pgTable("subscription_upgrade_re
   requestedPlan: text("requested_plan").notNull(), // trial, starter, business, pro, enterprise
   billingCycle: text("billing_cycle").notNull(), // monthly, yearly
   status: text("status").notNull().default("pending"), // pending, approved, rejected
+  transferReceipt: text("transfer_receipt"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 });

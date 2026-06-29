@@ -22,4 +22,6 @@ export interface RegisterInput {
   plan?: RegisterInputPlan;
   billingInterval?: RegisterInputBillingInterval;
   installments?: number;
+  /** @nullable */
+  transferReceipt?: string | null;
 }

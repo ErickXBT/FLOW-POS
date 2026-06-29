@@ -50,7 +50,8 @@ export const RegisterBody = zod.object({
   "address": zod.string().nullish(),
   "plan": zod.enum(['starter', 'business', 'pro', 'custom', 'trial']).optional(),
   "billingInterval": zod.enum(['monthly', 'yearly']).optional(),
-  "installments": zod.number().optional()
+  "installments": zod.number().optional(),
+  "transferReceipt": zod.string().nullish()
 })
 
 
@@ -272,6 +273,7 @@ export const ListSubscriptionUpgradeRequestsResponseItem = zod.object({
   "requestedPlan": zod.enum(['starter', 'business', 'pro', 'enterprise']),
   "billingCycle": zod.enum(['monthly', 'yearly']),
   "status": zod.enum(['pending', 'approved', 'rejected']),
+  "transferReceipt": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })
@@ -292,6 +294,7 @@ export const ApproveSubscriptionUpgradeRequestResponse = zod.object({
   "requestedPlan": zod.enum(['starter', 'business', 'pro', 'enterprise']),
   "billingCycle": zod.enum(['monthly', 'yearly']),
   "status": zod.enum(['pending', 'approved', 'rejected']),
+  "transferReceipt": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })
@@ -311,6 +314,7 @@ export const RejectSubscriptionUpgradeRequestResponse = zod.object({
   "requestedPlan": zod.enum(['starter', 'business', 'pro', 'enterprise']),
   "billingCycle": zod.enum(['monthly', 'yearly']),
   "status": zod.enum(['pending', 'approved', 'rejected']),
+  "transferReceipt": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })
@@ -460,6 +464,7 @@ export const GetTenantSubscriptionResponse = zod.object({
   "requestedPlan": zod.enum(['starter', 'business', 'pro', 'enterprise']),
   "billingCycle": zod.enum(['monthly', 'yearly']),
   "status": zod.enum(['pending', 'approved', 'rejected']),
+  "transferReceipt": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 }).optional()
@@ -481,6 +486,7 @@ export const CreateSubscriptionUpgradeRequestResponse = zod.object({
   "requestedPlan": zod.enum(['starter', 'business', 'pro', 'enterprise']),
   "billingCycle": zod.enum(['monthly', 'yearly']),
   "status": zod.enum(['pending', 'approved', 'rejected']),
+  "transferReceipt": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })

@@ -1503,6 +1503,8 @@ components:
           enum: [monthly, yearly]
         installments:
           type: integer
+        transferReceipt:
+          type: ["string", "null"]
 
 
     AuthResponse:
@@ -2700,6 +2702,8 @@ components:
         status:
           type: string
           enum: [pending, approved, rejected]
+        transferReceipt:
+          type: ["string", "null"]
         createdAt:
           type: string
         updatedAt:

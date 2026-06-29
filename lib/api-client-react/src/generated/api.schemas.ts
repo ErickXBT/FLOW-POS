@@ -58,6 +58,8 @@ export interface RegisterInput {
   plan?: RegisterInputPlan;
   billingInterval?: RegisterInputBillingInterval;
   installments?: number;
+  /** @nullable */
+  transferReceipt?: string | null;
 }
 
 export type UserRole = typeof UserRole[keyof typeof UserRole];
@@ -305,6 +307,8 @@ export interface SubscriptionUpgradeRequest {
   requestedPlan: SubscriptionUpgradeRequestRequestedPlan;
   billingCycle: SubscriptionUpgradeRequestBillingCycle;
   status: SubscriptionUpgradeRequestStatus;
+  /** @nullable */
+  transferReceipt?: string | null;
   createdAt: string;
   updatedAt: string;
 }

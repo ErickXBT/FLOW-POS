@@ -135,3 +135,61 @@ export async function uploadAttendancePhoto(
   return imageUrl;
 }
 
+export async function uploadTransferReceipt(
+  base64Data: string,
+  originalName: string,
+  tenantId: number
+): Promise<string> {
+  const matches = base64Data.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+  if (!matches || matches.length !== 3) {
+    throw new Error("Invalid base64 image format");
+  }
+
+  const mimeType = matches[1];
+  const fileBuffer = Buffer.from(matches[2], "base64");
+  const extension = path.extname(originalName) || ".png";
+  const fileName = `receipt_${tenantId}_${Date.now()}_${Math.floor(Math.random() * 1000)}${extension}`;
+
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (supabaseUrl && supabaseKey) {
+    try {
+      logger.info({ fileName, tenantId }, "Attempting upload to Supabase Storage");
+      const cleanUrl = supabaseUrl.replace(/\/$/, "");
+      const uploadUrl = `${cleanUrl}/storage/v1/object/products/${fileName}`;
+
+      const response = await fetch(uploadUrl, {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${supabaseKey}`,
+          "Content-Type": mimeType,
+          "x-upsert": "true"
+        },
+        body: fileBuffer
+      });
+
+      if (response.ok) {
+        const publicUrl = `${cleanUrl}/storage/v1/object/public/products/${fileName}`;
+        logger.info({ publicUrl }, "Successfully uploaded receipt to Supabase Storage");
+        return publicUrl;
+      }
+    } catch (err: any) {
+      logger.error(err, "Supabase Storage upload failed for receipt, falling back to local storage");
+    }
+  }
+
+  logger.info({ fileName, tenantId }, "Writing receipt to local disk storage");
+  const uploadDir = path.join(process.cwd(), "uploads");
+  if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+  }
+
+  const filePath = path.join(uploadDir, fileName);
+  await fs.promises.writeFile(filePath, fileBuffer);
+
+  const imageUrl = `/api/uploads/${fileName}`;
+  logger.info({ imageUrl }, "Successfully saved receipt to local fallback storage");
+  return imageUrl;
+}
+
