@@ -79,8 +79,12 @@ export default function LoginPage({ onLogin }: { onLogin: (token: string, user: 
           <h2 className="text-white text-4xl font-bold leading-tight mb-4">
             Kelola bisnis Anda<br />lebih efisien dengan<br />FlowApp
           </h2>
-          <p className="text-white/80 text-lg font-medium">
-            Platform POS multi-tenant modern untuk restoran, kafe, fashion, salon, dan minimarket.
+          <p className="text-white/80 text-lg font-medium leading-relaxed">
+            Semua Fitur.<br />
+            Tidak Ada yang Dikunci.<br />
+            <span className="text-sm text-white/75 block mt-2.5 font-normal leading-normal">
+              Semua pelanggan mendapatkan fitur lengkap sejak hari pertama. Harga ditentukan berdasarkan jumlah outlet, bukan fitur yang Anda gunakan.
+            </span>
           </p>
         </div>
         <div className="flex gap-8">
