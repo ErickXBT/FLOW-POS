@@ -16,6 +16,7 @@ export default function LoginPage({ onLogin }: { onLogin: (token: string, user: 
   const [forgotSuccess, setForgotSuccess] = useState("");
   const [forgotLoading, setForgotLoading] = useState(false);
   const [showPricelistModal, setShowPricelistModal] = useState(false);
+  const [billingPeriod, setBillingPeriod] = useState<"monthly" | "yearly">("yearly");
 
 
   const handleForgotSubmit = async (e: React.FormEvent) => {
@@ -240,11 +241,42 @@ export default function LoginPage({ onLogin }: { onLogin: (token: string, user: 
 
             {/* Body */}
             <div className="p-6 space-y-6">
-              <div className="text-center max-w-md mx-auto">
+              <div className="text-center max-w-md mx-auto space-y-2">
                 <h3 className="text-lg font-bold text-foreground">Pilih Paket yang Sesuai untuk Bisnis Anda</h3>
-                <p className="text-xs text-muted-foreground mt-1">
+                <p className="text-xs text-muted-foreground">
                   Mulai dengan Uji Coba Gratis 7 hari, lalu pilih paket terbaik untuk tingkatkan produktivitas outlet Anda.
                 </p>
+
+                {/* Period Selector Tabs */}
+                <div className="flex justify-center pt-2">
+                  <div className="inline-flex p-1 bg-muted dark:bg-slate-900 rounded-xl border border-border">
+                    <button
+                      type="button"
+                      onClick={() => setBillingPeriod("monthly")}
+                      className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        billingPeriod === "monthly"
+                          ? "bg-card text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Bulanan
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBillingPeriod("yearly")}
+                      className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer relative ${
+                        billingPeriod === "yearly"
+                          ? "bg-card text-foreground shadow-sm"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Tahunan
+                      <span className="absolute -top-2 -right-2 bg-green-500 text-white font-bold text-[7px] px-1 py-0.5 rounded-full uppercase scale-90">
+                        Diskon 50%
+                      </span>
+                    </button>
+                  </div>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -260,8 +292,17 @@ export default function LoginPage({ onLogin }: { onLogin: (token: string, user: 
                     </div>
                     <div className="border-t border-b border-border/60 py-3 space-y-1">
                       <div className="text-[10px] text-muted-foreground line-through">Rp 349.000 /bulan</div>
-                      <div className="text-lg font-extrabold text-foreground">Rp 249.000 <span className="text-[10px] text-muted-foreground font-normal">/bln</span></div>
-                      <div className="text-[9px] text-green-600 font-semibold">Tersedia Paket Tahunan: Rp 2.040.000 (Hemat 50%)</div>
+                      {billingPeriod === "yearly" ? (
+                        <>
+                          <div className="text-lg font-extrabold text-foreground">Rp 170.000 <span className="text-[10px] text-muted-foreground font-normal">/bln</span></div>
+                          <div className="text-[9px] text-green-600 font-semibold">Ditagih Tahunan: Rp 2.040.000</div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="text-lg font-extrabold text-foreground">Rp 249.000 <span className="text-[10px] text-muted-foreground font-normal">/bln</span></div>
+                          <div className="text-[9px] text-amber-600 font-semibold">Hemat 50% dengan Paket Tahunan</div>
+                        </>
+                      )}
                     </div>
                     <ul className="space-y-2 text-xs text-muted-foreground">
                       <li className="flex items-center gap-1.5 leading-tight"><span className="text-primary font-bold">✓</span> Maksimal 1 Outlet</li>
@@ -281,8 +322,17 @@ export default function LoginPage({ onLogin }: { onLogin: (token: string, user: 
                     </div>
                     <div className="border-t border-b border-border/60 py-3 space-y-1">
                       <div className="text-[10px] text-muted-foreground line-through">Rp 499.000 /bulan</div>
-                      <div className="text-lg font-extrabold text-foreground">Rp 299.000 <span className="text-[10px] text-muted-foreground font-normal">/bln</span></div>
-                      <div className="text-[9px] text-green-600 font-semibold">Tersedia Paket Tahunan: Rp 3.000.000 (Hemat 50%)</div>
+                      {billingPeriod === "yearly" ? (
+                        <>
+                          <div className="text-lg font-extrabold text-foreground">Rp 250.000 <span className="text-[10px] text-muted-foreground font-normal">/bln</span></div>
+                          <div className="text-[9px] text-green-600 font-semibold">Ditagih Tahunan: Rp 3.000.000</div>
+                        </>
+                      ) : (
+                        <>
+                          <div className="text-lg font-extrabold text-foreground">Rp 299.000 <span className="text-[10px] text-muted-foreground font-normal">/bln</span></div>
+                          <div className="text-[9px] text-amber-600 font-semibold">Hemat 50% dengan Paket Tahunan</div>
+                        </>
+                      )}
                     </div>
                     <ul className="space-y-2 text-xs text-muted-foreground">
                       <li className="flex items-center gap-1.5 leading-tight"><span className="text-primary font-bold">✓</span> Hingga 3 Outlet</li>
