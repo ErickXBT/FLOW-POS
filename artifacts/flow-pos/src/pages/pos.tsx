@@ -2,10 +2,11 @@ import { useState, useEffect, useMemo, useRef } from "react";
 import QRCode from "qrcode";
 import { useListProducts, useListCategories, useCreateOrder, getListOrdersQueryKey, useGetTenant, useListEmployees } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Banknote, Smartphone, QrCode, X, Check, Package, Sparkles, Gift, Percent, Printer, Download, ArrowLeft } from "lucide-react";
+import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Banknote, Smartphone, QrCode, X, Check, Package, Sparkles, Gift, Percent, Printer, Download, ArrowLeft, Camera } from "lucide-react";
 import { useActiveBranch } from "@/hooks/use-active-branch";
 import { Link } from "wouter";
 import { PrinterService } from "@/lib/printer-service";
+import { CameraScanner } from "@/components/camera-scanner";
 
 const PAYMENT_METHODS = [
   { value: "cash", label: "Tunai", icon: <Banknote size={18} /> },
@@ -63,6 +64,30 @@ export default function POSPage() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [lastCreatedOrder, setLastCreatedOrder] = useState<any | null>(null);
   const [showQrisZoom, setShowQrisZoom] = useState(false);
+  const [showCameraScanner, setShowCameraScanner] = useState(false);
+
+  const handleCameraScan = async (scannedBarcode: string) => {
+    setShowCameraScanner(false);
+    try {
+      const token = localStorage.getItem("flow_token") ?? "";
+      const res = await fetch(`/api/products/scan-lookup?barcode=${encodeURIComponent(scannedBarcode)}&branchId=${activeBranchId || ""}`, {
+        headers: {
+          "Authorization": `Bearer ${token}`
+        }
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || "Produk tidak ditemukan");
+      }
+
+      const matchedProduct = await res.json();
+      addToCart(matchedProduct);
+    } catch (err: any) {
+      console.error(err);
+      alert(err.message || "Gagal memproses barcode");
+    }
+  };
 
   const fetchActiveShift = async () => {
     if (!activeBranchId) return;
@@ -1026,18 +1051,27 @@ const { data: categories } = useListCategories();
 
         {/* Search */}
         <div className="p-4 border-b border-border">
-          <div className="relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-            <input
-              data-testid="input-product-search"
-              type="search"
-              name="pos-search"
-              autoComplete="off"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder="Cari produk atau scan barcode..."
-              className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-            />
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <input
+                data-testid="input-product-search"
+                type="search"
+                name="pos-search"
+                autoComplete="off"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Cari produk atau scan barcode..."
+                className="w-full pl-9 pr-4 py-2.5 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <button
+              onClick={() => setShowCameraScanner(true)}
+              className="p-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-350 rounded-lg transition-all active:scale-95 flex items-center justify-center flex-shrink-0 border border-input cursor-pointer"
+              title="Scan Barcode via Kamera"
+            >
+              <Camera size={18} />
+            </button>
           </div>
         </div>
 
@@ -2255,6 +2289,12 @@ const { data: categories } = useListCategories();
           </>
         )}
       </button>
+
+      <CameraScanner 
+        isOpen={showCameraScanner} 
+        onClose={() => setShowCameraScanner(false)} 
+        onScan={handleCameraScan} 
+      />
     </div>
   );
 }
