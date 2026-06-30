@@ -396,6 +396,17 @@ const { data: categories } = useListCategories();
   const taxAmount = (subtotal - discount + serviceChargeAmount) * (taxPct / 100);
   const total = subtotal - discount + serviceChargeAmount + taxAmount;
 
+  const dynamicQrisPayload = useMemo(() => {
+    if (tenantAny?.qrisId && tenantAny.qrisId.startsWith("000201")) {
+      try {
+        return generateDynamicQris(tenantAny.qrisId, total);
+      } catch (err) {
+        console.error("Failed to generate dynamic QRIS:", err);
+      }
+    }
+    return tenantAny?.qrisId || "";
+  }, [tenantAny?.qrisId, total]);
+
   // Recalculate discount if coupon is applied
   useEffect(() => {
     if (selectedCouponCode) {
@@ -1480,7 +1491,14 @@ const { data: categories } = useListCategories();
                 </div>
 
                 {/* QR Code image or generated canvas */}
-                {tenantAny?.qrisImageUrl ? (
+                {tenantAny?.qrisId && tenantAny.qrisId.startsWith("000201") ? (
+                  <>
+                    <QrisCanvas payload={dynamicQrisPayload} primary={tenantAny.primaryColor || "#1D4EF5"} />
+                    <div className="text-[9px] bg-green-500 text-white font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider animate-pulse mt-1">
+                      Nominal Otomatis Aktif
+                    </div>
+                  </>
+                ) : tenantAny?.qrisImageUrl ? (
                   <div className="w-40 h-40 border border-slate-100 rounded-xl overflow-hidden bg-white p-2 flex items-center justify-center shadow-sm">
                     <img src={tenantAny.qrisImageUrl} alt="QRIS" className="w-full h-full object-contain" />
                   </div>
@@ -2190,9 +2208,16 @@ const { data: categories } = useListCategories();
             </div>
 
             {/* Scannable Area */}
-            {tenantAny?.qrisImageUrl ? (
-              <div className="w-64 h-64 border border-slate-100 rounded-3xl overflow-hidden bg-white p-3 flex items-center justify-center shadow-inner">
-                <img src={tenantAny.qrisImageUrl} alt="QRIS" className="w-full h-full object-contain animate-fade-in" />
+            {tenantAny?.qrisId && tenantAny.qrisId.startsWith("000201") ? (
+              <>
+                <QrisCanvas payload={generateDynamicQris(tenantAny.qrisId, total)} primary={tenantAny.primaryColor || "#1D4EF5"} size={220} />
+                <div className="text-[10px] bg-green-500 text-white font-extrabold px-3 py-1 rounded-full uppercase tracking-wider animate-pulse">
+                  Nominal Pas: {formatRp(total)}
+                </div>
+              </>
+            ) : tenantAny?.qrisImageUrl ? (
+              <div className="w-64 h-64 border border-slate-100 rounded-3xl overflow-hidden bg-white p-3 flex items-center justify-center shadow-inner animate-fade-in">
+                <img src={tenantAny.qrisImageUrl} alt="QRIS" className="w-full h-full object-contain" />
               </div>
             ) : tenantAny?.qrisId ? (
               <QrisCanvas payload={tenantAny.qrisId} primary={tenantAny.primaryColor || "#1D4EF5"} size={220} />
@@ -2265,4 +2290,58 @@ function QrisCanvas({ payload, primary, size = 160 }: { payload: string; primary
       <canvas ref={canvasRef} className="w-full h-full object-contain" />
     </div>
   );
+}
+
+function calculateCRC16(str: string): string {
+  let crc = 0xFFFF;
+  for (let i = 0; i < str.length; i++) {
+    let code = str.charCodeAt(i);
+    crc ^= (code << 8);
+    for (let j = 0; j < 8; j++) {
+      if ((crc & 0x8000) !== 0) {
+        crc = ((crc << 1) ^ 0x1021) & 0xFFFF;
+      } else {
+        crc = (crc << 1) & 0xFFFF;
+      }
+    }
+  }
+  let hex = crc.toString(16).toUpperCase();
+  return hex.padStart(4, "0");
+}
+
+function generateDynamicQris(staticPayload: string, amount: number): string {
+  let payload = staticPayload.trim();
+  
+  if (/6304[A-F0-9]{4}$/i.test(payload)) {
+    payload = payload.slice(0, -8);
+  } else if (payload.endsWith("6304")) {
+    payload = payload.slice(0, -4);
+  }
+  
+  let tags: Record<string, string> = {};
+  let ptr = 0;
+  while (ptr < payload.length) {
+    if (ptr + 4 > payload.length) break;
+    const id = payload.slice(ptr, ptr + 2);
+    const len = parseInt(payload.slice(ptr + 2, ptr + 4), 10);
+    if (isNaN(len) || ptr + 4 + len > payload.length) break;
+    const val = payload.slice(ptr + 4, ptr + 4 + len);
+    tags[id] = val;
+    ptr += 4 + len;
+  }
+  
+  const amountStr = Math.round(amount).toString();
+  tags["54"] = amountStr;
+  
+  let rebuilt = "";
+  const sortedIds = Object.keys(tags).sort();
+  for (const id of sortedIds) {
+    const val = tags[id];
+    const lenStr = val.length.toString().padStart(2, "0");
+    rebuilt += `${id}${lenStr}${val}`;
+  }
+  
+  rebuilt += "6304";
+  const crc = calculateCRC16(rebuilt);
+  return rebuilt + crc;
 }

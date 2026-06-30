@@ -172,6 +172,60 @@ function QrisCanvas({ payload, primary, size = 192 }: { payload: string; primary
   );
 }
 
+function calculateCRC16(str: string): string {
+  let crc = 0xFFFF;
+  for (let i = 0; i < str.length; i++) {
+    let code = str.charCodeAt(i);
+    crc ^= (code << 8);
+    for (let j = 0; j < 8; j++) {
+      if ((crc & 0x8000) !== 0) {
+        crc = ((crc << 1) ^ 0x1021) & 0xFFFF;
+      } else {
+        crc = (crc << 1) & 0xFFFF;
+      }
+    }
+  }
+  let hex = crc.toString(16).toUpperCase();
+  return hex.padStart(4, "0");
+}
+
+function generateDynamicQris(staticPayload: string, amount: number): string {
+  let payload = staticPayload.trim();
+  
+  if (/6304[A-F0-9]{4}$/i.test(payload)) {
+    payload = payload.slice(0, -8);
+  } else if (payload.endsWith("6304")) {
+    payload = payload.slice(0, -4);
+  }
+  
+  let tags: Record<string, string> = {};
+  let ptr = 0;
+  while (ptr < payload.length) {
+    if (ptr + 4 > payload.length) break;
+    const id = payload.slice(ptr, ptr + 2);
+    const len = parseInt(payload.slice(ptr + 2, ptr + 4), 10);
+    if (isNaN(len) || ptr + 4 + len > payload.length) break;
+    const val = payload.slice(ptr + 4, ptr + 4 + len);
+    tags[id] = val;
+    ptr += 4 + len;
+  }
+  
+  const amountStr = Math.round(amount).toString();
+  tags["54"] = amountStr;
+  
+  let rebuilt = "";
+  const sortedIds = Object.keys(tags).sort();
+  for (const id of sortedIds) {
+    const val = tags[id];
+    const lenStr = val.length.toString().padStart(2, "0");
+    rebuilt += `${id}${lenStr}${val}`;
+  }
+  
+  rebuilt += "6304";
+  const crc = calculateCRC16(rebuilt);
+  return rebuilt + crc;
+}
+
 // ── Tracking View Component ──────────────────────────────────────────────────
 function TrackingView({
   orderId,
@@ -197,6 +251,17 @@ function TrackingView({
   const [order, setOrder] = useState<any>(null);
   const [error, setError] = useState("");
   const [showQrisZoom, setShowQrisZoom] = useState(false);
+
+  const dynamicQrisPayload = useMemo(() => {
+    if (qrisId && qrisId.startsWith("000201") && order?.total) {
+      try {
+        return generateDynamicQris(qrisId, Number(order.total));
+      } catch (err) {
+        console.error("Failed to generate dynamic QRIS:", err);
+      }
+    }
+    return qrisId || "";
+  }, [qrisId, order?.total]);
 
   const fetchOrder = useCallback(async () => {
     try {
@@ -636,7 +701,14 @@ function TrackingView({
             </div>
 
             {/* Scannable Area */}
-            {qrisImageUrl ? (
+            {qrisId && qrisId.startsWith("000201") && order?.total ? (
+              <>
+                <QrisCanvas payload={dynamicQrisPayload} primary={primary} />
+                <div className="text-[9px] bg-green-500 text-white font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider animate-pulse">
+                  Nominal Otomatis Aktif
+                </div>
+              </>
+            ) : qrisImageUrl ? (
               <div className="w-48 h-48 border border-slate-100 rounded-3xl overflow-hidden bg-white p-2 flex items-center justify-center shadow-md shadow-slate-100">
                 <img src={qrisImageUrl.startsWith("http") ? qrisImageUrl : `${BASE}${qrisImageUrl}`} alt="QRIS" className="w-full h-full object-contain" />
               </div>
@@ -751,7 +823,14 @@ function TrackingView({
             </div>
 
             {/* Scannable Area */}
-            {qrisImageUrl ? (
+            {qrisId && qrisId.startsWith("000201") && order?.total ? (
+              <>
+                <QrisCanvas payload={dynamicQrisPayload} primary={primary} size={220} />
+                <div className="text-[10px] bg-green-500 text-white font-extrabold px-3 py-1 rounded-full uppercase tracking-wider animate-pulse">
+                  Nominal Pas: {formatRp(Number(order.total))}
+                </div>
+              </>
+            ) : qrisImageUrl ? (
               <div className="w-64 h-64 border border-slate-100 rounded-3xl overflow-hidden bg-white p-3 flex items-center justify-center shadow-inner animate-fade-in">
                 <img src={qrisImageUrl.startsWith("http") ? qrisImageUrl : `${BASE}${qrisImageUrl}`} alt="QRIS" className="w-full h-full object-contain" />
               </div>
