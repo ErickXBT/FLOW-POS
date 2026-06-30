@@ -1501,6 +1501,42 @@ const { data: categories } = useListCategories();
               </div>
             )}
 
+            {/* Bank Transfer Details for Cashier */}
+            {paymentMethod === "bank_transfer" && (
+              <div className="mt-2 p-3.5 rounded-xl border border-border bg-white dark:bg-slate-900 shadow-sm space-y-2 font-sans">
+                <div className="w-full flex items-center justify-between border-b pb-1.5 mb-1">
+                  <span className="font-extrabold text-primary text-sm italic tracking-wider">Transfer Bank</span>
+                  <span className="text-[9px] text-muted-foreground font-semibold">Detail Rekening Toko</span>
+                </div>
+                
+                {tenantAny?.bankName || tenantAny?.bankAccountNumber || tenantAny?.bankAccountName ? (
+                  <div className="space-y-1.5 text-xs text-slate-800 dark:text-slate-200">
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Bank:</span>
+                      <span className="font-extrabold uppercase">{tenantAny.bankName || "-"}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">No. Rekening:</span>
+                      <span className="font-mono font-bold text-slate-900 dark:text-white select-all cursor-pointer" title="Klik untuk menyalin">
+                        {tenantAny.bankAccountNumber || "-"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Atas Nama:</span>
+                      <span className="font-semibold">{tenantAny.bankAccountName || "-"}</span>
+                    </div>
+                    <div className="text-[10px] text-primary bg-primary/5 text-center py-1.5 rounded-lg font-bold border border-primary/10 mt-1.5">
+                      Total Transfer: {formatRp(total)}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="text-center p-3 text-xs text-muted-foreground italic">
+                    Rekening Bank belum di-set di Pengaturan.
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* QRIS Display for Cashier */}
             {paymentMethod === "qris" && (
               <div 

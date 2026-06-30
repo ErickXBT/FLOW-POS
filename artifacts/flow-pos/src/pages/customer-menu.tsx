@@ -31,6 +31,9 @@ interface TenantInfo {
   enableOpsHours?: boolean;
   opsOpeningTime?: string | null;
   opsClosingTime?: string | null;
+  bankName?: string | null;
+  bankAccountName?: string | null;
+  bankAccountNumber?: string | null;
 }
 
 interface BranchInfo {
@@ -238,7 +241,10 @@ function TrackingView({
   branchName,
   qrisId,
   qrisImageUrl,
-  qrisPayload
+  qrisPayload,
+  bankName,
+  bankAccountName,
+  bankAccountNumber
 }: {
   orderId: number;
   slug: string;
@@ -250,6 +256,9 @@ function TrackingView({
   qrisId?: string | null;
   qrisImageUrl?: string | null;
   qrisPayload?: string | null;
+  bankName?: string | null;
+  bankAccountName?: string | null;
+  bankAccountNumber?: string | null;
 }) {
   const [order, setOrder] = useState<any>(null);
   const [error, setError] = useState("");
@@ -730,6 +739,50 @@ function TrackingView({
               </div>
               <div className="bg-amber-50 border border-amber-200 text-amber-800 text-[10px] rounded-2xl px-4 py-2.5 font-semibold leading-normal w-full">
                 ⚠️ Silakan scan dan lakukan pembayaran, lalu tunggu status pesanan Anda dikonfirmasi oleh kasir.
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Bank Transfer Payment Instruction Card */}
+        {order.paymentMethod === "bank_transfer" && order.status !== "completed" && order.status !== "cancelled" && (
+          <div className="bg-white rounded-3xl p-6 shadow-md border border-slate-100 flex flex-col space-y-4 transition-all animate-fade-in">
+            {/* Header */}
+            <div className="w-full flex items-center justify-between border-b pb-2 mb-1">
+              <div className="flex items-center gap-1.5">
+                <span className="font-black text-blue-900 text-base tracking-wider italic">Transfer Bank</span>
+              </div>
+              <span className="text-[10px] text-slate-400 font-bold uppercase font-sans">Pembayaran Manual</span>
+            </div>
+
+            {/* Bank Details */}
+            <div className="space-y-3">
+              <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-2 text-xs">
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 font-medium font-sans">Bank</span>
+                  <span className="font-extrabold text-slate-800 uppercase">{bankName || "-"}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 font-medium font-sans">No. Rekening</span>
+                  <span className="font-mono font-bold text-slate-900 select-all cursor-pointer hover:underline" title="Klik untuk menyalin">
+                    {bankAccountNumber || "-"}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 font-medium font-sans">Atas Nama</span>
+                  <span className="font-bold text-slate-850">{bankAccountName || "-"}</span>
+                </div>
+              </div>
+
+              <div className="text-[11px] text-primary bg-primary/5 text-center py-2.5 rounded-2xl font-bold border border-primary/10">
+                Jumlah Transfer: {formatRp(Number(order.total))}
+              </div>
+            </div>
+
+            {/* Instruction Warning */}
+            <div className="w-full border-t pt-3 flex flex-col items-center space-y-2">
+              <div className="bg-amber-50 border border-amber-200 text-amber-800 text-[10px] rounded-2xl px-4 py-2.5 font-semibold leading-normal w-full text-center">
+                ⚠️ Silakan lakukan transfer ke rekening di atas, lalu tunggu status pesanan Anda dikonfirmasi oleh kasir.
               </div>
             </div>
           </div>
@@ -2248,6 +2301,9 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
         qrisId={tenant?.qrisId}
         qrisImageUrl={tenant?.qrisImageUrl}
         qrisPayload={tenant?.qrisPayload}
+        bankName={tenant?.bankName}
+        bankAccountName={tenant?.bankAccountName}
+        bankAccountNumber={tenant?.bankAccountNumber}
       />
     );
   }

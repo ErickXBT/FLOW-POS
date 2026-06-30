@@ -48,6 +48,13 @@ async function run() {
       ALTER TABLE orders ADD COLUMN IF NOT EXISTS is_claim_reward boolean NOT NULL DEFAULT false;
     `);
     
+    console.log('Applying migration: adding bank details columns to tenants...');
+    await client.query(`
+      ALTER TABLE tenants ADD COLUMN IF NOT EXISTS bank_name text;
+      ALTER TABLE tenants ADD COLUMN IF NOT EXISTS bank_account_name text;
+      ALTER TABLE tenants ADD COLUMN IF NOT EXISTS bank_account_number text;
+    `);
+
     console.log('Migration completed successfully!');
     
     // Verify columns exist

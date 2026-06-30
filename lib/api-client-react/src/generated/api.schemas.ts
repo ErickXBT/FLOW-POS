@@ -274,6 +274,12 @@ export interface Tenant {
   qrisImageUrl?: string | null;
   /** @nullable */
   qrisPayload?: string | null;
+  /** @nullable */
+  bankName?: string | null;
+  /** @nullable */
+  bankAccountName?: string | null;
+  /** @nullable */
+  bankAccountNumber?: string | null;
   showDeliveryInfo?: boolean;
   /** @nullable */
   estimatedDeliveryTime?: string | null;
@@ -379,6 +385,9 @@ export interface TenantUpdate {
   qrisId?: string;
   qrisImageUrl?: string;
   qrisPayload?: string;
+  bankName?: string;
+  bankAccountName?: string;
+  bankAccountNumber?: string;
   enableDelivery?: boolean;
   deliveryFeeNear?: number;
   deliveryFeeFar?: number;

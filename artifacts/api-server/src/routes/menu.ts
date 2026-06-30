@@ -206,6 +206,9 @@ router.get("/menu/:slug", async (req, res): Promise<void> => {
       enableOpsHours: (tenant as any).enableOpsHours ?? false,
       opsOpeningTime: (tenant as any).opsOpeningTime ?? "10:00",
       opsClosingTime: (tenant as any).opsClosingTime ?? "22:00",
+      bankName: (tenant as any).bankName ?? null,
+      bankAccountName: (tenant as any).bankAccountName ?? null,
+      bankAccountNumber: (tenant as any).bankAccountNumber ?? null,
     },
     branch: branch ? {
       id: branch.id,

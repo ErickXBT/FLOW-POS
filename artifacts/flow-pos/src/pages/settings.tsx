@@ -245,6 +245,9 @@ export default function SettingsPage() {
     qrisId: "",
     qrisImageUrl: "",
     qrisPayload: "",
+    bankName: "",
+    bankAccountName: "",
+    bankAccountNumber: "",
     enableOpsHours: false,
     opsOpeningTime: "10:00",
     opsClosingTime: "22:00",
@@ -295,6 +298,9 @@ export default function SettingsPage() {
         qrisId: (tenant as any).qrisId || "",
         qrisImageUrl: (tenant as any).qrisImageUrl || "",
         qrisPayload: (tenant as any).qrisPayload || "",
+        bankName: (tenant as any).bankName || "",
+        bankAccountName: (tenant as any).bankAccountName || "",
+        bankAccountNumber: (tenant as any).bankAccountNumber || "",
         enableOpsHours: (tenant as any).enableOpsHours ?? false,
         opsOpeningTime: (tenant as any).opsOpeningTime || "10:00",
         opsClosingTime: (tenant as any).opsClosingTime || "22:00",
@@ -1037,6 +1043,60 @@ export default function SettingsPage() {
             </div>
           )}
           {qrisError && <p className="text-[11px] text-red-500 text-center font-medium">{qrisError}</p>}
+        </div>
+
+        <div className="flex items-center gap-3 pt-2">
+          <button onClick={handleSave} disabled={updateTenant.isPending}
+            className="flex items-center gap-2 px-5 py-2.5 bg-primary text-primary-foreground rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity">
+            <Save size={16} />
+            {updateTenant.isPending ? "Menyimpan..." : "Simpan Perubahan"}
+          </button>
+          {saved && <span className="text-green-600 dark:text-green-400 text-sm font-medium">✓ Tersimpan</span>}
+        </div>
+      </div>
+
+      {/* Pengaturan Transfer Bank */}
+      <div className="bg-card border border-card-border rounded-xl p-6 shadow-sm space-y-4">
+        <div className="flex items-center gap-2 font-semibold text-foreground mb-4">
+          <CreditCard size={18} className="text-primary" /> Pengaturan Transfer Bank
+        </div>
+        <p className="text-xs text-muted-foreground leading-normal">
+          Konfigurasikan detail rekening bank toko Anda agar pelanggan dapat melakukan pembayaran transfer manual pada E-Katalog atau kasir dapat melihat detail rekening.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-xs font-semibold mb-1 text-foreground">Nama Bank (contoh: BCA, Mandiri, BRI)</label>
+            <input
+              type="text"
+              value={form.bankName}
+              onChange={e => setForm(p => ({ ...p, bankName: e.target.value }))}
+              placeholder="Masukkan nama bank..."
+              className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold mb-1 text-foreground">Nomor Rekening</label>
+            <input
+              type="text"
+              value={form.bankAccountNumber}
+              onChange={e => setForm(p => ({ ...p, bankAccountNumber: e.target.value }))}
+              placeholder="Masukkan nomor rekening..."
+              className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold mb-1 text-foreground">Nama Pemilik Rekening (Nama Lengkap)</label>
+            <input
+              type="text"
+              value={form.bankAccountName}
+              onChange={e => setForm(p => ({ ...p, bankAccountName: e.target.value }))}
+              placeholder="Masukkan nama lengkap pemilik..."
+              className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
         </div>
 
         <div className="flex items-center gap-3 pt-2">
