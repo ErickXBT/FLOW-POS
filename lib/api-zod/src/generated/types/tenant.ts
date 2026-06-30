@@ -55,6 +55,8 @@ export interface Tenant {
   qrisId?: string | null;
   /** @nullable */
   qrisImageUrl?: string | null;
+  /** @nullable */
+  qrisPayload?: string | null;
   showDeliveryInfo?: boolean;
   /** @nullable */
   estimatedDeliveryTime?: string | null;

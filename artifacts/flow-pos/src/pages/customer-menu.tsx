@@ -25,6 +25,7 @@ interface TenantInfo {
   taxPercentage?: number;
   qrisId?: string | null;
   qrisImageUrl?: string | null;
+  qrisPayload?: string | null;
   showDeliveryInfo?: boolean;
   estimatedDeliveryTime?: string | null;
   enableOpsHours?: boolean;
@@ -236,7 +237,8 @@ function TrackingView({
   tenantName,
   branchName,
   qrisId,
-  qrisImageUrl
+  qrisImageUrl,
+  qrisPayload
 }: {
   orderId: number;
   slug: string;
@@ -247,21 +249,22 @@ function TrackingView({
   branchName: string;
   qrisId?: string | null;
   qrisImageUrl?: string | null;
+  qrisPayload?: string | null;
 }) {
   const [order, setOrder] = useState<any>(null);
   const [error, setError] = useState("");
   const [showQrisZoom, setShowQrisZoom] = useState(false);
 
   const dynamicQrisPayload = useMemo(() => {
-    if (qrisId && qrisId.startsWith("000201") && order?.total) {
+    if (qrisPayload && qrisPayload.startsWith("000201") && order?.total) {
       try {
-        return generateDynamicQris(qrisId, Number(order.total));
+        return generateDynamicQris(qrisPayload, Number(order.total));
       } catch (err) {
         console.error("Failed to generate dynamic QRIS:", err);
       }
     }
-    return qrisId || "";
-  }, [qrisId, order?.total]);
+    return qrisPayload || "";
+  }, [qrisPayload, order?.total]);
 
   const fetchOrder = useCallback(async () => {
     try {
@@ -701,7 +704,7 @@ function TrackingView({
             </div>
 
             {/* Scannable Area */}
-            {qrisId && qrisId.startsWith("000201") && order?.total ? (
+            {qrisPayload && qrisPayload.startsWith("000201") && order?.total ? (
               <>
                 <QrisCanvas payload={dynamicQrisPayload} primary={primary} />
                 <div className="text-[9px] bg-green-500 text-white font-extrabold px-2.5 py-0.5 rounded-full uppercase tracking-wider animate-pulse">
@@ -823,7 +826,7 @@ function TrackingView({
             </div>
 
             {/* Scannable Area */}
-            {qrisId && qrisId.startsWith("000201") && order?.total ? (
+            {qrisPayload && qrisPayload.startsWith("000201") && order?.total ? (
               <>
                 <QrisCanvas payload={dynamicQrisPayload} primary={primary} size={220} />
                 <div className="text-[10px] bg-green-500 text-white font-extrabold px-3 py-1 rounded-full uppercase tracking-wider animate-pulse">
@@ -2244,6 +2247,7 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
         isFashion={isFashion}
         qrisId={tenant?.qrisId}
         qrisImageUrl={tenant?.qrisImageUrl}
+        qrisPayload={tenant?.qrisPayload}
       />
     );
   }

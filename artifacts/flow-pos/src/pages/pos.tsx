@@ -397,15 +397,15 @@ const { data: categories } = useListCategories();
   const total = subtotal - discount + serviceChargeAmount + taxAmount;
 
   const dynamicQrisPayload = useMemo(() => {
-    if (tenantAny?.qrisId && tenantAny.qrisId.startsWith("000201")) {
+    if (tenantAny?.qrisPayload && tenantAny.qrisPayload.startsWith("000201")) {
       try {
-        return generateDynamicQris(tenantAny.qrisId, total);
+        return generateDynamicQris(tenantAny.qrisPayload, total);
       } catch (err) {
         console.error("Failed to generate dynamic QRIS:", err);
       }
     }
-    return tenantAny?.qrisId || "";
-  }, [tenantAny?.qrisId, total]);
+    return tenantAny?.qrisPayload || "";
+  }, [tenantAny?.qrisPayload, total]);
 
   // Recalculate discount if coupon is applied
   useEffect(() => {
@@ -1491,7 +1491,7 @@ const { data: categories } = useListCategories();
                 </div>
 
                 {/* QR Code image or generated canvas */}
-                {tenantAny?.qrisId && tenantAny.qrisId.startsWith("000201") ? (
+                {tenantAny?.qrisPayload && tenantAny.qrisPayload.startsWith("000201") ? (
                   <>
                     <QrisCanvas payload={dynamicQrisPayload} primary={tenantAny.primaryColor || "#1D4EF5"} />
                     <div className="text-[9px] bg-green-500 text-white font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider animate-pulse mt-1">
@@ -2208,9 +2208,9 @@ const { data: categories } = useListCategories();
             </div>
 
             {/* Scannable Area */}
-            {tenantAny?.qrisId && tenantAny.qrisId.startsWith("000201") ? (
+            {tenantAny?.qrisPayload && tenantAny.qrisPayload.startsWith("000201") ? (
               <>
-                <QrisCanvas payload={generateDynamicQris(tenantAny.qrisId, total)} primary={tenantAny.primaryColor || "#1D4EF5"} size={220} />
+                <QrisCanvas payload={generateDynamicQris(tenantAny.qrisPayload, total)} primary={tenantAny.primaryColor || "#1D4EF5"} size={220} />
                 <div className="text-[10px] bg-green-500 text-white font-extrabold px-3 py-1 rounded-full uppercase tracking-wider animate-pulse">
                   Nominal Pas: {formatRp(total)}
                 </div>

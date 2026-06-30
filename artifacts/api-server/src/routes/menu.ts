@@ -200,6 +200,7 @@ router.get("/menu/:slug", async (req, res): Promise<void> => {
       pointSystemConfig: (tenant as any).pointSystemConfig ?? null,
       qrisId: (tenant as any).qrisId ?? null,
       qrisImageUrl: (tenant as any).qrisImageUrl ?? null,
+      qrisPayload: (tenant as any).qrisPayload ?? null,
       showDeliveryInfo: (tenant as any).showDeliveryInfo ?? true,
       estimatedDeliveryTime: (tenant as any).estimatedDeliveryTime ?? "25-35 menit",
       enableOpsHours: (tenant as any).enableOpsHours ?? false,

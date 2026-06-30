@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useGetTenant, useUpdateTenant, useGetTenantSubscription, getGetTenantQueryKey, useCreateSubscriptionUpgradeRequest, getGetTenantSubscriptionQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Building2, Save, CreditCard, Image, UploadCloud, Trash2, Lock, User, Printer, Clock, ArrowUpCircle, Check, X } from "lucide-react";
+import { Building2, Save, CreditCard, Image, UploadCloud, Trash2, Lock, User, Printer, Clock, ArrowUpCircle, Check, X, Eye, EyeOff } from "lucide-react";
 import { useAuth, ROLE_LABELS } from "@/hooks/use-auth";
 import { Link } from "wouter";
 
@@ -244,12 +244,14 @@ export default function SettingsPage() {
     serviceChargePercentage: 10,
     qrisId: "",
     qrisImageUrl: "",
+    qrisPayload: "",
     enableOpsHours: false,
     opsOpeningTime: "10:00",
     opsClosingTime: "22:00",
   });
   
   const [saved, setSaved] = useState(false);
+  const [showPayloadRaw, setShowPayloadRaw] = useState(false);
 
   const logoInputRef = useRef<HTMLInputElement>(null);
   const coverInputRef = useRef<HTMLInputElement>(null);
@@ -292,6 +294,7 @@ export default function SettingsPage() {
         serviceChargePercentage: (tenant as any).serviceChargePercentage !== undefined ? Number((tenant as any).serviceChargePercentage) : 10,
         qrisId: (tenant as any).qrisId || "",
         qrisImageUrl: (tenant as any).qrisImageUrl || "",
+        qrisPayload: (tenant as any).qrisPayload || "",
         enableOpsHours: (tenant as any).enableOpsHours ?? false,
         opsOpeningTime: (tenant as any).opsOpeningTime || "10:00",
         opsClosingTime: (tenant as any).opsClosingTime || "22:00",
@@ -951,15 +954,37 @@ export default function SettingsPage() {
           Konfigurasikan QRIS toko Anda agar pelanggan dapat memindai kode pembayaran langsung di menu digital E-Katalog saat checkout pesanan.
         </p>
 
-        <div>
-          <label className="block text-xs font-semibold mb-1 text-foreground">Payload QRIS String (Format EMVCo / NMID)</label>
-          <input
-            type="text"
-            value={form.qrisId}
-            onChange={e => setForm(p => ({ ...p, qrisId: e.target.value }))}
-            placeholder="Masukkan string payload QRIS static Anda (misal: 000201...)"
-            className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
-          />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-semibold mb-1 text-foreground">ID QRIS (NMID - contoh: ID1026508374315)</label>
+            <input
+              type="text"
+              value={form.qrisId}
+              onChange={e => setForm(p => ({ ...p, qrisId: e.target.value }))}
+              placeholder="Masukkan NMID toko Anda..."
+              className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold mb-1 text-foreground">Payload QRIS String (Format EMVCo)</label>
+            <div className="relative flex items-center">
+              <input
+                type={showPayloadRaw ? "text" : "password"}
+                value={form.qrisPayload}
+                onChange={e => setForm(p => ({ ...p, qrisPayload: e.target.value }))}
+                placeholder="Masukkan string payload QRIS static (000201...)"
+                className="w-full pl-3 pr-10 py-2.5 rounded-lg border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPayloadRaw(!showPayloadRaw)}
+                className="absolute right-3 text-muted-foreground hover:text-foreground cursor-pointer border-0 bg-transparent flex items-center justify-center h-full"
+              >
+                {showPayloadRaw ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
         </div>
 
         <div className="space-y-2">

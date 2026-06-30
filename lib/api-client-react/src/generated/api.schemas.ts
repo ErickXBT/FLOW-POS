@@ -272,6 +272,8 @@ export interface Tenant {
   qrisId?: string | null;
   /** @nullable */
   qrisImageUrl?: string | null;
+  /** @nullable */
+  qrisPayload?: string | null;
   showDeliveryInfo?: boolean;
   /** @nullable */
   estimatedDeliveryTime?: string | null;
@@ -376,6 +378,7 @@ export interface TenantUpdate {
   defaultCashierName?: string;
   qrisId?: string;
   qrisImageUrl?: string;
+  qrisPayload?: string;
   enableDelivery?: boolean;
   deliveryFeeNear?: number;
   deliveryFeeFar?: number;

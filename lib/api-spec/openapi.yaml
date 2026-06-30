@@ -2141,6 +2141,8 @@ components:
           type: ["string", "null"]
         qrisImageUrl:
           type: ["string", "null"]
+        qrisPayload:
+          type: ["string", "null"]
         showDeliveryInfo:
           type: boolean
         estimatedDeliveryTime:
@@ -2180,6 +2182,8 @@ components:
         qrisId:
           type: string
         qrisImageUrl:
+          type: string
+        qrisPayload:
           type: string
         enableDelivery:
           type: boolean

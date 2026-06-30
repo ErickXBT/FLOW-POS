@@ -44,6 +44,7 @@ export const tenantsTable = pgTable("tenants", {
   }),
   qrisId: text("qris_id"),
   qrisImageUrl: text("qris_image_url"),
+  qrisPayload: text("qris_payload"),
   showDeliveryInfo: boolean("show_delivery_info").notNull().default(true),
   estimatedDeliveryTime: text("estimated_delivery_time").default("25-35 menit"),
   enableOpsHours: boolean("enable_ops_hours").notNull().default(false),
