@@ -610,29 +610,45 @@ function TrackingView({
 
         {/* QRIS Payment Instruction Card */}
         {order.paymentMethod === "qris" && order.status !== "completed" && order.status !== "cancelled" && (
-          <div className="bg-white rounded-3xl p-6 shadow-sm border flex flex-col items-center text-center space-y-4">
-            <div className="text-xs font-bold text-gray-400 uppercase tracking-wide flex items-center gap-1.5 justify-center">
-              <QrCode size={14} style={{ color: primary }} /> Pembayaran QRIS Mandiri
+          <div className="bg-white rounded-3xl p-6 shadow-md border border-slate-100 flex flex-col items-center text-center space-y-4">
+            {/* Header Instansi QRIS */}
+            <div className="w-full flex items-center justify-between border-b pb-2 mb-1">
+              <div className="flex items-center gap-1.5">
+                <span className="font-black text-blue-900 text-base tracking-widest italic">QRIS</span>
+                <span className="text-[9px] bg-red-600 text-white font-extrabold px-1 rounded">GPN</span>
+              </div>
+              <span className="text-[10px] text-slate-400 font-bold uppercase">Standard Nasional</span>
             </div>
-            <div className="font-semibold text-xs text-gray-600">
-              Silakan pindai/scan kode QRIS di bawah ini untuk menyelesaikan pembayaran:
+
+            {/* Merchant Details */}
+            <div>
+              <div className="font-extrabold text-slate-800 text-sm tracking-wide uppercase">{tenantName}</div>
+              {qrisId && (
+                <div className="text-[9px] text-slate-500 font-mono tracking-tight mt-0.5">NMID: {qrisId}</div>
+              )}
             </div>
-            
+
+            {/* Scannable Area */}
             {qrisImageUrl ? (
-              <div className="w-48 h-48 border rounded-2xl overflow-hidden bg-white p-2 flex items-center justify-center shadow-inner">
-                <img src={qrisImageUrl} alt="QRIS" className="w-full h-full object-contain" />
+              <div className="w-48 h-48 border border-slate-100 rounded-3xl overflow-hidden bg-white p-2 flex items-center justify-center shadow-md shadow-slate-100">
+                <img src={qrisImageUrl.startsWith("http") ? qrisImageUrl : `${BASE}${qrisImageUrl}`} alt="QRIS" className="w-full h-full object-contain" />
               </div>
             ) : qrisId ? (
               <QrisCanvas payload={qrisId} primary={primary} />
             ) : (
-              <div className="w-48 h-48 border rounded-2xl overflow-hidden bg-gray-50 flex flex-col items-center justify-center p-4 text-center">
-                <QrCode size={36} className="text-gray-300 mb-2" />
-                <span className="text-[10px] text-gray-400 font-semibold leading-tight">QRIS belum diset oleh penjual</span>
+              <div className="w-48 h-48 border border-dashed border-slate-200 bg-slate-50 rounded-3xl flex flex-col items-center justify-center p-4">
+                <QrCode size={36} className="text-slate-300 mb-2" />
+                <span className="text-[10px] text-slate-400 font-semibold leading-tight">Barcode QRIS belum di-set</span>
               </div>
             )}
-            
-            <div className="bg-amber-50 border border-amber-200 text-amber-800 text-[10px] rounded-2xl px-4 py-2.5 font-medium leading-relaxed">
-              Setelah pembayaran selesai dilakukan, silakan tunggu konfirmasi status pesanan di atas oleh kasir/penjual.
+
+            <div className="w-full border-t pt-3 flex flex-col items-center space-y-2">
+              <div className="text-[9px] text-slate-400 font-black tracking-widest uppercase">
+                Satu QRIS untuk Semua
+              </div>
+              <div className="bg-amber-50 border border-amber-200 text-amber-800 text-[10px] rounded-2xl px-4 py-2.5 font-semibold leading-normal w-full">
+                ⚠️ Silakan scan dan lakukan pembayaran, lalu tunggu status pesanan Anda dikonfirmasi oleh kasir.
+              </div>
             </div>
           </div>
         )}

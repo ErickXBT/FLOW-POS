@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
+import QRCode from "qrcode";
 import { useListProducts, useListCategories, useCreateOrder, getListOrdersQueryKey, useGetTenant, useListEmployees } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Search, Plus, Minus, Trash2, ShoppingCart, CreditCard, Banknote, Smartphone, QrCode, X, Check, Package, Sparkles, Gift, Percent, Printer, Download, ArrowLeft } from "lucide-react";
@@ -1453,6 +1454,46 @@ const { data: categories } = useListCategories();
                 </div>
               </div>
             )}
+
+            {/* QRIS Display for Cashier */}
+            {paymentMethod === "qris" && (
+              <div className="mt-2 p-4 rounded-xl border border-border bg-white flex flex-col items-center shadow-sm space-y-3 font-sans">
+                {/* QRIS Card Header */}
+                <div className="w-full flex items-center justify-between border-b pb-2">
+                  <div className="flex items-center gap-1">
+                    <span className="font-extrabold text-blue-900 text-sm italic tracking-wider">QRIS</span>
+                    <span className="text-[8px] bg-red-600 text-white font-bold px-1 rounded">GPN</span>
+                  </div>
+                  <span className="text-[9px] text-muted-foreground font-semibold">Standard Nasional</span>
+                </div>
+                
+                {/* Merchant details */}
+                <div className="text-center">
+                  <div className="font-bold text-slate-800 text-sm uppercase">{tenantAny?.name || "TOKO KITA"}</div>
+                  {tenantAny?.qrisId && (
+                    <div className="text-[9px] text-slate-500 font-mono tracking-tight mt-0.5">NMID: {tenantAny.qrisId}</div>
+                  )}
+                </div>
+
+                {/* QR Code image or generated canvas */}
+                {tenantAny?.qrisImageUrl ? (
+                  <div className="w-40 h-40 border border-slate-100 rounded-xl overflow-hidden bg-white p-2 flex items-center justify-center shadow-sm">
+                    <img src={tenantAny.qrisImageUrl} alt="QRIS" className="w-full h-full object-contain" />
+                  </div>
+                ) : tenantAny?.qrisId ? (
+                  <QrisCanvas payload={tenantAny.qrisId} primary={tenantAny.primaryColor || "#1D4EF5"} />
+                ) : (
+                  <div className="w-40 h-40 border border-dashed border-slate-200 rounded-xl flex flex-col items-center justify-center p-3 text-center bg-slate-50">
+                    <QrCode size={30} className="text-slate-300 mb-1" />
+                    <span className="text-[9px] text-muted-foreground leading-tight">QRIS belum di-upload</span>
+                  </div>
+                )}
+
+                <div className="text-[9px] text-slate-400 font-bold tracking-wider uppercase border-t pt-2 w-full text-center">
+                  Satu QRIS untuk Semua
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -2123,6 +2164,36 @@ const { data: categories } = useListCategories();
           </>
         )}
       </button>
+    </div>
+  );
+}
+
+function QrisCanvas({ payload, primary }: { payload: string; primary: string }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    if (canvasRef.current && payload) {
+      QRCode.toCanvas(
+        canvasRef.current,
+        payload,
+        {
+          width: 160,
+          margin: 1,
+          color: {
+            dark: "#000000",
+            light: "#ffffff",
+          },
+        },
+        (error) => {
+          if (error) console.error("QR Code generation failed:", error);
+        }
+      );
+    }
+  }, [payload]);
+
+  return (
+    <div className="w-40 h-40 border rounded-lg overflow-hidden bg-white p-2 flex items-center justify-center shadow-sm">
+      <canvas ref={canvasRef} className="w-full h-full object-contain" />
     </div>
   );
 }
