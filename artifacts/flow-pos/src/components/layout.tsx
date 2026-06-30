@@ -5,7 +5,8 @@ import {
   Users, UserCheck, BarChart3, Warehouse, Settings,
   Shield, LogOut, Menu, X, Sun, Moon, Smartphone,
   ChefHat, Truck, Activity, MapPin, ShieldCheck, QrCode, ShoppingBag, Sparkles,
-  Receipt, Coins, History, ArrowLeftRight, Printer, AlertTriangle, Bell
+  Receipt, Coins, History, ArrowLeftRight, Printer, AlertTriangle, Bell,
+  Calendar, Wrench, Briefcase, Clock
 } from "lucide-react";
 import flowLogo from "@assets/FLOW_LOGO_1780799864457.png";
 import type { AuthUser } from "@/hooks/use-auth";
@@ -180,15 +181,14 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
     }
   };
 
-  // Barcode scanner auto-checkout for Fashion business type on specific pages
+  // Barcode scanner auto-checkout on specific pages
   useEffect(() => {
-    const isFashion = user.businessType === "fashion";
     const allowedPages = ["/dashboard", "/customer-orders", "/kitchen", "/delivery"];
-    if (!isFashion || !allowedPages.includes(location)) return;
-
+    if (!allowedPages.includes(location)) return;
+ 
     let barcodeBuffer = "";
     let lastKeyTime = Date.now();
-
+ 
     const handleKeyDown = async (e: KeyboardEvent) => {
       const isInput = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
       const currentTime = Date.now();
@@ -196,7 +196,7 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
       if (currentTime - lastKeyTime > 50) {
         barcodeBuffer = "";
       }
-
+ 
       if (e.key !== "Enter") {
         if (e.key.length === 1) {
           barcodeBuffer += e.key;
@@ -208,7 +208,7 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
             e.stopPropagation();
             const scannedCode = barcodeBuffer.trim();
             barcodeBuffer = "";
-
+ 
             try {
               const token = localStorage.getItem("flow_token") ?? "";
               const res = await fetch(`${import.meta.env.BASE_URL.replace(/\/$/, "")}/api/tenant/customer-orders/scan-checkout`, {
@@ -222,12 +222,12 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
                   branchId: activeBranchId
                 })
               });
-
+ 
               if (!res.ok) {
                 const errData = await res.json();
                 throw new Error(errData.error || "Gagal melakukan checkout");
               }
-
+ 
               const data = await res.json();
               toast({
                 title: "Checkout Otomatis Berhasil",
@@ -247,10 +247,10 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
       }
       lastKeyTime = currentTime;
     };
-
+ 
     window.addEventListener("keydown", handleKeyDown, true);
     return () => window.removeEventListener("keydown", handleKeyDown, true);
-  }, [user.businessType, location, activeBranchId]);
+  }, [location, activeBranchId]);
 
   const triggerNativeNotification = (ord: any) => {
     if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
@@ -332,39 +332,75 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
     navItems.push({ href: "/admin", label: "Super Admin", icon: <Shield size={18} /> });
   } else {
     // Normal / Custom tenant users
+    const engine = user.businessEngine || "retail";
     const isFashion = user.businessType === "fashion";
+
+    // 1. Dashboard is core and common for all engines
     if (hasPermission(user, "view_dashboard")) {
       navItems.push({ href: "/dashboard", label: "Dashboard", icon: <LayoutDashboard size={18} /> });
     }
+
+    // 2. FlowAI Insights is core and common for all engines
     if (user.role === "owner" || user.role === "manager" || hasPermission(user, "view_reports")) {
       navItems.push({ href: "/flowai", label: "FlowAI Insights", icon: <Sparkles size={18} /> });
     }
-    if (hasPermission(user, "view_pos")) {
-      navItems.push({ href: "/pos", label: "Kasir (POS)", icon: <ShoppingCart size={18} /> });
+
+    // 3. Engine Specific Menus
+    if (engine === "retail") {
+      // Flow Retail Specific Menus
+      if (hasPermission(user, "view_pos")) {
+        navItems.push({ href: "/pos", label: "Kasir (POS)", icon: <ShoppingCart size={18} /> });
+      }
+      if (hasPermission(user, "manage_orders")) {
+        navItems.push({ href: "/customer-orders", label: "Pesanan Online", icon: <Smartphone size={18} /> });
+      }
+      if (hasPermission(user, "view_kitchen")) {
+        navItems.push({
+          href: "/kitchen",
+          label: isFashion ? "Display Packing" : "Display Dapur",
+          icon: isFashion ? <ShoppingBag size={18} /> : <ChefHat size={18} />
+        });
+      }
+      if (hasPermission(user, "view_delivery")) {
+        navItems.push({ href: "/delivery", label: "Delivery", icon: <Truck size={18} /> });
+      }
+      if (hasPermission(user, "manage_orders")) {
+        navItems.push({ href: "/orders", label: "Transaksi", icon: <ClipboardList size={18} /> });
+      }
+      if (hasPermission(user, "manage_products")) {
+        navItems.push({ href: "/products", label: "Produk", icon: <Package size={18} /> });
+        navItems.push({ href: "/categories", label: "Kategori", icon: <Tag size={18} /> });
+      }
+      if (hasPermission(user, "manage_inventory")) {
+        navItems.push({ href: "/inventory", label: "Inventori", icon: <Warehouse size={18} /> });
+      }
+    } else if (engine === "booking") {
+      // Flow Booking Specific Menus
+      navItems.push({ href: "/calendar", label: "Kalender", icon: <Calendar size={18} /> });
+      navItems.push({ href: "/bookings", label: "Booking", icon: <ClipboardList size={18} /> });
+      navItems.push({ href: "/resources", label: "Lapangan", icon: <Warehouse size={18} /> });
+      if (hasPermission(user, "view_pos")) {
+        navItems.push({ href: "/pos", label: "Kasir (POS)", icon: <ShoppingCart size={18} /> });
+      }
+    } else if (engine === "appointment") {
+      // Flow Appointment Specific Menus
+      navItems.push({ href: "/appointments", label: "Appointment", icon: <Calendar size={18} /> });
+      navItems.push({ href: "/staff-schedule", label: "Staff", icon: <Users size={18} /> });
+      navItems.push({ href: "/services", label: "Service", icon: <Briefcase size={18} /> });
+      if (hasPermission(user, "view_pos")) {
+        navItems.push({ href: "/pos", label: "Kasir (POS)", icon: <ShoppingCart size={18} /> });
+      }
+    } else if (engine === "service") {
+      // Flow Service Specific Menus
+      navItems.push({ href: "/work-orders", label: "Work Order", icon: <ClipboardList size={18} /> });
+      navItems.push({ href: "/queue", label: "Queue", icon: <Clock size={18} /> });
+      navItems.push({ href: "/technicians", label: "Teknisi", icon: <Wrench size={18} /> });
+      if (hasPermission(user, "view_pos")) {
+        navItems.push({ href: "/pos", label: "Kasir (POS)", icon: <ShoppingCart size={18} /> });
+      }
     }
-    if (hasPermission(user, "manage_orders")) {
-      navItems.push({ href: "/customer-orders", label: "Pesanan Online", icon: <Smartphone size={18} /> });
-    }
-    if (hasPermission(user, "view_kitchen")) {
-      navItems.push({
-        href: "/kitchen",
-        label: isFashion ? "Display Packing" : "Display Dapur",
-        icon: isFashion ? <ShoppingBag size={18} /> : <ChefHat size={18} />
-      });
-    }
-    if (hasPermission(user, "view_delivery")) {
-      navItems.push({ href: "/delivery", label: "Delivery", icon: <Truck size={18} /> });
-    }
-    if (hasPermission(user, "manage_orders")) {
-      navItems.push({ href: "/orders", label: "Transaksi", icon: <ClipboardList size={18} /> });
-    }
-    if (hasPermission(user, "manage_products")) {
-      navItems.push({ href: "/products", label: "Produk", icon: <Package size={18} /> });
-      navItems.push({ href: "/categories", label: "Kategori", icon: <Tag size={18} /> });
-    }
-    if (hasPermission(user, "manage_inventory")) {
-      navItems.push({ href: "/inventory", label: "Inventori", icon: <Warehouse size={18} /> });
-    }
+
+    // 4. Core Core menus (Common across all engines)
     if (hasPermission(user, "manage_customers")) {
       navItems.push({ href: "/customers", label: "Pelanggan", icon: <Users size={18} /> });
     }
@@ -379,7 +415,8 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
     if (hasPermission(user, "view_reports")) {
       navItems.push({ href: "/reports", label: "Laporan", icon: <BarChart3 size={18} /> });
     }
-    if (hasPermission(user, "manage_qr_menu")) {
+    // QR Menu is specific to Retail
+    if (engine === "retail" && hasPermission(user, "manage_qr_menu")) {
       navItems.push({
         href: "/qr-menu",
         label: isFashion ? "QR Katalog" : "QR Menu",
@@ -395,12 +432,16 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
     if (user.role === "owner" || user.role === "manager" || user.role === "cashier" || hasPermission(user, "manage_settings")) {
       navItems.push({ href: "/printer-settings", label: "Pengaturan Printer", icon: <Printer size={18} /> });
     }
-    // Tenant Owner & Manager cash & stock transfer tools
+
+    // Tenant Owner & Manager cash & stock transfer tools (Common)
     if (user.role === "owner" || user.role === "manager") {
       navItems.push({ href: "/rekap-kas", label: "Rekap Kas Bulanan", icon: <Coins size={18} /> });
       navItems.push({ href: "/mutasi-kas", label: "Mutasi Kas", icon: <ArrowLeftRight size={18} /> });
       navItems.push({ href: "/riwayat-cetak-struk", label: "Riwayat Cetak Struk", icon: <Receipt size={18} /> });
-      navItems.push({ href: "/ambil-stok", label: "Ambil/Saluran Stok", icon: <Warehouse size={18} /> });
+      // Only Retail uses stock distribution
+      if (engine === "retail") {
+        navItems.push({ href: "/ambil-stok", label: "Ambil/Saluran Stok", icon: <Warehouse size={18} /> });
+      }
     }
   }
 

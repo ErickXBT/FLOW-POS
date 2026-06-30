@@ -24,6 +24,48 @@ export const RegisterInputBusinessType = {
   cafe: 'cafe',
   salon: 'salon',
   minimarket: 'minimarket',
+  badminton: 'badminton',
+  futsal: 'futsal',
+  padel: 'padel',
+  tennis: 'tennis',
+  music_studio: 'music_studio',
+  coworking: 'coworking',
+  meeting_room: 'meeting_room',
+  rental: 'rental',
+  venue: 'venue',
+  barbershop: 'barbershop',
+  spa: 'spa',
+  clinic: 'clinic',
+  doctor: 'doctor',
+  psychologist: 'psychologist',
+  mua: 'mua',
+  photographer: 'photographer',
+  consultant: 'consultant',
+  tutor: 'tutor',
+  auto_repair: 'auto_repair',
+  car_wash: 'car_wash',
+  laundry: 'laundry',
+  ac_service: 'ac_service',
+  phone_service: 'phone_service',
+  cleaning_service: 'cleaning_service',
+  coffee_shop: 'coffee_shop',
+  bakery: 'bakery',
+  boutique: 'boutique',
+  grocery: 'grocery',
+  pet_shop: 'pet_shop',
+  electronics: 'electronics',
+  hardware_store: 'hardware_store',
+  pharmacy: 'pharmacy',
+} as const;
+
+export type RegisterInputBusinessEngine = typeof RegisterInputBusinessEngine[keyof typeof RegisterInputBusinessEngine];
+
+
+export const RegisterInputBusinessEngine = {
+  retail: 'retail',
+  booking: 'booking',
+  appointment: 'appointment',
+  service: 'service',
 } as const;
 
 export type RegisterInputPlan = typeof RegisterInputPlan[keyof typeof RegisterInputPlan];
@@ -51,6 +93,7 @@ export interface RegisterInput {
   password: string;
   businessName: string;
   businessType: RegisterInputBusinessType;
+  businessEngine?: RegisterInputBusinessEngine;
   /** @nullable */
   phone?: string | null;
   /** @nullable */
@@ -123,6 +166,48 @@ export const TenantBusinessType = {
   cafe: 'cafe',
   salon: 'salon',
   minimarket: 'minimarket',
+  badminton: 'badminton',
+  futsal: 'futsal',
+  padel: 'padel',
+  tennis: 'tennis',
+  music_studio: 'music_studio',
+  coworking: 'coworking',
+  meeting_room: 'meeting_room',
+  rental: 'rental',
+  venue: 'venue',
+  barbershop: 'barbershop',
+  spa: 'spa',
+  clinic: 'clinic',
+  doctor: 'doctor',
+  psychologist: 'psychologist',
+  mua: 'mua',
+  photographer: 'photographer',
+  consultant: 'consultant',
+  tutor: 'tutor',
+  auto_repair: 'auto_repair',
+  car_wash: 'car_wash',
+  laundry: 'laundry',
+  ac_service: 'ac_service',
+  phone_service: 'phone_service',
+  cleaning_service: 'cleaning_service',
+  coffee_shop: 'coffee_shop',
+  bakery: 'bakery',
+  boutique: 'boutique',
+  grocery: 'grocery',
+  pet_shop: 'pet_shop',
+  electronics: 'electronics',
+  hardware_store: 'hardware_store',
+  pharmacy: 'pharmacy',
+} as const;
+
+export type TenantBusinessEngine = typeof TenantBusinessEngine[keyof typeof TenantBusinessEngine];
+
+
+export const TenantBusinessEngine = {
+  retail: 'retail',
+  booking: 'booking',
+  appointment: 'appointment',
+  service: 'service',
 } as const;
 
 export type TenantStatus = typeof TenantStatus[keyof typeof TenantStatus];
@@ -148,6 +233,7 @@ export interface Tenant {
   /** @nullable */
   slug?: string | null;
   businessType: TenantBusinessType;
+  businessEngine?: TenantBusinessEngine;
   status: TenantStatus;
   /** @nullable */
   address?: string | null;
@@ -217,6 +303,60 @@ export interface TenantStatusUpdate {
   status: TenantStatusUpdateStatus;
 }
 
+export type TenantUpdateBusinessType = typeof TenantUpdateBusinessType[keyof typeof TenantUpdateBusinessType];
+
+
+export const TenantUpdateBusinessType = {
+  fnb: 'fnb',
+  fashion: 'fashion',
+  restaurant: 'restaurant',
+  cafe: 'cafe',
+  salon: 'salon',
+  minimarket: 'minimarket',
+  badminton: 'badminton',
+  futsal: 'futsal',
+  padel: 'padel',
+  tennis: 'tennis',
+  music_studio: 'music_studio',
+  coworking: 'coworking',
+  meeting_room: 'meeting_room',
+  rental: 'rental',
+  venue: 'venue',
+  barbershop: 'barbershop',
+  spa: 'spa',
+  clinic: 'clinic',
+  doctor: 'doctor',
+  psychologist: 'psychologist',
+  mua: 'mua',
+  photographer: 'photographer',
+  consultant: 'consultant',
+  tutor: 'tutor',
+  auto_repair: 'auto_repair',
+  car_wash: 'car_wash',
+  laundry: 'laundry',
+  ac_service: 'ac_service',
+  phone_service: 'phone_service',
+  cleaning_service: 'cleaning_service',
+  coffee_shop: 'coffee_shop',
+  bakery: 'bakery',
+  boutique: 'boutique',
+  grocery: 'grocery',
+  pet_shop: 'pet_shop',
+  electronics: 'electronics',
+  hardware_store: 'hardware_store',
+  pharmacy: 'pharmacy',
+} as const;
+
+export type TenantUpdateBusinessEngine = typeof TenantUpdateBusinessEngine[keyof typeof TenantUpdateBusinessEngine];
+
+
+export const TenantUpdateBusinessEngine = {
+  retail: 'retail',
+  booking: 'booking',
+  appointment: 'appointment',
+  service: 'service',
+} as const;
+
 export type TenantUpdatePointSystemConfig = {
   pointsPerItem?: number;
   minClaimPoints?: number;
@@ -251,6 +391,8 @@ export interface TenantUpdate {
   enableOpsHours?: boolean;
   opsOpeningTime?: string;
   opsClosingTime?: string;
+  businessType?: TenantUpdateBusinessType;
+  businessEngine?: TenantUpdateBusinessEngine;
   pointSystemConfig?: TenantUpdatePointSystemConfig;
 }
 
@@ -952,11 +1094,475 @@ export interface SubscriptionUpgradeRequestInput {
   billingCycle: SubscriptionUpgradeRequestInputBillingCycle;
 }
 
+export type BookingResourceStatus = typeof BookingResourceStatus[keyof typeof BookingResourceStatus];
+
+
+export const BookingResourceStatus = {
+  active: 'active',
+  inactive: 'inactive',
+  maintenance: 'maintenance',
+} as const;
+
+export interface BookingResource {
+  id: number;
+  tenantId: number;
+  /** @nullable */
+  branchId?: number | null;
+  name: string;
+  type: string;
+  /** @nullable */
+  description?: string | null;
+  status: BookingResourceStatus;
+  priceWeekday: number;
+  priceWeekend: number;
+  priceMember: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type BookingResourceInputStatus = typeof BookingResourceInputStatus[keyof typeof BookingResourceInputStatus];
+
+
+export const BookingResourceInputStatus = {
+  active: 'active',
+  inactive: 'inactive',
+  maintenance: 'maintenance',
+} as const;
+
+export interface BookingResourceInput {
+  name: string;
+  type: string;
+  description?: string;
+  status?: BookingResourceInputStatus;
+  priceWeekday: number;
+  priceWeekend: number;
+  priceMember: number;
+  branchId?: number | null;
+}
+
+export type BookingPaymentStatus = typeof BookingPaymentStatus[keyof typeof BookingPaymentStatus];
+
+
+export const BookingPaymentStatus = {
+  unpaid: 'unpaid',
+  paid: 'paid',
+  partial: 'partial',
+} as const;
+
+export type BookingStatus = typeof BookingStatus[keyof typeof BookingStatus];
+
+
+export const BookingStatus = {
+  pending: 'pending',
+  confirmed: 'confirmed',
+  checked_in: 'checked_in',
+  completed: 'completed',
+  cancelled: 'cancelled',
+  rescheduled: 'rescheduled',
+} as const;
+
+export interface Booking {
+  id: number;
+  tenantId: number;
+  /** @nullable */
+  branchId?: number | null;
+  resourceId: number;
+  resourceName?: string;
+  /** @nullable */
+  customerId?: number | null;
+  customerName: string;
+  /** @nullable */
+  customerPhone?: string | null;
+  bookingDate: string;
+  startTime: string;
+  endTime: string;
+  totalPrice: number;
+  paymentStatus: BookingPaymentStatus;
+  status: BookingStatus;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type BookingInputPaymentStatus = typeof BookingInputPaymentStatus[keyof typeof BookingInputPaymentStatus];
+
+
+export const BookingInputPaymentStatus = {
+  unpaid: 'unpaid',
+  paid: 'paid',
+  partial: 'partial',
+} as const;
+
+export type BookingInputStatus = typeof BookingInputStatus[keyof typeof BookingInputStatus];
+
+
+export const BookingInputStatus = {
+  pending: 'pending',
+  confirmed: 'confirmed',
+  checked_in: 'checked_in',
+  completed: 'completed',
+  cancelled: 'cancelled',
+  rescheduled: 'rescheduled',
+} as const;
+
+export interface BookingInput {
+  resourceId: number;
+  customerId?: number | null;
+  customerName: string;
+  customerPhone?: string;
+  bookingDate: string;
+  startTime: string;
+  endTime: string;
+  totalPrice: number;
+  paymentStatus?: BookingInputPaymentStatus;
+  status?: BookingInputStatus;
+  notes?: string;
+  branchId?: number | null;
+}
+
+export type BookingUpdateInputPaymentStatus = typeof BookingUpdateInputPaymentStatus[keyof typeof BookingUpdateInputPaymentStatus];
+
+
+export const BookingUpdateInputPaymentStatus = {
+  unpaid: 'unpaid',
+  paid: 'paid',
+  partial: 'partial',
+} as const;
+
+export type BookingUpdateInputStatus = typeof BookingUpdateInputStatus[keyof typeof BookingUpdateInputStatus];
+
+
+export const BookingUpdateInputStatus = {
+  pending: 'pending',
+  confirmed: 'confirmed',
+  checked_in: 'checked_in',
+  completed: 'completed',
+  cancelled: 'cancelled',
+  rescheduled: 'rescheduled',
+} as const;
+
+export interface BookingUpdateInput {
+  resourceId?: number;
+  customerId?: number | null;
+  customerName?: string;
+  customerPhone?: string;
+  bookingDate?: string;
+  startTime?: string;
+  endTime?: string;
+  totalPrice?: number;
+  paymentStatus?: BookingUpdateInputPaymentStatus;
+  status?: BookingUpdateInputStatus;
+  notes?: string;
+}
+
+export type ServiceStatus = typeof ServiceStatus[keyof typeof ServiceStatus];
+
+
+export const ServiceStatus = {
+  active: 'active',
+  inactive: 'inactive',
+} as const;
+
+export interface Service {
+  id: number;
+  tenantId: number;
+  /** @nullable */
+  branchId?: number | null;
+  name: string;
+  duration: number;
+  price: number;
+  commissionRate: number;
+  /** @nullable */
+  description?: string | null;
+  status?: ServiceStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type ServiceInputStatus = typeof ServiceInputStatus[keyof typeof ServiceInputStatus];
+
+
+export const ServiceInputStatus = {
+  active: 'active',
+  inactive: 'inactive',
+} as const;
+
+export interface ServiceInput {
+  name: string;
+  duration: number;
+  price: number;
+  commissionRate: number;
+  description?: string;
+  status?: ServiceInputStatus;
+  branchId?: number | null;
+}
+
+export type AppointmentPaymentStatus = typeof AppointmentPaymentStatus[keyof typeof AppointmentPaymentStatus];
+
+
+export const AppointmentPaymentStatus = {
+  unpaid: 'unpaid',
+  paid: 'paid',
+  partial: 'partial',
+} as const;
+
+export type AppointmentStatus = typeof AppointmentStatus[keyof typeof AppointmentStatus];
+
+
+export const AppointmentStatus = {
+  pending: 'pending',
+  confirmed: 'confirmed',
+  completed: 'completed',
+  cancelled: 'cancelled',
+  rescheduled: 'rescheduled',
+} as const;
+
+export interface Appointment {
+  id: number;
+  tenantId: number;
+  /** @nullable */
+  branchId?: number | null;
+  employeeId: number;
+  employeeName?: string;
+  serviceId: number;
+  serviceName?: string;
+  /** @nullable */
+  customerId?: number | null;
+  customerName: string;
+  /** @nullable */
+  customerPhone?: string | null;
+  appointmentDate: string;
+  startTime: string;
+  endTime: string;
+  totalPrice: number;
+  commissionPaid: number;
+  paymentStatus: AppointmentPaymentStatus;
+  status: AppointmentStatus;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type AppointmentInputPaymentStatus = typeof AppointmentInputPaymentStatus[keyof typeof AppointmentInputPaymentStatus];
+
+
+export const AppointmentInputPaymentStatus = {
+  unpaid: 'unpaid',
+  paid: 'paid',
+  partial: 'partial',
+} as const;
+
+export type AppointmentInputStatus = typeof AppointmentInputStatus[keyof typeof AppointmentInputStatus];
+
+
+export const AppointmentInputStatus = {
+  pending: 'pending',
+  confirmed: 'confirmed',
+  completed: 'completed',
+  cancelled: 'cancelled',
+  rescheduled: 'rescheduled',
+} as const;
+
+export interface AppointmentInput {
+  employeeId: number;
+  serviceId: number;
+  customerId?: number | null;
+  customerName: string;
+  customerPhone?: string;
+  appointmentDate: string;
+  startTime: string;
+  endTime: string;
+  totalPrice: number;
+  commissionPaid?: number;
+  paymentStatus?: AppointmentInputPaymentStatus;
+  status?: AppointmentInputStatus;
+  notes?: string;
+  branchId?: number | null;
+}
+
+export type AppointmentUpdateInputPaymentStatus = typeof AppointmentUpdateInputPaymentStatus[keyof typeof AppointmentUpdateInputPaymentStatus];
+
+
+export const AppointmentUpdateInputPaymentStatus = {
+  unpaid: 'unpaid',
+  paid: 'paid',
+  partial: 'partial',
+} as const;
+
+export type AppointmentUpdateInputStatus = typeof AppointmentUpdateInputStatus[keyof typeof AppointmentUpdateInputStatus];
+
+
+export const AppointmentUpdateInputStatus = {
+  pending: 'pending',
+  confirmed: 'confirmed',
+  completed: 'completed',
+  cancelled: 'cancelled',
+  rescheduled: 'rescheduled',
+} as const;
+
+export interface AppointmentUpdateInput {
+  employeeId?: number;
+  serviceId?: number;
+  customerId?: number | null;
+  customerName?: string;
+  customerPhone?: string;
+  appointmentDate?: string;
+  startTime?: string;
+  endTime?: string;
+  totalPrice?: number;
+  commissionPaid?: number;
+  paymentStatus?: AppointmentUpdateInputPaymentStatus;
+  status?: AppointmentUpdateInputStatus;
+  notes?: string;
+}
+
+export type WorkOrderStatus = typeof WorkOrderStatus[keyof typeof WorkOrderStatus];
+
+
+export const WorkOrderStatus = {
+  queue: 'queue',
+  inspecting: 'inspecting',
+  repairing: 'repairing',
+  testing: 'testing',
+  completed: 'completed',
+  cancelled: 'cancelled',
+} as const;
+
+export type WorkOrderPaymentStatus = typeof WorkOrderPaymentStatus[keyof typeof WorkOrderPaymentStatus];
+
+
+export const WorkOrderPaymentStatus = {
+  unpaid: 'unpaid',
+  paid: 'paid',
+} as const;
+
+export interface WorkOrder {
+  id: number;
+  tenantId: number;
+  /** @nullable */
+  branchId?: number | null;
+  /** @nullable */
+  customerId?: number | null;
+  customerName: string;
+  /** @nullable */
+  customerPhone?: string | null;
+  /** @nullable */
+  technicianId?: number | null;
+  technicianName?: string;
+  deviceName: string;
+  /** @nullable */
+  deviceIdentifier?: string | null;
+  problemDescription: string;
+  servicePrice: number;
+  sparepartsPrice: number;
+  totalPrice: number;
+  /** @nullable */
+  sparepartsDetails?: string | null;
+  warrantyDays: number;
+  status: WorkOrderStatus;
+  paymentStatus: WorkOrderPaymentStatus;
+  /** @nullable */
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type WorkOrderInputStatus = typeof WorkOrderInputStatus[keyof typeof WorkOrderInputStatus];
+
+
+export const WorkOrderInputStatus = {
+  queue: 'queue',
+  inspecting: 'inspecting',
+  repairing: 'repairing',
+  testing: 'testing',
+  completed: 'completed',
+  cancelled: 'cancelled',
+} as const;
+
+export type WorkOrderInputPaymentStatus = typeof WorkOrderInputPaymentStatus[keyof typeof WorkOrderInputPaymentStatus];
+
+
+export const WorkOrderInputPaymentStatus = {
+  unpaid: 'unpaid',
+  paid: 'paid',
+} as const;
+
+export interface WorkOrderInput {
+  customerId?: number | null;
+  customerName: string;
+  customerPhone?: string;
+  technicianId?: number | null;
+  deviceName: string;
+  deviceIdentifier?: string;
+  problemDescription: string;
+  servicePrice: number;
+  sparepartsPrice?: number;
+  totalPrice?: number;
+  sparepartsDetails?: string;
+  warrantyDays?: number;
+  status?: WorkOrderInputStatus;
+  paymentStatus?: WorkOrderInputPaymentStatus;
+  notes?: string;
+  branchId?: number | null;
+}
+
+export type WorkOrderUpdateInputStatus = typeof WorkOrderUpdateInputStatus[keyof typeof WorkOrderUpdateInputStatus];
+
+
+export const WorkOrderUpdateInputStatus = {
+  queue: 'queue',
+  inspecting: 'inspecting',
+  repairing: 'repairing',
+  testing: 'testing',
+  completed: 'completed',
+  cancelled: 'cancelled',
+} as const;
+
+export type WorkOrderUpdateInputPaymentStatus = typeof WorkOrderUpdateInputPaymentStatus[keyof typeof WorkOrderUpdateInputPaymentStatus];
+
+
+export const WorkOrderUpdateInputPaymentStatus = {
+  unpaid: 'unpaid',
+  paid: 'paid',
+} as const;
+
+export interface WorkOrderUpdateInput {
+  customerId?: number | null;
+  customerName?: string;
+  customerPhone?: string;
+  technicianId?: number | null;
+  deviceName?: string;
+  deviceIdentifier?: string;
+  problemDescription?: string;
+  servicePrice?: number;
+  sparepartsPrice?: number;
+  totalPrice?: number;
+  sparepartsDetails?: string;
+  warrantyDays?: number;
+  status?: WorkOrderUpdateInputStatus;
+  paymentStatus?: WorkOrderUpdateInputPaymentStatus;
+  notes?: string;
+}
+
 export type ListAdminTenantsParams = {
 search?: string;
 status?: string;
 page?: number;
 limit?: number;
+};
+
+export type ListBookingsParams = {
+date?: string;
+};
+
+export type ListAppointmentsParams = {
+date?: string;
+};
+
+export type ListWorkOrdersParams = {
+status?: string;
 };
 
 export type ListProductsParams = {

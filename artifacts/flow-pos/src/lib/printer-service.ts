@@ -11,6 +11,11 @@ export interface PrinterSettings {
   marginLeft?: number;
   marginRight?: number;
   alignment?: "left" | "center";
+  showOrderType?: boolean;
+  showCustomerName?: boolean;
+  showCashierName?: boolean;
+  showNotes?: boolean;
+  showFooterMessage?: boolean;
 }
 
 // Module-level connection states persist during the SPA session
@@ -557,7 +562,7 @@ export const PrinterService = {
     const storePhone = tenant?.phone || "";
     const isFashion = tenant?.businessType === "fashion";
 
-    const paperWidth = settings.paperSize === "58mm" ? "280px" : "380px";
+    const paperSize = settings.paperSize || "58mm";
     
     const fontSize = settings.fontSize || 12;
     const marginLeft = settings.marginLeft || 0;
@@ -583,7 +588,7 @@ export const PrinterService = {
         <span>&nbsp;&nbsp;Varian: ${item.variantSelection}</span>
         <span></span>
       </div>` : ""}
-      ${item.notes ? `
+      ${item.notes && settings.showNotes !== false ? `
       <div class="item-row" style="font-size: 10px; color: #555; margin-top: -2px; margin-bottom: 2px; font-style: italic;">
         <span>&nbsp;&nbsp;"${item.notes}"</span>
         <span></span>
@@ -629,11 +634,14 @@ export const PrinterService = {
           <style>
             @media print {
               body { margin: 0; padding: 0; }
-              @page { margin: 0; }
+              @page {
+                size: ${paperSize} auto;
+                margin: 0;
+              }
             }
             body {
               font-family: 'Courier New', Courier, monospace;
-              width: ${paperWidth};
+              width: ${paperSize};
               font-size: ${fontSize}px;
               color: #000;
               margin: 0 ${alignment === "center" ? "auto" : "0"};
@@ -660,12 +668,16 @@ export const PrinterService = {
           <div>
             <p style="margin: 0 0 4px 0;">Nota: ${order.orderNumber || order.id}</p>
             <p style="margin: 0 0 4px 0;">Tanggal: ${formattedDate}</p>
+            ${settings.showOrderType !== false ? `
             <p style="margin: 0 0 4px 0;">Tipe: ${
               isFashion
                 ? order.orderType === "dine_in" ? "Fitting Room" : order.orderType === "take_away" ? "Ambil di Toko" : "Kirim Kurir"
                 : order.orderType === "dine_in" ? "Dine In" : order.orderType === "take_away" ? "Take Away" : "Delivery"
             }</p>
+            ` : ""}
+            ${settings.showCustomerName !== false ? `
             <p style="margin: 0 0 4px 0;">Pelanggan: ${order.customerName || "-"}</p>
+            ` : ""}
             ${order.orderType === "dine_in" && order.tableNumber ? `<p style="margin: 0 0 4px 0;">${isFashion ? "Fitting Room" : "Meja"}: ${order.tableNumber}</p>` : ""}
             ${order.orderType === "delivery" && order.deliveryAddress ? `<p style="margin: 0 0 4px 0;">Alamat: ${order.deliveryAddress}</p>` : ""}
             <p style="margin: 0 0 4px 0;">Pembayaran: ${order.paymentMethod === "cash" ? "Tunai" : order.paymentMethod === "qris" ? "QRIS" : order.paymentMethod === "bank_transfer" ? "Transfer" : order.paymentMethod === "ewallet" ? "E-Wallet" : order.paymentMethod || "-"}</p>
@@ -673,7 +685,9 @@ export const PrinterService = {
             <p style="margin: 0 0 4px 0;">Uang Diterima: ${formatRp(Number(order.cashReceived || 0))}</p>
             <p style="margin: 0 0 4px 0;">Kembalian: ${formatRp(Math.max(0, Number(order.cashReceived || 0) - Number(order.total)))}</p>
             ` : ""}
+            ${settings.showCashierName !== false ? `
             <p style="margin: 0 0 4px 0;">Kasir: ${order.employeeName || "Kasir Utama"}</p>
+            ` : ""}
           </div>
           <div class="divider"></div>
           ${itemsHtml}
@@ -684,11 +698,13 @@ export const PrinterService = {
             <span>TOTAL</span>
             <span>${formatRp(Number(order.total))}</span>
           </div>
+          ${settings.showFooterMessage !== false ? `
           <div class="divider"></div>
           <div class="text-center footer-msg">
             <p style="margin: 0 0 4px 0;">Terima kasih atas kunjungan Anda!</p>
             <p style="margin: 0 0 8px 0;">Selamat menikmati 🍽️</p>
           </div>
+          ` : ""}
         </body>
       </html>
     `;

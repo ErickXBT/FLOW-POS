@@ -5,6 +5,7 @@
  * Flow POS SaaS API
  * OpenAPI spec version: 0.1.0
  */
+import type { TenantBusinessEngine } from './tenantBusinessEngine';
 import type { TenantBusinessType } from './tenantBusinessType';
 import type { TenantPointSystemConfig } from './tenantPointSystemConfig';
 import type { TenantStatus } from './tenantStatus';
@@ -15,6 +16,7 @@ export interface Tenant {
   /** @nullable */
   slug?: string | null;
   businessType: TenantBusinessType;
+  businessEngine?: TenantBusinessEngine;
   status: TenantStatus;
   /** @nullable */
   address?: string | null;

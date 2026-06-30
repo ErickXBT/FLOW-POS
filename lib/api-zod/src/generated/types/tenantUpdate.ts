@@ -5,6 +5,8 @@
  * Flow POS SaaS API
  * OpenAPI spec version: 0.1.0
  */
+import type { TenantUpdateBusinessEngine } from './tenantUpdateBusinessEngine';
+import type { TenantUpdateBusinessType } from './tenantUpdateBusinessType';
 import type { TenantUpdatePointSystemConfig } from './tenantUpdatePointSystemConfig';
 
 export interface TenantUpdate {
@@ -35,5 +37,7 @@ export interface TenantUpdate {
   enableOpsHours?: boolean;
   opsOpeningTime?: string;
   opsClosingTime?: string;
+  businessType?: TenantUpdateBusinessType;
+  businessEngine?: TenantUpdateBusinessEngine;
   pointSystemConfig?: TenantUpdatePointSystemConfig;
 }

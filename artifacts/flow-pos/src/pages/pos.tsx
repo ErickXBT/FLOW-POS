@@ -297,10 +297,72 @@ export default function POSPage() {
   const [deliveryAddress, setDeliveryAddress] = useState("");
 
   const { data: productsData } = useListProducts({ search: search || undefined, categoryId: activeCat || undefined, limit: 100 });
-  const { data: categories } = useListCategories();
+const { data: categories } = useListCategories();
   const createOrder = useCreateOrder();
 
   const products = productsData?.data || [];
+
+  const tenantAny = tenant as any;
+
+  const allowedOrderTypes = useMemo(() => {
+    return [
+      { value: "dine_in", label: isFashion ? "Fitting Room" : "Dine In", icon: isFashion ? "👚" : "🪑", enabled: tenantAny?.enableDineIn !== false },
+      { value: "take_away", label: isFashion ? "Ambil" : "Bawa Pulang", icon: "🛍️", enabled: tenantAny?.enableTakeAway !== false },
+      { value: "delivery", label: isFashion ? "Kirim" : "Delivery", icon: "🛵", enabled: tenantAny?.enableDelivery !== false }
+    ].filter(ot => ot.enabled);
+  }, [tenantAny, isFashion]);
+
+  const orderTypeGridClass = useMemo(() => {
+    const len = allowedOrderTypes.length;
+    if (len === 1) return "grid-cols-1";
+    if (len === 2) return "grid-cols-2";
+    return "grid-cols-3";
+  }, [allowedOrderTypes]);
+
+  const allowedPaymentMethods = useMemo(() => {
+    return PAYMENT_METHODS.filter(pm => {
+      if (pm.value === "cash") return tenantAny?.enableCash !== false;
+      if (pm.value === "qris") return tenantAny?.enableQris !== false;
+      if (pm.value === "bank_transfer") return tenantAny?.enableBankTransfer !== false;
+      if (pm.value === "ewallet") return tenantAny?.enableEwallet !== false;
+      return true;
+    });
+  }, [tenantAny]);
+
+  const paymentMethodGridClass = useMemo(() => {
+    const len = allowedPaymentMethods.length;
+    if (len === 1) return "grid-cols-1";
+    if (len === 2) return "grid-cols-2";
+    if (len === 3) return "grid-cols-3";
+    return "grid-cols-4 xl:grid-cols-2";
+  }, [allowedPaymentMethods]);
+
+  // Set default order type and payment method based on tenant settings
+  useEffect(() => {
+    if (tenantAny) {
+      if (tenantAny.enableDineIn === false) {
+        if (tenantAny.enableTakeAway !== false) {
+          setOrderType("take_away");
+        } else if (tenantAny.enableDelivery !== false) {
+          setOrderType("delivery");
+        }
+      } else {
+        setOrderType("dine_in");
+      }
+
+      if (tenantAny.enableCash === false) {
+        if (tenantAny.enableQris !== false) {
+          setPaymentMethod("qris");
+        } else if (tenantAny.enableBankTransfer !== false) {
+          setPaymentMethod("bank_transfer");
+        } else if (tenantAny.enableEwallet !== false) {
+          setPaymentMethod("ewallet");
+        }
+      } else {
+        setPaymentMethod("cash");
+      }
+    }
+  }, [tenantAny]);
 
   const allBanners = useMemo(() => {
     const list = promoBanners.filter((b: any) => b.showInPos !== false);
@@ -1229,36 +1291,34 @@ export default function POSPage() {
 
             {/* Order Type Selector */}
             <div className="space-y-1.5 py-1.5 border-t border-border">
-              <div className="grid grid-cols-3 gap-1 xl:gap-1.5">
-                {[
-                  { value: "dine_in", label: isFashion ? "Fitting Room" : "Dine In", icon: isFashion ? "👚" : "🪑" },
-                  { value: "take_away", label: isFashion ? "Ambil" : "Bawa Pulang", icon: "🛍️" },
-                  { value: "delivery", label: isFashion ? "Kirim" : "Delivery", icon: "🛵" }
-                ].map(ot => (
-                  <button
-                    key={ot.value}
-                    type="button"
-                    onClick={() => {
-                      setOrderType(ot.value);
-                      if (ot.value !== "delivery") {
-                        setDeliveryAddress("");
-                        setCustomerPhone("");
-                      }
-                      if (ot.value !== "dine_in") {
-                        setTableNumber("");
-                      }
-                    }}
-                    className={`flex flex-row xl:flex-col items-center justify-center gap-1 xl:gap-0.5 py-1 xl:py-2 px-1 rounded-md xl:rounded-lg border text-[10px] font-semibold transition-all ${
-                      orderType === ot.value
-                        ? "border-primary bg-primary/10 text-primary shadow-sm"
-                        : "border-border text-muted-foreground hover:bg-muted/30"
-                    }`}
-                  >
-                    <span className="text-xs xl:text-base leading-none xl:mb-0.5">{ot.icon}</span>
-                    <span className="leading-none">{ot.label}</span>
-                  </button>
-                ))}
-              </div>
+              {allowedOrderTypes.length > 0 && (
+                <div className={`grid ${orderTypeGridClass} gap-1 xl:gap-1.5`}>
+                  {allowedOrderTypes.map(ot => (
+                    <button
+                      key={ot.value}
+                      type="button"
+                      onClick={() => {
+                        setOrderType(ot.value);
+                        if (ot.value !== "delivery") {
+                          setDeliveryAddress("");
+                          setCustomerPhone("");
+                        }
+                        if (ot.value !== "dine_in") {
+                          setTableNumber("");
+                        }
+                      }}
+                      className={`flex flex-row xl:flex-col items-center justify-center gap-1 xl:gap-0.5 py-1 xl:py-2 px-1 rounded-md xl:rounded-lg border text-[10px] font-semibold transition-all ${
+                        orderType === ot.value
+                          ? "border-primary bg-primary/10 text-primary shadow-sm"
+                          : "border-border text-muted-foreground hover:bg-muted/30"
+                      }`}
+                    >
+                      <span className="text-xs xl:text-base leading-none xl:mb-0.5">{ot.icon}</span>
+                      <span className="leading-none">{ot.label}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
 
               {/* Priority Toggle */}
               <div className="flex items-center justify-between p-1.5 xl:p-2 rounded-lg bg-destructive/5 border border-destructive/20 text-[10px] font-semibold text-destructive mt-1.5 xl:mt-2">
@@ -1350,24 +1410,26 @@ export default function POSPage() {
               )}
             </div>
 
-            {/* Payment method (4 columns on tablet, 2x2 grid on desktop) */}
-            <div className="grid grid-cols-4 xl:grid-cols-2 gap-1 xl:gap-2 border-t border-border pt-1.5 xl:pt-2 mt-1.5">
-              {PAYMENT_METHODS.map(pm => (
-                <button
-                  key={pm.value}
-                  type="button"
-                  onClick={() => setPaymentMethod(pm.value)}
-                  className={`flex flex-col xl:flex-row items-center justify-center xl:justify-start gap-1 xl:gap-2 py-1 xl:py-2.5 px-0.5 xl:px-3 rounded-lg border text-[10px] xl:text-sm font-medium transition-all ${
-                    paymentMethod === pm.value
-                      ? "border-primary bg-primary/10 text-primary shadow-sm"
-                      : "border-border text-muted-foreground hover:border-primary/30"
-                  }`}
-                >
-                  <span className="text-xs xl:text-base leading-none xl:leading-normal">{pm.icon}</span>
-                  <span className="text-[9px] xl:text-sm font-semibold xl:font-medium leading-none xl:leading-normal">{pm.label}</span>
-                </button>
-              ))}
-            </div>
+            {/* Payment method (dynamic columns based on settings) */}
+            {allowedPaymentMethods.length > 0 && (
+              <div className={`grid ${paymentMethodGridClass} gap-1 xl:gap-2 border-t border-border pt-1.5 xl:pt-2 mt-1.5`}>
+                {allowedPaymentMethods.map(pm => (
+                  <button
+                    key={pm.value}
+                    type="button"
+                    onClick={() => setPaymentMethod(pm.value)}
+                    className={`flex flex-col xl:flex-row items-center justify-center xl:justify-start gap-1 xl:gap-2 py-1 xl:py-2.5 px-0.5 xl:px-3 rounded-lg border text-[10px] xl:text-sm font-medium transition-all ${
+                      paymentMethod === pm.value
+                        ? "border-primary bg-primary/10 text-primary shadow-sm"
+                        : "border-border text-muted-foreground hover:border-primary/30"
+                    }`}
+                  >
+                    <span className="text-xs xl:text-base leading-none xl:leading-normal">{pm.icon}</span>
+                    <span className="text-[9px] xl:text-sm font-semibold xl:font-medium leading-none xl:leading-normal">{pm.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Cash input for Tunai (Inline row on tablet, separate on desktop) */}
             {paymentMethod === "cash" && (

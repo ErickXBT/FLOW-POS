@@ -120,11 +120,15 @@ export async function getUserExtraDetails(userId: number, role: string, tenantId
   }
 
   const [tenant] = await db
-    .select({ businessType: tenantsTable.businessType })
+    .select({
+      businessType: tenantsTable.businessType,
+      businessEngine: tenantsTable.businessEngine
+    })
     .from(tenantsTable)
     .where(eq(tenantsTable.id, tenantId))
     .limit(1);
   const businessType = tenant?.businessType || "fnb";
+  const businessEngine = tenant?.businessEngine || "retail";
   
   if (role === "owner") {
     return {
@@ -136,6 +140,7 @@ export async function getUserExtraDetails(userId: number, role: string, tenantId
       branchId: null,
       branchName: null,
       businessType,
+      businessEngine,
     };
   }
 
@@ -153,7 +158,7 @@ export async function getUserExtraDetails(userId: number, role: string, tenantId
     .limit(1);
 
   if (!emp) {
-    return { permissions: getDefaultPermissions(role), branchId: null, branchName: null, businessType };
+    return { permissions: getDefaultPermissions(role), branchId: null, branchName: null, businessType, businessEngine };
   }
 
   let permissions: string[] = [];
@@ -168,6 +173,7 @@ export async function getUserExtraDetails(userId: number, role: string, tenantId
     branchId: emp.employee.branchId,
     branchName: emp.branchName || null,
     businessType,
+    businessEngine,
   };
 }
 
@@ -312,11 +318,22 @@ router.post("/auth/login", async (req, res): Promise<void> => {
   });
 });
 
+function getEngineFromBusinessType(businessType: string): "retail" | "booking" | "appointment" | "service" {
+  const bookingTypes = ['badminton', 'futsal', 'padel', 'tennis', 'music_studio', 'coworking', 'meeting_room', 'rental', 'venue'];
+  const appointmentTypes = ['salon', 'barbershop', 'spa', 'clinic', 'doctor', 'psychologist', 'mua', 'photographer', 'consultant', 'tutor'];
+  const serviceTypes = ['auto_repair', 'car_wash', 'laundry', 'ac_service', 'phone_service', 'cleaning_service'];
+  
+  if (bookingTypes.includes(businessType)) return 'booking';
+  if (appointmentTypes.includes(businessType)) return 'appointment';
+  if (serviceTypes.includes(businessType)) return 'service';
+  return 'retail';
+}
+
 router.post("/auth/register", async (req, res): Promise<void> => {
   const parsed = RegisterBody.safeParse(req.body);
   if (!parsed.success) { res.status(400).json({ error: parsed.error.message }); return; }
 
-  const { name, email, password, businessName, businessType, phone, address, plan, billingInterval, installments, transferReceipt } = parsed.data;
+  const { name, email, password, businessName, businessType, businessEngine, phone, address, plan, billingInterval, installments, transferReceipt } = parsed.data;
   const existing = await db.select().from(usersTable).where(eq(usersTable.email, email.toLowerCase()));
   if (existing.length > 0) { res.status(400).json({ error: "Email sudah terdaftar" }); return; }
 
@@ -360,10 +377,13 @@ router.post("/auth/register", async (req, res): Promise<void> => {
     suffix++;
   }
 
+  const finalEngine = businessEngine || getEngineFromBusinessType(businessType);
+
   const [tenant] = await db.insert(tenantsTable).values({
     name: businessName,
     slug,
     businessType,
+    businessEngine: finalEngine,
     status: tenantStatus,
     phone: phone ?? null,
     address: address ?? null,

@@ -25,6 +25,7 @@ export interface AuthUser {
   branchId?: number | null;
   branchName?: string | null;
   businessType?: string;
+  businessEngine?: string;
 }
 
 export function getStoredToken(): string | null {
@@ -70,6 +71,10 @@ export function hasPermission(user: AuthUser | null, permission: string): boolea
     manage_qr_menu: ["owner", "super_admin"],
     view_activity_logs: ["owner", "manager", "super_admin"],
     view_sessions: ["owner", "manager", "super_admin"],
+    manage_bookings: ["owner", "manager", "cashier", "super_admin"],
+    manage_appointments: ["owner", "manager", "cashier", "staff", "super_admin"],
+    manage_services: ["owner", "manager", "super_admin"],
+    manage_work_orders: ["owner", "manager", "cashier", "staff", "super_admin"],
   };
   return (perms[permission] ?? []).includes(user.role);
 }

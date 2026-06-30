@@ -222,6 +222,7 @@ export default function SettingsPage() {
   const [form, setForm] = useState({
     name: "",
     businessType: "",
+    businessEngine: "retail",
     address: "",
     phone: "",
     email: "",
@@ -269,6 +270,7 @@ export default function SettingsPage() {
       setForm({
         name: tenant.name || "",
         businessType,
+        businessEngine: (tenant as any).businessEngine || "retail",
         address: tenant.address || "",
         phone: tenant.phone || "",
         email: tenant.email || "",
@@ -384,7 +386,7 @@ export default function SettingsPage() {
   };
 
   const handleSave = () => {
-    updateTenant.mutate({ data: form }, {
+    updateTenant.mutate({ data: form as any }, {
       onSuccess: () => {
         setSaved(true);
         qc.invalidateQueries({ queryKey: getGetTenantQueryKey() });
@@ -449,6 +451,19 @@ export default function SettingsPage() {
             {ALL_BUSINESS_TYPES.map(bt => (
               <option key={bt.value} value={bt.value}>{bt.label}</option>
             ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1 text-foreground">Business Engine</label>
+          <select
+            value={form.businessEngine}
+            onChange={e => setForm(p => ({ ...p, businessEngine: e.target.value }))}
+            className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
+          >
+            <option value="retail">Flow Retail (POS / Retail)</option>
+            <option value="booking">Flow Booking (Reservasi Lapangan/Studio)</option>
+            <option value="appointment">Flow Appointment (Janji Temu Salon/Spa)</option>
+            <option value="service">Flow Service (Layanan Perbaikan Bengkel/Elektronik)</option>
           </select>
         </div>
         <div>

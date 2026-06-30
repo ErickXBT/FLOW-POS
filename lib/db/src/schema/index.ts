@@ -20,3 +20,6 @@ export * from "./customer-retention";
 export * from "./expenses";
 export * from "./employee-shifts";
 export * from "./employee-attendance";
+export * from "./bookings";
+export * from "./appointments";
+export * from "./work-orders";

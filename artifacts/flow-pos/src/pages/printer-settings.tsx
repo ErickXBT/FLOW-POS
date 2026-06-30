@@ -20,6 +20,11 @@ const DEFAULT_SETTINGS: PrinterSettings = {
   marginLeft: 0,
   marginRight: 0,
   alignment: "left",
+  showOrderType: true,
+  showCustomerName: true,
+  showCashierName: true,
+  showNotes: true,
+  showFooterMessage: true,
 };
 
 export default function PrinterSettingsPage() {
@@ -478,11 +483,201 @@ export default function PrinterSettingsPage() {
               </div>
             </div>
 
+            {/* Receipt Content Visibility Settings Panel */}
+            <div className="space-y-4 pt-4 border-t border-slate-100 dark:border-slate-800">
+              <div>
+                <h3 className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider">Pengaturan Konten Struk</h3>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">Sembunyikan bagian struk tertentu untuk menghemat kertas struk thermal.</p>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {[
+                  { key: "showOrderType", label: "Tampilkan Tipe Pesanan", desc: "Menampilkan Dine-In, Take-Away, atau Delivery." },
+                  { key: "showCustomerName", label: "Tampilkan Nama Pelanggan", desc: "Menampilkan nama pelanggan di bagian header." },
+                  { key: "showCashierName", label: "Tampilkan Nama Kasir", desc: "Menampilkan nama kasir yang melayani." },
+                  { key: "showNotes", label: "Tampilkan Catatan Item", desc: "Menampilkan catatan kustom untuk tiap item pesanan." },
+                  { key: "showFooterMessage", label: "Tampilkan Pesan Kaki", desc: "Menampilkan pesan terima kasih di akhir struk." }
+                ].map((item) => (
+                  <div key={item.key} className="flex items-center justify-between p-3 bg-slate-50/50 dark:bg-slate-900/50 border border-slate-100 dark:border-slate-800/80 rounded-xl">
+                    <div className="pr-2">
+                      <div className="text-xs font-semibold text-slate-700 dark:text-slate-350">{item.label}</div>
+                      <div className="text-[10px] text-slate-550 dark:text-slate-400 leading-tight mt-0.5">{item.desc}</div>
+                    </div>
+                    <label className="relative inline-flex items-center cursor-pointer flex-shrink-0">
+                      <input
+                        type="checkbox"
+                        checked={settings[item.key as keyof PrinterSettings] !== false}
+                        onChange={e => setSettings(p => ({ ...p, [item.key]: e.target.checked }))}
+                        className="sr-only peer"
+                      />
+                      <div className="w-8 h-4.5 bg-slate-200 dark:bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-3.5 after:w-3.5 after:transition-all peer-checked:bg-primary"></div>
+                    </label>
+                  </div>
+                ))}
+              </div>
+            </div>
+
           </div>
 
           {/* Configuration Summary & Action Panel - Right column */}
           <div className="space-y-6">
             
+            {/* Live Receipt Preview Card */}
+            <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4 flex flex-col items-center">
+              <div className="w-full flex items-center justify-between">
+                <h3 className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider">Live Preview Struk</h3>
+                <span className="text-[9px] bg-primary/10 text-primary px-2 py-0.5 rounded-full font-bold">Simulasi</span>
+              </div>
+              
+              {/* Receipt Paper Simulation */}
+              <div className="w-full overflow-x-auto py-2.5 flex justify-center bg-slate-100 dark:bg-slate-950 rounded-xl border border-slate-200/50 dark:border-slate-850">
+                <div 
+                  className="bg-[#fdfbf7] text-slate-900 shadow-sm border border-slate-300 p-4 transition-all duration-300 font-mono text-[11px] leading-relaxed relative"
+                  style={{
+                    width: settings.paperSize === "58mm" ? "220px" : "290px",
+                    paddingLeft: `${Math.min(settings.marginLeft || 0, 40)}px`,
+                    paddingRight: `${Math.min(settings.marginRight || 0, 40)}px`,
+                  }}
+                >
+                  {/* Top Paper Tear Simulation */}
+                  <div className="absolute top-0 left-0 right-0 h-1 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-slate-200 via-transparent to-transparent bg-repeat-x bg-[length:6px_4px]" />
+                  
+                  {/* Header */}
+                  <div className="text-center space-y-1">
+                    <div className="font-bold uppercase" style={{ fontSize: `${(settings.fontSize || 12) + 1}px` }}>
+                      {tenant?.name || "BEAUTY & BAG"}
+                    </div>
+                    <div className="text-[9px] text-slate-600 leading-tight">
+                      {tenant?.address || "Jl. Ahmad Yani Depan Ruko"}
+                    </div>
+                    <div className="text-[9px] text-slate-600">
+                      Telp: {tenant?.phone || "08123456789"}
+                    </div>
+                  </div>
+                  
+                  {/* Divider */}
+                  <div className="border-t border-dashed border-slate-400 my-2" />
+                  
+                  {/* Metadata */}
+                  <div className="space-y-0.5 text-[9px] text-slate-700">
+                    <div className="flex justify-between">
+                      <span>Nota:</span>
+                      <span className="font-bold">ORD-1782823851985-822</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Tanggal:</span>
+                      <span>30 Jun 2026 19.50</span>
+                    </div>
+                    {settings.showOrderType !== false && (
+                      <div className="flex justify-between">
+                        <span>Tipe:</span>
+                        <span>{tenant?.businessType === "fashion" ? "Fitting Room" : "Dine In"}</span>
+                      </div>
+                    )}
+                    {settings.showCustomerName !== false && (
+                      <div className="flex justify-between">
+                        <span>Pelanggan:</span>
+                        <span>Pelanggan POS</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span>Pembayaran:</span>
+                      <span>Tunai</span>
+                    </div>
+                    {settings.showCashierName !== false && (
+                      <div className="flex justify-between">
+                        <span>Kasir:</span>
+                        <span>Kasir Utama</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Divider */}
+                  <div className="border-t border-dashed border-slate-400 my-2" />
+                  
+                  {/* Items List */}
+                  <div className="space-y-1" style={{ fontSize: `${settings.fontSize || 12}px` }}>
+                    <div>
+                      <div className="flex justify-between">
+                        <span className={settings.alignment === "center" ? "mx-auto text-center font-bold" : "font-bold"}>
+                          1x Dompet Cantik
+                        </span>
+                        <span>Rp 95.000</span>
+                      </div>
+                      {settings.showNotes !== false && (
+                        <div className="text-[9px] text-slate-500 italic pl-2">
+                          * "Warna merah marun"
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between">
+                        <span className={settings.alignment === "center" ? "mx-auto text-center font-bold" : "font-bold"}>
+                          1x Gantungan Kunci
+                        </span>
+                        <span>Rp 10.000</span>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {/* Divider */}
+                  <div className="border-t border-dashed border-slate-400 my-2" />
+                  
+                  {/* Totals */}
+                  <div className="space-y-0.5 text-[9px] text-slate-700">
+                    <div className="flex justify-between">
+                      <span>Subtotal</span>
+                      <span>Rp 105.000</span>
+                    </div>
+                    <div className="flex justify-between text-red-600 font-medium">
+                      <span>Diskon</span>
+                      <span>-Rp 10.000</span>
+                    </div>
+                    
+                    <div className="flex justify-between font-bold mt-1 text-slate-900 border-t border-slate-200 pt-1" style={{ fontSize: `${(settings.fontSize || 12) + 1}px` }}>
+                      <span>TOTAL</span>
+                      <span>Rp 95.000</span>
+                    </div>
+
+                    <div className="flex justify-between mt-0.5">
+                      <span>Uang Diterima</span>
+                      <span>Rp 100.000</span>
+                    </div>
+                    <div className="flex justify-between font-medium text-emerald-600">
+                      <span>Kembalian</span>
+                      <span>Rp 5.000</span>
+                    </div>
+                  </div>
+                  
+                  {/* Footer Message */}
+                  {settings.showFooterMessage !== false && (
+                    <>
+                      <div className="border-t border-dashed border-slate-400 my-2" />
+                      <div className="text-center space-y-0.5 text-[9px] text-slate-600">
+                        <div>Terima kasih atas kunjungan Anda!</div>
+                        <div className="font-bold">Selamat menikmati 🛍️</div>
+                      </div>
+                    </>
+                  )}
+                  
+                  {/* Bottom Paper Tear Simulation */}
+                  <div className="absolute bottom-0 left-0 right-0 h-1 bg-[radial-gradient(ellipse_at_bottom,_var(--tw-gradient-stops))] from-slate-200 via-transparent to-transparent bg-repeat-x bg-[length:6px_4px]" />
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="w-full pt-1 space-y-2">
+                <button
+                  onClick={printTestPage}
+                  className="w-full py-2.5 bg-slate-900 hover:bg-slate-850 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold text-xs rounded-xl active:scale-95 transition-all flex items-center justify-center gap-2 border border-slate-800 cursor-pointer"
+                >
+                  <Printer size={13} />
+                  <span>Cetak Struk Tes</span>
+                </button>
+              </div>
+            </div>
+
             {/* Quick Summary Card */}
             <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-2xl p-5 shadow-sm space-y-4">
               <h3 className="text-xs font-bold text-slate-800 dark:text-white uppercase tracking-wider">Detail Perangkat</h3>
@@ -506,17 +701,6 @@ export default function PrinterSettingsPage() {
                   <span className="text-slate-400">Ukuran Kertas</span>
                   <span className="font-bold text-slate-800 dark:text-slate-200">{settings.paperSize}</span>
                 </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="pt-2 space-y-2">
-                <button
-                  onClick={printTestPage}
-                  className="w-full py-3 bg-slate-900 hover:bg-slate-850 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold text-xs rounded-xl active:scale-95 transition-all flex items-center justify-center gap-2 border border-slate-800 cursor-pointer"
-                >
-                  <Printer size={14} />
-                  <span>Cetak Halaman Tes</span>
-                </button>
               </div>
             </div>
 

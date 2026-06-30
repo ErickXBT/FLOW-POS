@@ -6,6 +6,7 @@
  * OpenAPI spec version: 0.1.0
  */
 import type { RegisterInputBillingInterval } from './registerInputBillingInterval';
+import type { RegisterInputBusinessEngine } from './registerInputBusinessEngine';
 import type { RegisterInputBusinessType } from './registerInputBusinessType';
 import type { RegisterInputPlan } from './registerInputPlan';
 
@@ -15,6 +16,7 @@ export interface RegisterInput {
   password: string;
   businessName: string;
   businessType: RegisterInputBusinessType;
+  businessEngine?: RegisterInputBusinessEngine;
   /** @nullable */
   phone?: string | null;
   /** @nullable */

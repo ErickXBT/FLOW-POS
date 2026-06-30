@@ -5,15 +5,66 @@ import { setStoredToken } from "@/hooks/use-auth";
 import flowLogo from "@assets/FLOW_LOGO_1780799864457.png";
 import { ChevronRight, Building2, User, CreditCard, X, Check } from "lucide-react";
 
-const BUSINESS_TYPES = [
-  { value: "fnb", label: "F&B", icon: "🍽️" },
-  { value: "fashion", label: "Fashion Store", icon: "👗" },
+const BUSINESS_ENGINES = [
+  { value: "retail", label: "Penjualan (Retail)", icon: "🛒" },
+  { value: "booking", label: "Reservasi (Booking)", icon: "📅" },
+  { value: "appointment", label: "Janji Temu (Appointment)", icon: "🤝" },
+  { value: "service", label: "Layanan (Jasa/Servis)", icon: "🛠️" },
 ];
+
+const CATEGORIES_BY_ENGINE: Record<string, { value: string; label: string; icon: string }[]> = {
+  retail: [
+    { value: "fnb", label: "F&B / Cafe", icon: "🍽️" },
+    { value: "restaurant", label: "Restaurant", icon: "🍱" },
+    { value: "coffee_shop", label: "Coffee Shop", icon: "☕" },
+    { value: "bakery", label: "Bakery", icon: "🍞" },
+    { value: "fashion", label: "Fashion Store", icon: "👗" },
+    { value: "boutique", label: "Butik", icon: "🧥" },
+    { value: "minimarket", label: "Minimarket", icon: "🏪" },
+    { value: "grocery", label: "Grocery Store", icon: "🍎" },
+    { value: "pet_shop", label: "Pet Shop", icon: "🐱" },
+    { value: "electronics", label: "Elektronik", icon: "🔌" },
+    { value: "hardware_store", label: "Toko Bangunan", icon: "🧱" },
+    { value: "pharmacy", label: "Apotek", icon: "💊" },
+  ],
+  booking: [
+    { value: "badminton", label: "Badminton", icon: "🏸" },
+    { value: "futsal", label: "Futsal", icon: "⚽" },
+    { value: "padel", label: "Padel Tennis", icon: "🎾" },
+    { value: "tennis", label: "Tennis", icon: "🥎" },
+    { value: "music_studio", label: "Studio Musik", icon: "🎸" },
+    { value: "coworking", label: "Coworking", icon: "💻" },
+    { value: "meeting_room", label: "Meeting Room", icon: "👥" },
+    { value: "rental", label: "Rental", icon: "🚗" },
+    { value: "venue", label: "Venue/Gedung", icon: "🏛️" },
+  ],
+  appointment: [
+    { value: "salon", label: "Salon Kecantikan", icon: "💇‍♀️" },
+    { value: "barbershop", label: "Barbershop", icon: "💈" },
+    { value: "spa", label: "Spa & Massage", icon: "💆" },
+    { value: "clinic", label: "Klinik Pratama", icon: "🏥" },
+    { value: "doctor", label: "Praktek Dokter", icon: "🩺" },
+    { value: "psychologist", label: "Psikolog/Konseling", icon: "🧠" },
+    { value: "mua", label: "MUA", icon: "💄" },
+    { value: "photographer", label: "Fotografer/Studio", icon: "📷" },
+    { value: "consultant", label: "Konsultan", icon: "💼" },
+    { value: "tutor", label: "Tutor/Les Privat", icon: "✏️" },
+  ],
+  service: [
+    { value: "auto_repair", label: "Bengkel Otomotif", icon: "🔧" },
+    { value: "car_wash", label: "Cuci Mobil/Motor", icon: "🧼" },
+    { value: "laundry", label: "Laundry/Binatu", icon: "🧺" },
+    { value: "ac_service", label: "Servis AC", icon: "❄️" },
+    { value: "phone_service", label: "Servis HP/Laptop", icon: "📱" },
+    { value: "cleaning_service", label: "Cleaning Service", icon: "🧹" },
+  ],
+};
 
 export default function RegisterPage({ onLogin }: { onLogin: (token: string, user: any) => void }) {
   const [, setLocation] = useLocation();
   const [step, setStep] = useState(1);
   const [form, setForm] = useState({
+    businessEngine: "",
     businessType: "",
     businessName: "",
     address: "",
@@ -41,6 +92,7 @@ export default function RegisterPage({ onLogin }: { onLogin: (token: string, use
         password: form.password,
         businessName: form.businessName,
         businessType: form.businessType as any,
+        businessEngine: form.businessEngine as any,
         phone: form.phone || undefined,
         address: form.address || undefined,
         plan: form.plan as any,
@@ -100,30 +152,59 @@ export default function RegisterPage({ onLogin }: { onLogin: (token: string, use
           )}
 
           {step === 1 && (
-            <div>
-              <h2 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                <Building2 size={18} className="text-primary" /> Pilih Tipe Bisnis
-              </h2>
-              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                {BUSINESS_TYPES.map(bt => (
-                  <button
-                    key={bt.value}
-                    onClick={() => setForm(f => ({ ...f, businessType: bt.value }))}
-                    className={`p-4 rounded-xl border-2 text-center transition-all ${
-                      form.businessType === bt.value
-                        ? "border-primary bg-accent text-accent-foreground"
-                        : "border-border hover:border-primary/40"
-                    }`}
-                  >
-                    <div className="text-2xl mb-1">{bt.icon}</div>
-                    <div className="text-sm font-medium">{bt.label}</div>
-                  </button>
-                ))}
+            <div className="space-y-6">
+              <div>
+                <h2 className="font-semibold text-lg mb-3 flex items-center gap-2">
+                  <Building2 size={18} className="text-primary" /> 1. Pilih Business Engine
+                </h2>
+                <div className="grid grid-cols-2 gap-3">
+                  {BUSINESS_ENGINES.map(be => (
+                    <button
+                      key={be.value}
+                      type="button"
+                      onClick={() => setForm(f => ({ ...f, businessEngine: be.value, businessType: "" }))}
+                      className={`p-4 rounded-xl border-2 text-center transition-all cursor-pointer ${
+                        form.businessEngine === be.value
+                          ? "border-primary bg-primary/5 text-primary"
+                          : "border-border hover:border-primary/40 bg-card text-foreground"
+                      }`}
+                    >
+                      <div className="text-2xl mb-1">{be.icon}</div>
+                      <div className="text-sm font-semibold">{be.label}</div>
+                    </button>
+                  ))}
+                </div>
               </div>
+
+              {form.businessEngine && (
+                <div className="animate-fade-in">
+                  <h2 className="font-semibold text-base mb-3 flex items-center gap-2">
+                    🎯 2. Pilih Kategori Usaha
+                  </h2>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 max-h-[220px] overflow-y-auto pr-1">
+                    {CATEGORIES_BY_ENGINE[form.businessEngine]?.map(bt => (
+                      <button
+                        key={bt.value}
+                        type="button"
+                        onClick={() => setForm(f => ({ ...f, businessType: bt.value }))}
+                        className={`p-3 rounded-xl border-2 text-center transition-all cursor-pointer ${
+                          form.businessType === bt.value
+                            ? "border-primary bg-accent text-accent-foreground"
+                            : "border-border hover:border-primary/40 bg-card text-foreground"
+                        }`}
+                      >
+                        <div className="text-xl mb-1">{bt.icon}</div>
+                        <div className="text-xs font-semibold leading-tight">{bt.label}</div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <button
-                onClick={() => form.businessType && setStep(2)}
-                disabled={!form.businessType}
-                className="mt-6 w-full py-2.5 bg-primary text-primary-foreground rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity disabled:opacity-40 flex items-center justify-center gap-2"
+                onClick={() => form.businessEngine && form.businessType && setStep(2)}
+                disabled={!form.businessEngine || !form.businessType}
+                className="mt-2 w-full py-2.5 bg-primary text-primary-foreground rounded-lg font-semibold text-sm hover:opacity-90 transition-opacity disabled:opacity-40 flex items-center justify-center gap-2 cursor-pointer border-0"
               >
                 Lanjut <ChevronRight size={16} />
               </button>

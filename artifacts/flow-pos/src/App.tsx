@@ -26,6 +26,15 @@ import KitchenDisplayPage from "@/pages/kitchen-display";
 import DeliveryOrdersPage from "@/pages/delivery-orders";
 import ActivityLogsPage from "@/pages/activity-logs";
 import FlowAIPage from "@/pages/flowai";
+import CalendarPage from "@/pages/calendar";
+import BookingsPage from "@/pages/bookings";
+import ResourcesPage from "@/pages/resources";
+import ServicesPage from "@/pages/services";
+import StaffSchedulePage from "@/pages/staff-schedule";
+import AppointmentsPage from "@/pages/appointments";
+import WorkOrdersPage from "@/pages/work-orders";
+import QueuePage from "@/pages/queue";
+import TechniciansPage from "@/pages/technicians";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -131,6 +140,15 @@ function AppRoutes() {
           <Route path="/riwayat-cetak-struk"><RiwayatCetakStrukPage /></Route>
           <Route path="/ambil-stok"><AmbilStokPage /></Route>
           <Route path="/printer-settings"><PrinterSettingsPage /></Route>
+          <Route path="/calendar"><CalendarPage /></Route>
+          <Route path="/bookings"><BookingsPage /></Route>
+          <Route path="/resources"><ResourcesPage /></Route>
+          <Route path="/services"><ServicesPage /></Route>
+          <Route path="/staff-schedule"><StaffSchedulePage /></Route>
+          <Route path="/appointments"><AppointmentsPage /></Route>
+          <Route path="/work-orders"><WorkOrdersPage /></Route>
+          <Route path="/queue"><QueuePage /></Route>
+          <Route path="/technicians"><TechniciansPage /></Route>
 
           {/* All operational roles */}
           <Route path="/pos"><POSPage /></Route>

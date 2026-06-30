@@ -45,7 +45,8 @@ export const RegisterBody = zod.object({
   "email": zod.string(),
   "password": zod.string(),
   "businessName": zod.string(),
-  "businessType": zod.enum(['fnb', 'fashion', 'restaurant', 'cafe', 'salon', 'minimarket']),
+  "businessType": zod.enum(['fnb', 'fashion', 'restaurant', 'cafe', 'salon', 'minimarket', 'badminton', 'futsal', 'padel', 'tennis', 'music_studio', 'coworking', 'meeting_room', 'rental', 'venue', 'barbershop', 'spa', 'clinic', 'doctor', 'psychologist', 'mua', 'photographer', 'consultant', 'tutor', 'auto_repair', 'car_wash', 'laundry', 'ac_service', 'phone_service', 'cleaning_service', 'coffee_shop', 'bakery', 'boutique', 'grocery', 'pet_shop', 'electronics', 'hardware_store', 'pharmacy']),
+  "businessEngine": zod.enum(['retail', 'booking', 'appointment', 'service']).optional(),
   "phone": zod.string().nullish(),
   "address": zod.string().nullish(),
   "plan": zod.enum(['starter', 'business', 'pro', 'custom', 'trial']).optional(),
@@ -108,7 +109,8 @@ export const ListAdminTenantsResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "slug": zod.string().nullish(),
-  "businessType": zod.enum(['fnb', 'fashion', 'restaurant', 'cafe', 'salon', 'minimarket']),
+  "businessType": zod.enum(['fnb', 'fashion', 'restaurant', 'cafe', 'salon', 'minimarket', 'badminton', 'futsal', 'padel', 'tennis', 'music_studio', 'coworking', 'meeting_room', 'rental', 'venue', 'barbershop', 'spa', 'clinic', 'doctor', 'psychologist', 'mua', 'photographer', 'consultant', 'tutor', 'auto_repair', 'car_wash', 'laundry', 'ac_service', 'phone_service', 'cleaning_service', 'coffee_shop', 'bakery', 'boutique', 'grocery', 'pet_shop', 'electronics', 'hardware_store', 'pharmacy']),
+  "businessEngine": zod.enum(['retail', 'booking', 'appointment', 'service']).optional(),
   "status": zod.enum(['active', 'suspended', 'frozen', 'trial', 'expired']),
   "address": zod.string().nullish(),
   "phone": zod.string().nullish(),
@@ -162,7 +164,8 @@ export const GetAdminTenantResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "slug": zod.string().nullish(),
-  "businessType": zod.enum(['fnb', 'fashion', 'restaurant', 'cafe', 'salon', 'minimarket']),
+  "businessType": zod.enum(['fnb', 'fashion', 'restaurant', 'cafe', 'salon', 'minimarket', 'badminton', 'futsal', 'padel', 'tennis', 'music_studio', 'coworking', 'meeting_room', 'rental', 'venue', 'barbershop', 'spa', 'clinic', 'doctor', 'psychologist', 'mua', 'photographer', 'consultant', 'tutor', 'auto_repair', 'car_wash', 'laundry', 'ac_service', 'phone_service', 'cleaning_service', 'coffee_shop', 'bakery', 'boutique', 'grocery', 'pet_shop', 'electronics', 'hardware_store', 'pharmacy']),
+  "businessEngine": zod.enum(['retail', 'booking', 'appointment', 'service']).optional(),
   "status": zod.enum(['active', 'suspended', 'frozen', 'trial', 'expired']),
   "address": zod.string().nullish(),
   "phone": zod.string().nullish(),
@@ -224,7 +227,8 @@ export const UpdateTenantStatusResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "slug": zod.string().nullish(),
-  "businessType": zod.enum(['fnb', 'fashion', 'restaurant', 'cafe', 'salon', 'minimarket']),
+  "businessType": zod.enum(['fnb', 'fashion', 'restaurant', 'cafe', 'salon', 'minimarket', 'badminton', 'futsal', 'padel', 'tennis', 'music_studio', 'coworking', 'meeting_room', 'rental', 'venue', 'barbershop', 'spa', 'clinic', 'doctor', 'psychologist', 'mua', 'photographer', 'consultant', 'tutor', 'auto_repair', 'car_wash', 'laundry', 'ac_service', 'phone_service', 'cleaning_service', 'coffee_shop', 'bakery', 'boutique', 'grocery', 'pet_shop', 'electronics', 'hardware_store', 'pharmacy']),
+  "businessEngine": zod.enum(['retail', 'booking', 'appointment', 'service']).optional(),
   "status": zod.enum(['active', 'suspended', 'frozen', 'trial', 'expired']),
   "address": zod.string().nullish(),
   "phone": zod.string().nullish(),
@@ -327,7 +331,8 @@ export const GetTenantResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "slug": zod.string().nullish(),
-  "businessType": zod.enum(['fnb', 'fashion', 'restaurant', 'cafe', 'salon', 'minimarket']),
+  "businessType": zod.enum(['fnb', 'fashion', 'restaurant', 'cafe', 'salon', 'minimarket', 'badminton', 'futsal', 'padel', 'tennis', 'music_studio', 'coworking', 'meeting_room', 'rental', 'venue', 'barbershop', 'spa', 'clinic', 'doctor', 'psychologist', 'mua', 'photographer', 'consultant', 'tutor', 'auto_repair', 'car_wash', 'laundry', 'ac_service', 'phone_service', 'cleaning_service', 'coffee_shop', 'bakery', 'boutique', 'grocery', 'pet_shop', 'electronics', 'hardware_store', 'pharmacy']),
+  "businessEngine": zod.enum(['retail', 'booking', 'appointment', 'service']).optional(),
   "status": zod.enum(['active', 'suspended', 'frozen', 'trial', 'expired']),
   "address": zod.string().nullish(),
   "phone": zod.string().nullish(),
@@ -397,6 +402,8 @@ export const UpdateTenantBody = zod.object({
   "enableOpsHours": zod.boolean().optional(),
   "opsOpeningTime": zod.string().optional(),
   "opsClosingTime": zod.string().optional(),
+  "businessType": zod.enum(['fnb', 'fashion', 'restaurant', 'cafe', 'salon', 'minimarket', 'badminton', 'futsal', 'padel', 'tennis', 'music_studio', 'coworking', 'meeting_room', 'rental', 'venue', 'barbershop', 'spa', 'clinic', 'doctor', 'psychologist', 'mua', 'photographer', 'consultant', 'tutor', 'auto_repair', 'car_wash', 'laundry', 'ac_service', 'phone_service', 'cleaning_service', 'coffee_shop', 'bakery', 'boutique', 'grocery', 'pet_shop', 'electronics', 'hardware_store', 'pharmacy']).optional(),
+  "businessEngine": zod.enum(['retail', 'booking', 'appointment', 'service']).optional(),
   "pointSystemConfig": zod.object({
   "pointsPerItem": zod.number().optional(),
   "minClaimPoints": zod.number().optional(),
@@ -408,7 +415,8 @@ export const UpdateTenantResponse = zod.object({
   "id": zod.number(),
   "name": zod.string(),
   "slug": zod.string().nullish(),
-  "businessType": zod.enum(['fnb', 'fashion', 'restaurant', 'cafe', 'salon', 'minimarket']),
+  "businessType": zod.enum(['fnb', 'fashion', 'restaurant', 'cafe', 'salon', 'minimarket', 'badminton', 'futsal', 'padel', 'tennis', 'music_studio', 'coworking', 'meeting_room', 'rental', 'venue', 'barbershop', 'spa', 'clinic', 'doctor', 'psychologist', 'mua', 'photographer', 'consultant', 'tutor', 'auto_repair', 'car_wash', 'laundry', 'ac_service', 'phone_service', 'cleaning_service', 'coffee_shop', 'bakery', 'boutique', 'grocery', 'pet_shop', 'electronics', 'hardware_store', 'pharmacy']),
+  "businessEngine": zod.enum(['retail', 'booking', 'appointment', 'service']).optional(),
   "status": zod.enum(['active', 'suspended', 'frozen', 'trial', 'expired']),
   "address": zod.string().nullish(),
   "phone": zod.string().nullish(),
@@ -504,6 +512,623 @@ export const ListSubscriptionPlansResponseItem = zod.object({
   "features": zod.array(zod.string())
 })
 export const ListSubscriptionPlansResponse = zod.array(ListSubscriptionPlansResponseItem)
+
+
+/**
+ * @summary List booking resources
+ */
+export const ListBookingResourcesResponseItem = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "branchId": zod.number().nullish(),
+  "name": zod.string(),
+  "type": zod.string(),
+  "description": zod.string().nullish(),
+  "status": zod.enum(['active', 'inactive', 'maintenance']),
+  "priceWeekday": zod.number(),
+  "priceWeekend": zod.number(),
+  "priceMember": zod.number(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+export const ListBookingResourcesResponse = zod.array(ListBookingResourcesResponseItem)
+
+
+/**
+ * @summary Create booking resource
+ */
+export const CreateBookingResourceBody = zod.object({
+  "name": zod.string(),
+  "type": zod.string(),
+  "description": zod.string().optional(),
+  "status": zod.enum(['active', 'inactive', 'maintenance']).optional(),
+  "priceWeekday": zod.number(),
+  "priceWeekend": zod.number(),
+  "priceMember": zod.number(),
+  "branchId": zod.number().nullish()
+})
+
+
+/**
+ * @summary Update booking resource
+ */
+export const UpdateBookingResourceParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateBookingResourceBody = zod.object({
+  "name": zod.string(),
+  "type": zod.string(),
+  "description": zod.string().optional(),
+  "status": zod.enum(['active', 'inactive', 'maintenance']).optional(),
+  "priceWeekday": zod.number(),
+  "priceWeekend": zod.number(),
+  "priceMember": zod.number(),
+  "branchId": zod.number().nullish()
+})
+
+export const UpdateBookingResourceResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "branchId": zod.number().nullish(),
+  "name": zod.string(),
+  "type": zod.string(),
+  "description": zod.string().nullish(),
+  "status": zod.enum(['active', 'inactive', 'maintenance']),
+  "priceWeekday": zod.number(),
+  "priceWeekend": zod.number(),
+  "priceMember": zod.number(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Delete booking resource
+ */
+export const DeleteBookingResourceParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary List bookings
+ */
+export const ListBookingsQueryParams = zod.object({
+  "date": zod.coerce.string().optional()
+})
+
+export const ListBookingsResponseItem = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "branchId": zod.number().nullish(),
+  "resourceId": zod.number(),
+  "resourceName": zod.string().optional(),
+  "customerId": zod.number().nullish(),
+  "customerName": zod.string(),
+  "customerPhone": zod.string().nullish(),
+  "bookingDate": zod.string(),
+  "startTime": zod.string(),
+  "endTime": zod.string(),
+  "totalPrice": zod.number(),
+  "paymentStatus": zod.enum(['unpaid', 'paid', 'partial']),
+  "status": zod.enum(['pending', 'confirmed', 'checked_in', 'completed', 'cancelled', 'rescheduled']),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+export const ListBookingsResponse = zod.array(ListBookingsResponseItem)
+
+
+/**
+ * @summary Create a booking
+ */
+export const CreateBookingBody = zod.object({
+  "resourceId": zod.number(),
+  "customerId": zod.number().nullish(),
+  "customerName": zod.string(),
+  "customerPhone": zod.string().optional(),
+  "bookingDate": zod.string(),
+  "startTime": zod.string(),
+  "endTime": zod.string(),
+  "totalPrice": zod.number(),
+  "paymentStatus": zod.enum(['unpaid', 'paid', 'partial']).optional(),
+  "status": zod.enum(['pending', 'confirmed', 'checked_in', 'completed', 'cancelled', 'rescheduled']).optional(),
+  "notes": zod.string().optional(),
+  "branchId": zod.number().nullish()
+})
+
+
+/**
+ * @summary Get booking details
+ */
+export const GetBookingParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetBookingResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "branchId": zod.number().nullish(),
+  "resourceId": zod.number(),
+  "resourceName": zod.string().optional(),
+  "customerId": zod.number().nullish(),
+  "customerName": zod.string(),
+  "customerPhone": zod.string().nullish(),
+  "bookingDate": zod.string(),
+  "startTime": zod.string(),
+  "endTime": zod.string(),
+  "totalPrice": zod.number(),
+  "paymentStatus": zod.enum(['unpaid', 'paid', 'partial']),
+  "status": zod.enum(['pending', 'confirmed', 'checked_in', 'completed', 'cancelled', 'rescheduled']),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Update booking details (status, date, time)
+ */
+export const UpdateBookingParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateBookingBody = zod.object({
+  "resourceId": zod.number().optional(),
+  "customerId": zod.number().nullish(),
+  "customerName": zod.string().optional(),
+  "customerPhone": zod.string().optional(),
+  "bookingDate": zod.string().optional(),
+  "startTime": zod.string().optional(),
+  "endTime": zod.string().optional(),
+  "totalPrice": zod.number().optional(),
+  "paymentStatus": zod.enum(['unpaid', 'paid', 'partial']).optional(),
+  "status": zod.enum(['pending', 'confirmed', 'checked_in', 'completed', 'cancelled', 'rescheduled']).optional(),
+  "notes": zod.string().optional()
+})
+
+export const UpdateBookingResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "branchId": zod.number().nullish(),
+  "resourceId": zod.number(),
+  "resourceName": zod.string().optional(),
+  "customerId": zod.number().nullish(),
+  "customerName": zod.string(),
+  "customerPhone": zod.string().nullish(),
+  "bookingDate": zod.string(),
+  "startTime": zod.string(),
+  "endTime": zod.string(),
+  "totalPrice": zod.number(),
+  "paymentStatus": zod.enum(['unpaid', 'paid', 'partial']),
+  "status": zod.enum(['pending', 'confirmed', 'checked_in', 'completed', 'cancelled', 'rescheduled']),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Delete a booking record
+ */
+export const DeleteBookingParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary Check in a booking
+ */
+export const CheckInBookingParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const CheckInBookingResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "branchId": zod.number().nullish(),
+  "resourceId": zod.number(),
+  "resourceName": zod.string().optional(),
+  "customerId": zod.number().nullish(),
+  "customerName": zod.string(),
+  "customerPhone": zod.string().nullish(),
+  "bookingDate": zod.string(),
+  "startTime": zod.string(),
+  "endTime": zod.string(),
+  "totalPrice": zod.number(),
+  "paymentStatus": zod.enum(['unpaid', 'paid', 'partial']),
+  "status": zod.enum(['pending', 'confirmed', 'checked_in', 'completed', 'cancelled', 'rescheduled']),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Complete a booking
+ */
+export const CompleteBookingParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const CompleteBookingResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "branchId": zod.number().nullish(),
+  "resourceId": zod.number(),
+  "resourceName": zod.string().optional(),
+  "customerId": zod.number().nullish(),
+  "customerName": zod.string(),
+  "customerPhone": zod.string().nullish(),
+  "bookingDate": zod.string(),
+  "startTime": zod.string(),
+  "endTime": zod.string(),
+  "totalPrice": zod.number(),
+  "paymentStatus": zod.enum(['unpaid', 'paid', 'partial']),
+  "status": zod.enum(['pending', 'confirmed', 'checked_in', 'completed', 'cancelled', 'rescheduled']),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary List services
+ */
+export const ListServicesResponseItem = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "branchId": zod.number().nullish(),
+  "name": zod.string(),
+  "duration": zod.number(),
+  "price": zod.number(),
+  "commissionRate": zod.number(),
+  "description": zod.string().nullish(),
+  "status": zod.enum(['active', 'inactive']).optional(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+export const ListServicesResponse = zod.array(ListServicesResponseItem)
+
+
+/**
+ * @summary Create service
+ */
+export const CreateServiceBody = zod.object({
+  "name": zod.string(),
+  "duration": zod.number(),
+  "price": zod.number(),
+  "commissionRate": zod.number(),
+  "description": zod.string().optional(),
+  "status": zod.enum(['active', 'inactive']).optional(),
+  "branchId": zod.number().nullish()
+})
+
+
+/**
+ * @summary Update service details
+ */
+export const UpdateServiceParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateServiceBody = zod.object({
+  "name": zod.string(),
+  "duration": zod.number(),
+  "price": zod.number(),
+  "commissionRate": zod.number(),
+  "description": zod.string().optional(),
+  "status": zod.enum(['active', 'inactive']).optional(),
+  "branchId": zod.number().nullish()
+})
+
+export const UpdateServiceResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "branchId": zod.number().nullish(),
+  "name": zod.string(),
+  "duration": zod.number(),
+  "price": zod.number(),
+  "commissionRate": zod.number(),
+  "description": zod.string().nullish(),
+  "status": zod.enum(['active', 'inactive']).optional(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Delete service
+ */
+export const DeleteServiceParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary List appointments
+ */
+export const ListAppointmentsQueryParams = zod.object({
+  "date": zod.coerce.string().optional()
+})
+
+export const ListAppointmentsResponseItem = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "branchId": zod.number().nullish(),
+  "employeeId": zod.number(),
+  "employeeName": zod.string().optional(),
+  "serviceId": zod.number(),
+  "serviceName": zod.string().optional(),
+  "customerId": zod.number().nullish(),
+  "customerName": zod.string(),
+  "customerPhone": zod.string().nullish(),
+  "appointmentDate": zod.string(),
+  "startTime": zod.string(),
+  "endTime": zod.string(),
+  "totalPrice": zod.number(),
+  "commissionPaid": zod.number(),
+  "paymentStatus": zod.enum(['unpaid', 'paid', 'partial']),
+  "status": zod.enum(['pending', 'confirmed', 'completed', 'cancelled', 'rescheduled']),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+export const ListAppointmentsResponse = zod.array(ListAppointmentsResponseItem)
+
+
+/**
+ * @summary Create an appointment
+ */
+export const CreateAppointmentBody = zod.object({
+  "employeeId": zod.number(),
+  "serviceId": zod.number(),
+  "customerId": zod.number().nullish(),
+  "customerName": zod.string(),
+  "customerPhone": zod.string().optional(),
+  "appointmentDate": zod.string(),
+  "startTime": zod.string(),
+  "endTime": zod.string(),
+  "totalPrice": zod.number(),
+  "commissionPaid": zod.number().optional(),
+  "paymentStatus": zod.enum(['unpaid', 'paid', 'partial']).optional(),
+  "status": zod.enum(['pending', 'confirmed', 'completed', 'cancelled', 'rescheduled']).optional(),
+  "notes": zod.string().optional(),
+  "branchId": zod.number().nullish()
+})
+
+
+/**
+ * @summary Get appointment details
+ */
+export const GetAppointmentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetAppointmentResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "branchId": zod.number().nullish(),
+  "employeeId": zod.number(),
+  "employeeName": zod.string().optional(),
+  "serviceId": zod.number(),
+  "serviceName": zod.string().optional(),
+  "customerId": zod.number().nullish(),
+  "customerName": zod.string(),
+  "customerPhone": zod.string().nullish(),
+  "appointmentDate": zod.string(),
+  "startTime": zod.string(),
+  "endTime": zod.string(),
+  "totalPrice": zod.number(),
+  "commissionPaid": zod.number(),
+  "paymentStatus": zod.enum(['unpaid', 'paid', 'partial']),
+  "status": zod.enum(['pending', 'confirmed', 'completed', 'cancelled', 'rescheduled']),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Update appointment (status, date, time)
+ */
+export const UpdateAppointmentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateAppointmentBody = zod.object({
+  "employeeId": zod.number().optional(),
+  "serviceId": zod.number().optional(),
+  "customerId": zod.number().nullish(),
+  "customerName": zod.string().optional(),
+  "customerPhone": zod.string().optional(),
+  "appointmentDate": zod.string().optional(),
+  "startTime": zod.string().optional(),
+  "endTime": zod.string().optional(),
+  "totalPrice": zod.number().optional(),
+  "commissionPaid": zod.number().optional(),
+  "paymentStatus": zod.enum(['unpaid', 'paid', 'partial']).optional(),
+  "status": zod.enum(['pending', 'confirmed', 'completed', 'cancelled', 'rescheduled']).optional(),
+  "notes": zod.string().optional()
+})
+
+export const UpdateAppointmentResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "branchId": zod.number().nullish(),
+  "employeeId": zod.number(),
+  "employeeName": zod.string().optional(),
+  "serviceId": zod.number(),
+  "serviceName": zod.string().optional(),
+  "customerId": zod.number().nullish(),
+  "customerName": zod.string(),
+  "customerPhone": zod.string().nullish(),
+  "appointmentDate": zod.string(),
+  "startTime": zod.string(),
+  "endTime": zod.string(),
+  "totalPrice": zod.number(),
+  "commissionPaid": zod.number(),
+  "paymentStatus": zod.enum(['unpaid', 'paid', 'partial']),
+  "status": zod.enum(['pending', 'confirmed', 'completed', 'cancelled', 'rescheduled']),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Delete an appointment record
+ */
+export const DeleteAppointmentParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+
+/**
+ * @summary List work orders
+ */
+export const ListWorkOrdersQueryParams = zod.object({
+  "status": zod.coerce.string().optional()
+})
+
+export const ListWorkOrdersResponseItem = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "branchId": zod.number().nullish(),
+  "customerId": zod.number().nullish(),
+  "customerName": zod.string(),
+  "customerPhone": zod.string().nullish(),
+  "technicianId": zod.number().nullish(),
+  "technicianName": zod.string().optional(),
+  "deviceName": zod.string(),
+  "deviceIdentifier": zod.string().nullish(),
+  "problemDescription": zod.string(),
+  "servicePrice": zod.number(),
+  "sparepartsPrice": zod.number(),
+  "totalPrice": zod.number(),
+  "sparepartsDetails": zod.string().nullish(),
+  "warrantyDays": zod.number(),
+  "status": zod.enum(['queue', 'inspecting', 'repairing', 'testing', 'completed', 'cancelled']),
+  "paymentStatus": zod.enum(['unpaid', 'paid']),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+export const ListWorkOrdersResponse = zod.array(ListWorkOrdersResponseItem)
+
+
+/**
+ * @summary Create a work order
+ */
+export const CreateWorkOrderBody = zod.object({
+  "customerId": zod.number().nullish(),
+  "customerName": zod.string(),
+  "customerPhone": zod.string().optional(),
+  "technicianId": zod.number().nullish(),
+  "deviceName": zod.string(),
+  "deviceIdentifier": zod.string().optional(),
+  "problemDescription": zod.string(),
+  "servicePrice": zod.number(),
+  "sparepartsPrice": zod.number().optional(),
+  "totalPrice": zod.number().optional(),
+  "sparepartsDetails": zod.string().optional(),
+  "warrantyDays": zod.number().optional(),
+  "status": zod.enum(['queue', 'inspecting', 'repairing', 'testing', 'completed', 'cancelled']).optional(),
+  "paymentStatus": zod.enum(['unpaid', 'paid']).optional(),
+  "notes": zod.string().optional(),
+  "branchId": zod.number().nullish()
+})
+
+
+/**
+ * @summary Get work order details
+ */
+export const GetWorkOrderParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const GetWorkOrderResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "branchId": zod.number().nullish(),
+  "customerId": zod.number().nullish(),
+  "customerName": zod.string(),
+  "customerPhone": zod.string().nullish(),
+  "technicianId": zod.number().nullish(),
+  "technicianName": zod.string().optional(),
+  "deviceName": zod.string(),
+  "deviceIdentifier": zod.string().nullish(),
+  "problemDescription": zod.string(),
+  "servicePrice": zod.number(),
+  "sparepartsPrice": zod.number(),
+  "totalPrice": zod.number(),
+  "sparepartsDetails": zod.string().nullish(),
+  "warrantyDays": zod.number(),
+  "status": zod.enum(['queue', 'inspecting', 'repairing', 'testing', 'completed', 'cancelled']),
+  "paymentStatus": zod.enum(['unpaid', 'paid']),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Update work order (status, prices, notes)
+ */
+export const UpdateWorkOrderParams = zod.object({
+  "id": zod.coerce.number()
+})
+
+export const UpdateWorkOrderBody = zod.object({
+  "customerId": zod.number().nullish(),
+  "customerName": zod.string().optional(),
+  "customerPhone": zod.string().optional(),
+  "technicianId": zod.number().nullish(),
+  "deviceName": zod.string().optional(),
+  "deviceIdentifier": zod.string().optional(),
+  "problemDescription": zod.string().optional(),
+  "servicePrice": zod.number().optional(),
+  "sparepartsPrice": zod.number().optional(),
+  "totalPrice": zod.number().optional(),
+  "sparepartsDetails": zod.string().optional(),
+  "warrantyDays": zod.number().optional(),
+  "status": zod.enum(['queue', 'inspecting', 'repairing', 'testing', 'completed', 'cancelled']).optional(),
+  "paymentStatus": zod.enum(['unpaid', 'paid']).optional(),
+  "notes": zod.string().optional()
+})
+
+export const UpdateWorkOrderResponse = zod.object({
+  "id": zod.number(),
+  "tenantId": zod.number(),
+  "branchId": zod.number().nullish(),
+  "customerId": zod.number().nullish(),
+  "customerName": zod.string(),
+  "customerPhone": zod.string().nullish(),
+  "technicianId": zod.number().nullish(),
+  "technicianName": zod.string().optional(),
+  "deviceName": zod.string(),
+  "deviceIdentifier": zod.string().nullish(),
+  "problemDescription": zod.string(),
+  "servicePrice": zod.number(),
+  "sparepartsPrice": zod.number(),
+  "totalPrice": zod.number(),
+  "sparepartsDetails": zod.string().nullish(),
+  "warrantyDays": zod.number(),
+  "status": zod.enum(['queue', 'inspecting', 'repairing', 'testing', 'completed', 'cancelled']),
+  "paymentStatus": zod.enum(['unpaid', 'paid']),
+  "notes": zod.string().nullish(),
+  "createdAt": zod.string(),
+  "updatedAt": zod.string()
+})
+
+
+/**
+ * @summary Delete a work order
+ */
+export const DeleteWorkOrderParams = zod.object({
+  "id": zod.coerce.number()
+})
 
 
 /**

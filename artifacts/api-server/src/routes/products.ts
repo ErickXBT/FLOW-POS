@@ -162,6 +162,21 @@ router.get("/products/scan-lookup", async (req, res): Promise<void> => {
 
   const activeBranchId = branchId ? Number(branchId) : await getRequestedBranchId(req, claims);
 
+  const cleanBarcode = barcode.trim();
+  const searchBarcodes = [cleanBarcode];
+  const stripped = cleanBarcode.replace(/^0+/, "");
+  if (stripped && stripped !== cleanBarcode) {
+    searchBarcodes.push(stripped);
+  }
+  if (!cleanBarcode.startsWith("0")) {
+    searchBarcodes.push("0" + cleanBarcode);
+  }
+
+  const barcodeConditions = searchBarcodes.flatMap(code => [
+    eq(productsTable.barcode, code),
+    eq(productsTable.sku, code)
+  ]);
+
   const [row] = await db
     .select({
       product: productsTable,
@@ -184,7 +199,7 @@ router.get("/products/scan-lookup", async (req, res): Promise<void> => {
     )
     .where(and(
       eq(productsTable.tenantId, claims.tenantId!),
-      or(eq(productsTable.barcode, barcode), eq(productsTable.sku, barcode))
+      or(...barcodeConditions)
     ))
     .limit(1);
 
@@ -210,7 +225,16 @@ router.get("/products", async (req, res): Promise<void> => {
   const branchId = await getRequestedBranchId(req, claims);
 
   const conditions = [eq(productsTable.tenantId, claims.tenantId!)];
-  if (search) conditions.push(ilike(productsTable.name, `%${search}%`));
+  if (search) {
+    const searchOr = or(
+      ilike(productsTable.name, `%${search}%`),
+      ilike(productsTable.sku, `%${search}%`),
+      ilike(productsTable.barcode, `%${search}%`)
+    );
+    if (searchOr) {
+      conditions.push(searchOr);
+    }
+  }
   if (categoryId) conditions.push(eq(productsTable.categoryId, categoryId));
   const where = and(...conditions);
 

@@ -349,6 +349,465 @@ paths:
                 items:
                   $ref: "#/components/schemas/SubscriptionPlan"
 
+  # ── Booking Resources ───────────────────────────────────────────────────
+  /tenant/booking-resources:
+    get:
+      operationId: listBookingResources
+      tags: [tenant]
+      summary: List booking resources
+      responses:
+        "200":
+          description: Resources list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/BookingResource"
+    post:
+      operationId: createBookingResource
+      tags: [tenant]
+      summary: Create booking resource
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookingResourceInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookingResource"
+
+  /tenant/booking-resources/{id}:
+    patch:
+      operationId: updateBookingResource
+      tags: [tenant]
+      summary: Update booking resource
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookingResourceInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BookingResource"
+    delete:
+      operationId: deleteBookingResource
+      tags: [tenant]
+      summary: Delete booking resource
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Bookings ────────────────────────────────────────────────────────────
+  /tenant/bookings:
+    get:
+      operationId: listBookings
+      tags: [tenant]
+      summary: List bookings
+      parameters:
+        - name: date
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Bookings list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Booking"
+    post:
+      operationId: createBooking
+      tags: [tenant]
+      summary: Create a booking
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookingInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+
+  /tenant/bookings/{id}:
+    get:
+      operationId: getBooking
+      tags: [tenant]
+      summary: Get booking details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Booking details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+    patch:
+      operationId: updateBooking
+      tags: [tenant]
+      summary: Update booking details (status, date, time)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BookingUpdateInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+    delete:
+      operationId: deleteBooking
+      tags: [tenant]
+      summary: Delete a booking record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  /tenant/bookings/{id}/check-in:
+    post:
+      operationId: checkInBooking
+      tags: [tenant]
+      summary: Check in a booking
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Checked in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+
+  /tenant/bookings/{id}/complete:
+    post:
+      operationId: completeBooking
+      tags: [tenant]
+      summary: Complete a booking
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Booking"
+
+  # ── Services ────────────────────────────────────────────────────────────
+  /tenant/services:
+    get:
+      operationId: listServices
+      tags: [tenant]
+      summary: List services
+      responses:
+        "200":
+          description: Services list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Service"
+    post:
+      operationId: createService
+      tags: [tenant]
+      summary: Create service
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Service"
+
+  /tenant/services/{id}:
+    patch:
+      operationId: updateService
+      tags: [tenant]
+      summary: Update service details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServiceInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Service"
+    delete:
+      operationId: deleteService
+      tags: [tenant]
+      summary: Delete service
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Appointments ────────────────────────────────────────────────────────
+  /tenant/appointments:
+    get:
+      operationId: listAppointments
+      tags: [tenant]
+      summary: List appointments
+      parameters:
+        - name: date
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Appointments list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Appointment"
+    post:
+      operationId: createAppointment
+      tags: [tenant]
+      summary: Create an appointment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppointmentInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+
+  /tenant/appointments/{id}:
+    get:
+      operationId: getAppointment
+      tags: [tenant]
+      summary: Get appointment details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Appointment details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+    patch:
+      operationId: updateAppointment
+      tags: [tenant]
+      summary: Update appointment (status, date, time)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppointmentUpdateInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Appointment"
+    delete:
+      operationId: deleteAppointment
+      tags: [tenant]
+      summary: Delete an appointment record
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
+  # ── Work Orders ─────────────────────────────────────────────────────────
+  /tenant/work-orders:
+    get:
+      operationId: listWorkOrders
+      tags: [tenant]
+      summary: List work orders
+      parameters:
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Work orders list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/WorkOrder"
+    post:
+      operationId: createWorkOrder
+      tags: [tenant]
+      summary: Create a work order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkOrderInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkOrder"
+
+  /tenant/work-orders/{id}:
+    get:
+      operationId: getWorkOrder
+      tags: [tenant]
+      summary: Get work order details
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Work order details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkOrder"
+    patch:
+      operationId: updateWorkOrder
+      tags: [tenant]
+      summary: Update work order (status, prices, notes)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkOrderUpdateInput"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkOrder"
+    delete:
+      operationId: deleteWorkOrder
+      tags: [tenant]
+      summary: Delete a work order
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Deleted
+
   # ── Categories ───────────────────────────────────────────────────────────
   /categories:
     get:
@@ -1490,7 +1949,10 @@ components:
           type: string
         businessType:
           type: string
-          enum: [fnb, fashion, restaurant, cafe, salon, minimarket]
+          enum: [fnb, fashion, restaurant, cafe, salon, minimarket, badminton, futsal, padel, tennis, music_studio, coworking, meeting_room, rental, venue, barbershop, spa, clinic, doctor, psychologist, mua, photographer, consultant, tutor, auto_repair, car_wash, laundry, ac_service, phone_service, cleaning_service, coffee_shop, bakery, boutique, grocery, pet_shop, electronics, hardware_store, pharmacy]
+        businessEngine:
+          type: string
+          enum: [retail, booking, appointment, service]
         phone:
           type: ["string", "null"]
         address:
@@ -1617,7 +2079,10 @@ components:
           type: ["string", "null"]
         businessType:
           type: string
-          enum: [fnb, fashion, restaurant, cafe, salon, minimarket]
+          enum: [fnb, fashion, restaurant, cafe, salon, minimarket, badminton, futsal, padel, tennis, music_studio, coworking, meeting_room, rental, venue, barbershop, spa, clinic, doctor, psychologist, mua, photographer, consultant, tutor, auto_repair, car_wash, laundry, ac_service, phone_service, cleaning_service, coffee_shop, bakery, boutique, grocery, pet_shop, electronics, hardware_store, pharmacy]
+        businessEngine:
+          type: string
+          enum: [retail, booking, appointment, service]
         status:
           type: string
           enum: [active, suspended, frozen, trial, expired]
@@ -1746,6 +2211,12 @@ components:
           type: string
         opsClosingTime:
           type: string
+        businessType:
+          type: string
+          enum: [fnb, fashion, restaurant, cafe, salon, minimarket, badminton, futsal, padel, tennis, music_studio, coworking, meeting_room, rental, venue, barbershop, spa, clinic, doctor, psychologist, mua, photographer, consultant, tutor, auto_repair, car_wash, laundry, ac_service, phone_service, cleaning_service, coffee_shop, bakery, boutique, grocery, pet_shop, electronics, hardware_store, pharmacy]
+        businessEngine:
+          type: string
+          enum: [retail, booking, appointment, service]
         pointSystemConfig:
           type: object
           properties:
@@ -2719,4 +3190,455 @@ components:
         billingCycle:
           type: string
           enum: [monthly, yearly]
+
+    BookingResource:
+      type: object
+      required: [id, tenantId, name, type, status, priceWeekday, priceWeekend, priceMember, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        tenantId:
+          type: integer
+        branchId:
+          type: ["integer", "null"]
+        name:
+          type: string
+        type:
+          type: string
+        description:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [active, inactive, maintenance]
+        priceWeekday:
+          type: number
+        priceWeekend:
+          type: number
+        priceMember:
+          type: number
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    BookingResourceInput:
+      type: object
+      required: [name, type, priceWeekday, priceWeekend, priceMember]
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive, maintenance]
+        priceWeekday:
+          type: number
+        priceWeekend:
+          type: number
+        priceMember:
+          type: number
+        branchId:
+          type: integer
+          nullable: true
+
+    Booking:
+      type: object
+      required: [id, tenantId, resourceId, customerName, bookingDate, startTime, endTime, totalPrice, paymentStatus, status, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        tenantId:
+          type: integer
+        branchId:
+          type: ["integer", "null"]
+        resourceId:
+          type: integer
+        resourceName:
+          type: string
+        customerId:
+          type: ["integer", "null"]
+        customerName:
+          type: string
+        customerPhone:
+          type: ["string", "null"]
+        bookingDate:
+          type: string
+        startTime:
+          type: string
+        endTime:
+          type: string
+        totalPrice:
+          type: number
+        paymentStatus:
+          type: string
+          enum: [unpaid, paid, partial]
+        status:
+          type: string
+          enum: [pending, confirmed, checked_in, completed, cancelled, rescheduled]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    BookingInput:
+      type: object
+      required: [resourceId, customerName, bookingDate, startTime, endTime, totalPrice]
+      properties:
+        resourceId:
+          type: integer
+        customerId:
+          type: integer
+          nullable: true
+        customerName:
+          type: string
+        customerPhone:
+          type: string
+        bookingDate:
+          type: string
+        startTime:
+          type: string
+        endTime:
+          type: string
+        totalPrice:
+          type: number
+        paymentStatus:
+          type: string
+          enum: [unpaid, paid, partial]
+        status:
+          type: string
+          enum: [pending, confirmed, checked_in, completed, cancelled, rescheduled]
+        notes:
+          type: string
+        branchId:
+          type: integer
+          nullable: true
+
+    BookingUpdateInput:
+      type: object
+      properties:
+        resourceId:
+          type: integer
+        customerId:
+          type: integer
+          nullable: true
+        customerName:
+          type: string
+        customerPhone:
+          type: string
+        bookingDate:
+          type: string
+        startTime:
+          type: string
+        endTime:
+          type: string
+        totalPrice:
+          type: number
+        paymentStatus:
+          type: string
+          enum: [unpaid, paid, partial]
+        status:
+          type: string
+          enum: [pending, confirmed, checked_in, completed, cancelled, rescheduled]
+        notes:
+          type: string
+
+    Service:
+      type: object
+      required: [id, tenantId, name, duration, price, commissionRate, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        tenantId:
+          type: integer
+        branchId:
+          type: ["integer", "null"]
+        name:
+          type: string
+        duration:
+          type: integer
+        price:
+          type: number
+        commissionRate:
+          type: number
+        description:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [active, inactive]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    ServiceInput:
+      type: object
+      required: [name, duration, price, commissionRate]
+      properties:
+        name:
+          type: string
+        duration:
+          type: integer
+        price:
+          type: number
+        commissionRate:
+          type: number
+        description:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive]
+        branchId:
+          type: integer
+          nullable: true
+
+    Appointment:
+      type: object
+      required: [id, tenantId, employeeId, serviceId, customerName, appointmentDate, startTime, endTime, totalPrice, commissionPaid, paymentStatus, status, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        tenantId:
+          type: integer
+        branchId:
+          type: ["integer", "null"]
+        employeeId:
+          type: integer
+        employeeName:
+          type: string
+        serviceId:
+          type: integer
+        serviceName:
+          type: string
+        customerId:
+          type: ["integer", "null"]
+        customerName:
+          type: string
+        customerPhone:
+          type: ["string", "null"]
+        appointmentDate:
+          type: string
+        startTime:
+          type: string
+        endTime:
+          type: string
+        totalPrice:
+          type: number
+        commissionPaid:
+          type: number
+        paymentStatus:
+          type: string
+          enum: [unpaid, paid, partial]
+        status:
+          type: string
+          enum: [pending, confirmed, completed, cancelled, rescheduled]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    AppointmentInput:
+      type: object
+      required: [employeeId, serviceId, customerName, appointmentDate, startTime, endTime, totalPrice]
+      properties:
+        employeeId:
+          type: integer
+        serviceId:
+          type: integer
+        customerId:
+          type: integer
+          nullable: true
+        customerName:
+          type: string
+        customerPhone:
+          type: string
+        appointmentDate:
+          type: string
+        startTime:
+          type: string
+        endTime:
+          type: string
+        totalPrice:
+          type: number
+        commissionPaid:
+          type: number
+        paymentStatus:
+          type: string
+          enum: [unpaid, paid, partial]
+        status:
+          type: string
+          enum: [pending, confirmed, completed, cancelled, rescheduled]
+        notes:
+          type: string
+        branchId:
+          type: integer
+          nullable: true
+
+    AppointmentUpdateInput:
+      type: object
+      properties:
+        employeeId:
+          type: integer
+        serviceId:
+          type: integer
+        customerId:
+          type: integer
+          nullable: true
+        customerName:
+          type: string
+        customerPhone:
+          type: string
+        appointmentDate:
+          type: string
+        startTime:
+          type: string
+        endTime:
+          type: string
+        totalPrice:
+          type: number
+        commissionPaid:
+          type: number
+        paymentStatus:
+          type: string
+          enum: [unpaid, paid, partial]
+        status:
+          type: string
+          enum: [pending, confirmed, completed, cancelled, rescheduled]
+        notes:
+          type: string
+
+    WorkOrder:
+      type: object
+      required: [id, tenantId, customerName, deviceName, problemDescription, servicePrice, sparepartsPrice, totalPrice, warrantyDays, status, paymentStatus, createdAt, updatedAt]
+      properties:
+        id:
+          type: integer
+        tenantId:
+          type: integer
+        branchId:
+          type: ["integer", "null"]
+        customerId:
+          type: ["integer", "null"]
+        customerName:
+          type: string
+        customerPhone:
+          type: ["string", "null"]
+        technicianId:
+          type: ["integer", "null"]
+        technicianName:
+          type: string
+        deviceName:
+          type: string
+        deviceIdentifier:
+          type: ["string", "null"]
+        problemDescription:
+          type: string
+        servicePrice:
+          type: number
+        sparepartsPrice:
+          type: number
+        totalPrice:
+          type: number
+        sparepartsDetails:
+          type: ["string", "null"]
+        warrantyDays:
+          type: integer
+        status:
+          type: string
+          enum: [queue, inspecting, repairing, testing, completed, cancelled]
+        paymentStatus:
+          type: string
+          enum: [unpaid, paid]
+        notes:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+
+    WorkOrderInput:
+      type: object
+      required: [customerName, deviceName, problemDescription, servicePrice]
+      properties:
+        customerId:
+          type: integer
+          nullable: true
+        customerName:
+          type: string
+        customerPhone:
+          type: string
+        technicianId:
+          type: integer
+          nullable: true
+        deviceName:
+          type: string
+        deviceIdentifier:
+          type: string
+        problemDescription:
+          type: string
+        servicePrice:
+          type: number
+        sparepartsPrice:
+          type: number
+        totalPrice:
+          type: number
+        sparepartsDetails:
+          type: string
+        warrantyDays:
+          type: integer
+        status:
+          type: string
+          enum: [queue, inspecting, repairing, testing, completed, cancelled]
+        paymentStatus:
+          type: string
+          enum: [unpaid, paid]
+        notes:
+          type: string
+        branchId:
+          type: integer
+          nullable: true
+
+    WorkOrderUpdateInput:
+      type: object
+      properties:
+        customerId:
+          type: integer
+          nullable: true
+        customerName:
+          type: string
+        customerPhone:
+          type: string
+        technicianId:
+          type: integer
+          nullable: true
+        deviceName:
+          type: string
+        deviceIdentifier:
+          type: string
+        problemDescription:
+          type: string
+        servicePrice:
+          type: number
+        sparepartsPrice:
+          type: number
+        totalPrice:
+          type: number
+        sparepartsDetails:
+          type: string
+        warrantyDays:
+          type: integer
+        status:
+          type: string
+          enum: [queue, inspecting, repairing, testing, completed, cancelled]
+        paymentStatus:
+          type: string
+          enum: [unpaid, paid]
+        notes:
+          type: string
 

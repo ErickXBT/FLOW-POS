@@ -7,6 +7,7 @@ export const tenantsTable = pgTable("tenants", {
   name: text("name").notNull(),
   slug: text("slug").unique(),
   businessType: text("business_type").notNull(), // fnb, fashion, restaurant, cafe, salon, minimarket
+  businessEngine: text("business_engine").notNull().default("retail"), // retail, booking, appointment, service
   status: text("status").notNull().default("trial"), // active, suspended, frozen, trial, expired
   address: text("address"),
   phone: text("phone"),

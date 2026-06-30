@@ -16,6 +16,9 @@ import branchesRouter from "./branches";
 import rolesRouter from "./roles";
 import shiftsRouter from "./shifts";
 import expensesRouter from "./expenses";
+import bookingsRouter from "./bookings";
+import appointmentsRouter from "./appointments";
+import workOrdersRouter from "./work-orders";
 
 const router: IRouter = Router();
 
@@ -36,5 +39,8 @@ router.use(branchesRouter);
 router.use(rolesRouter);
 router.use(shiftsRouter);
 router.use(expensesRouter);
+router.use(bookingsRouter);
+router.use(appointmentsRouter);
+router.use(workOrdersRouter);
 
 export default router;
