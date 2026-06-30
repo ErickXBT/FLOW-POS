@@ -857,7 +857,7 @@ export default function SettingsPage() {
         <div className="flex items-center justify-between p-3 bg-muted/20 border border-border/50 rounded-lg">
           <div>
             <div className="text-sm font-semibold">Aktifkan Pajak untuk Customer</div>
-            <div className="text-xs text-muted-foreground">Aktifkan jika ingin mengenakan pajak pada setiap transaksi pelanggan (F&B dan Fashion).</div>
+            <div className="text-xs text-muted-foreground">Aktifkan jika ingin mengenakan pajak pada setiap transaksi pelanggan.</div>
           </div>
           <label className="relative inline-flex items-center cursor-pointer select-none">
             <input
@@ -908,7 +908,7 @@ export default function SettingsPage() {
         <div className="flex items-center justify-between p-3 bg-muted/20 border border-border/50 rounded-lg">
           <div>
             <div className="text-sm font-semibold">Aktifkan Biaya Servis (Service Charge) untuk Customer</div>
-            <div className="text-xs text-muted-foreground">Aktifkan jika ingin mengenakan biaya servis pada setiap transaksi pelanggan (F&B dan Fashion).</div>
+            <div className="text-xs text-muted-foreground">Aktifkan jika ingin mengenakan biaya servis pada setiap transaksi pelanggan.</div>
           </div>
           <label className="relative inline-flex items-center cursor-pointer select-none">
             <input
@@ -968,6 +968,7 @@ export default function SettingsPage() {
               value={form.qrisId}
               onChange={e => setForm(p => ({ ...p, qrisId: e.target.value }))}
               placeholder="Masukkan NMID toko Anda..."
+              autoComplete="new-password"
               className="w-full px-3 py-2.5 rounded-lg border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
@@ -976,10 +977,12 @@ export default function SettingsPage() {
             <label className="block text-xs font-semibold mb-1 text-foreground">Payload QRIS String (Format EMVCo)</label>
             <div className="relative flex items-center">
               <input
-                type={showPayloadRaw ? "text" : "password"}
+                type="text"
                 value={form.qrisPayload}
                 onChange={e => setForm(p => ({ ...p, qrisPayload: e.target.value }))}
                 placeholder="Masukkan string payload QRIS static (000201...)"
+                autoComplete="new-password"
+                style={!showPayloadRaw ? { WebkitTextSecurity: 'disc' } as any : undefined}
                 className="w-full pl-3 pr-10 py-2.5 rounded-lg border border-input bg-background text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
               />
               <button

@@ -213,6 +213,10 @@ function OwnerDashboard() {
   const { data: tenant } = useGetTenant();
   const plan = tenant?.subscriptionPlan || "trial";
   const isFashion = tenant?.businessType === "fashion";
+  const engine = (tenant as any)?.businessEngine || "retail";
+  const isBooking = engine === "booking";
+  const isAppointment = engine === "appointment";
+  const isService = engine === "service";
   const isDemo = tenant?.slug === "budi-resto";
 
   // Fetch announcements from super admin
@@ -1239,14 +1243,42 @@ function OwnerDashboard() {
       <header className="sticky top-0 z-30 bg-card/80 backdrop-blur-md border-b border-border px-6 py-4 flex items-center justify-between shadow-sm">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-primary/10 rounded-xl flex items-center justify-center text-primary font-bold text-lg font-mono">
-            {isFashion ? <Shirt size={20} className="text-primary animate-pulse" /> : "F"}
+            {isBooking ? (
+              <Calendar size={20} className="text-primary animate-pulse" />
+            ) : isAppointment ? (
+              <Users size={20} className="text-primary animate-pulse" />
+            ) : isService ? (
+              <Clipboard size={20} className="text-primary animate-pulse" />
+            ) : isFashion ? (
+              <Shirt size={20} className="text-primary animate-pulse" />
+            ) : (
+              "F"
+            )}
           </div>
           <div>
             <h1 className="text-lg font-bold flex items-center gap-2">
-              {isFashion ? "Dasbor Toko Fashion" : "Dasbor Bisnis"} <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full font-bold">PRO</span>
+              {isBooking
+                ? "Dasbor Booking Arena"
+                : isAppointment
+                ? "Dasbor Janji Temu"
+                : isService
+                ? "Dasbor Servis & WO"
+                : isFashion
+                ? "Dasbor Toko Fashion"
+                : "Dasbor Bisnis"
+              } <span className="text-[10px] bg-primary/20 text-primary px-2 py-0.5 rounded-full font-bold">PRO</span>
             </h1>
             <p className="text-[11px] text-muted-foreground">
-              {isFashion ? "Monitoring operasional ritel & butik secara realtime" : "Monitoring operasional multi-cabang secara realtime"}
+              {isBooking
+                ? "Monitoring reservasi & jadwal lapangan secara realtime"
+                : isAppointment
+                ? "Monitoring antrean janji temu & pengerjaan secara realtime"
+                : isService
+                ? "Monitoring perintah kerja & status perbaikan secara realtime"
+                : isFashion
+                ? "Monitoring operasional ritel & butik secara realtime"
+                : "Monitoring operasional multi-cabang secara realtime"
+              }
             </p>
           </div>
         </div>
@@ -1397,7 +1429,15 @@ function OwnerDashboard() {
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard label="Penjualan Hari Ini" value={formatRp(s.todaySales)} icon={<DollarSign size={16} />} sub={`${s.todayOrders} transaksi`} />
                 <StatCard label="Revenue Bulanan" value={formatRp(estimatedGrossProfit)} icon={<TrendingUp size={16} />} trend={isFreshTenant ? undefined : s.revenueGrowth} />
-                <StatCard label="Barang Stok Rendah" value={s.lowStockCount.toString()} icon={<Package size={16} />} sub={s.lowStockCount > 0 ? "⚠️ Butuh Restock" : "Stok aman"} />
+                {engine === "booking" ? (
+                  <StatCard label="Total Lapangan/Studio" value={s.totalProducts.toString()} icon={<Layers size={16} />} sub="Fasilitas disewa" />
+                ) : engine === "appointment" ? (
+                  <StatCard label="Total Layanan/Jasa" value={s.totalProducts.toString()} icon={<Award size={16} />} sub="Menu layanan aktif" />
+                ) : engine === "service" ? (
+                  <StatCard label="Total Kategori Servis" value={s.totalProducts.toString()} icon={<Clipboard size={16} />} sub="Jenis servis aktif" />
+                ) : (
+                  <StatCard label="Barang Stok Rendah" value={s.lowStockCount.toString()} icon={<Package size={16} />} sub={s.lowStockCount > 0 ? "⚠️ Butuh Restock" : "Stok aman"} />
+                )}
                 <StatCard label="Kehadiran Staf" value={attendance.length > 0 ? `${attendance.filter(a => a.checkIn).length}/${attendance.length}` : "0"} icon={<Users size={16} />} sub={attendance.length > 0 ? "Shift Pagi Aktif" : "Belum ada staf"} />
               </div>
 
@@ -1428,7 +1468,9 @@ function OwnerDashboard() {
                 </div>
 
                 <div className="bg-card border border-card-border rounded-2xl p-5 shadow-sm space-y-4">
-                  <h3 className="font-bold text-foreground text-sm">Produk Terlaris</h3>
+                  <h3 className="font-bold text-foreground text-sm">
+                    {engine === "booking" ? "Fasilitas Terpopuler" : engine === "appointment" ? "Layanan Terpopuler" : engine === "service" ? "Servis Terpopuler" : "Produk Terlaris"}
+                  </h3>
                   <div className="space-y-3">
                     {(topProducts || []).length === 0 ? (
                       <div className="text-center py-12 text-xs text-muted-foreground bg-muted/10 border border-border rounded-xl">
@@ -1439,7 +1481,9 @@ function OwnerDashboard() {
                         <div className="w-7 h-7 rounded-full bg-accent flex items-center justify-center text-xs font-bold text-accent-foreground">{i + 1}</div>
                         <div className="flex-1 min-w-0">
                           <div className="text-xs font-bold truncate">{p.name}</div>
-                          <div className="text-[10px] text-muted-foreground">{p.totalSold} terjual</div>
+                          <div className="text-[10px] text-muted-foreground">
+                            {p.totalSold} {engine === "booking" ? "disewa" : engine === "appointment" ? "pesanan" : engine === "service" ? "servis" : "terjual"}
+                          </div>
                         </div>
                         <div className="text-xs font-semibold text-primary">{formatRp(p.revenue)}</div>
                       </div>
@@ -1449,31 +1493,33 @@ function OwnerDashboard() {
               </div>
 
               {/* Warnings and Quick actions */}
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="bg-card border border-card-border rounded-2xl p-5 shadow-sm space-y-3">
-                  <h4 className="font-bold text-sm text-foreground flex items-center gap-2">
-                    <AlertTriangle size={15} className="text-amber-500" /> Peringatan Stok & Inventori
-                  </h4>
-                  <div className="space-y-2">
-                    {lowStockProducts.length === 0 ? (
-                      <div className="text-center py-6 text-xs text-muted-foreground bg-muted/10 border border-border rounded-xl">
-                        Semua stok produk aman
-                      </div>
-                    ) : (
-                      lowStockProducts.slice(0, 3).map((p: any) => (
-                        <div key={p.id} className="flex justify-between items-center text-xs p-2.5 bg-amber-500/5 border border-amber-500/20 rounded-xl">
-                          <div>
-                            <span className="font-bold text-foreground">{p.name}</span>
-                            <p className="text-[10px] text-muted-foreground">Sisa {p.stock} Pcs (Min: {p.minStock} Pcs)</p>
-                          </div>
-                          <Link href="/inventory"><a className="text-[10px] font-bold text-amber-600 hover:underline">Restock →</a></Link>
+              <div className={engine !== "retail" ? "w-full" : "grid md:grid-cols-2 gap-6"}>
+                {engine === "retail" && (
+                  <div className="bg-card border border-card-border rounded-2xl p-5 shadow-sm space-y-3">
+                    <h4 className="font-bold text-sm text-foreground flex items-center gap-2">
+                      <AlertTriangle size={15} className="text-amber-500" /> Peringatan Stok & Inventori
+                    </h4>
+                    <div className="space-y-2">
+                      {lowStockProducts.length === 0 ? (
+                        <div className="text-center py-6 text-xs text-muted-foreground bg-muted/10 border border-border rounded-xl">
+                          Semua stok produk aman
                         </div>
-                      ))
-                    )}
+                      ) : (
+                        lowStockProducts.slice(0, 3).map((p: any) => (
+                          <div key={p.id} className="flex justify-between items-center text-xs p-2.5 bg-amber-500/5 border border-amber-500/20 rounded-xl">
+                            <div>
+                              <span className="font-bold text-foreground">{p.name}</span>
+                              <p className="text-[10px] text-muted-foreground">Sisa {p.stock} Pcs (Min: {p.minStock} Pcs)</p>
+                            </div>
+                            <Link href="/inventory"><a className="text-[10px] font-bold text-amber-600 hover:underline">Restock →</a></Link>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
 
-                <div className="bg-card border border-card-border rounded-2xl p-5 shadow-sm flex flex-col justify-between">
+                <div className={`bg-card border border-card-border rounded-2xl p-5 shadow-sm flex flex-col justify-between ${engine !== "retail" ? "w-full min-h-[180px]" : ""}`}>
                   <div>
                     <h4 className="font-bold text-sm text-foreground">Pantauan Staf Kehadiran</h4>
                     <p className="text-xs text-muted-foreground mt-0.5">Staf shift aktif yang bertugas hari ini.</p>
@@ -1507,10 +1553,20 @@ function OwnerDashboard() {
               <div className="flex justify-between items-center border-b border-border pb-3">
                 <div>
                   <h3 className="font-bold text-foreground text-sm flex items-center gap-2">
-                    <Activity size={16} className="text-red-500 animate-pulse" /> Operasional Realtime Toko
+                    <Activity size={16} className="text-red-500 animate-pulse" />
+                    {engine === "booking" ? "Operasional Realtime Arena" : engine === "appointment" ? "Operasional Realtime Studio" : engine === "service" ? "Operasional Realtime Workshop" : "Operasional Realtime Toko"}
                   </h3>
                   <p className="text-xs text-muted-foreground">
-                    {isFashion ? "Pantau antrean pesanan masuk, status pengemasan (packing), dan kurir aktif." : "Pantau antrean pesanan masuk, status dapur, dan kurir aktif."}
+                    {engine === "booking"
+                      ? "Pantau jadwal booking masuk, status lapangan/ruangan, dan kehadiran pelanggan."
+                      : engine === "appointment"
+                      ? "Pantau antrean janji temu masuk, status pengerjaan layanan, dan kehadiran pelanggan."
+                      : engine === "service"
+                      ? "Pantau perintah kerja (work orders) masuk, status perbaikan, dan kurir/staf aktif."
+                      : isFashion
+                      ? "Pantau antrean pesanan masuk, status pengemasan (packing), dan kurir aktif."
+                      : "Pantau antrean pesanan masuk, status dapur, dan kurir aktif."
+                    }
                   </p>
                 </div>
                 {simulationActive && (
@@ -1524,12 +1580,13 @@ function OwnerDashboard() {
                 {/* Realtime incoming orders */}
                 <div className="bg-card border border-card-border rounded-2xl p-4 shadow-sm space-y-3 md:col-span-1">
                   <h4 className="font-semibold text-xs text-foreground flex items-center gap-1.5">
-                    <ShoppingCart size={13} className="text-primary" /> Pesanan Masuk
+                    <ShoppingCart size={13} className="text-primary" />
+                    {engine === "booking" ? "Booking Masuk" : engine === "appointment" ? "Janji Temu Masuk" : engine === "service" ? "Order Servis Masuk" : "Pesanan Masuk"}
                   </h4>
                   <div className="space-y-2.5 max-h-[380px] overflow-y-auto pr-1">
                     {combinedLiveOrders.length === 0 ? (
                       <div className="text-center py-8 text-xs text-muted-foreground bg-muted/10 border border-border rounded-xl">
-                        Belum ada pesanan masuk
+                        {engine === "booking" ? "Belum ada booking masuk" : engine === "appointment" ? "Belum ada janji temu masuk" : engine === "service" ? "Belum ada order masuk" : "Belum ada pesanan masuk"}
                       </div>
                     ) : (
                       combinedLiveOrders.map(lo => (
@@ -1563,13 +1620,31 @@ function OwnerDashboard() {
                 {/* Kitchen Queue */}
                 <div className="bg-card border border-card-border rounded-2xl p-4 shadow-sm space-y-3 md:col-span-2">
                   <h4 className="font-semibold text-xs text-foreground flex items-center gap-1.5">
-                    {isFashion ? <ShoppingBag size={13} className="text-primary" /> : <ChefHat size={13} className="text-primary" />}
-                    {isFashion ? "Antrean Pengemasan (Packing Display)" : "Antrean Dapur (Kitchen Display)"}
+                    {engine === "booking" ? <Calendar size={13} className="text-primary" /> : engine === "appointment" ? <Users size={13} className="text-primary" /> : engine === "service" ? <Clipboard size={13} className="text-primary" /> : isFashion ? <ShoppingBag size={13} className="text-primary" /> : <ChefHat size={13} className="text-primary" />}
+                    {engine === "booking"
+                      ? "Jadwal Pemesanan Lapangan (Booking Display)"
+                      : engine === "appointment"
+                      ? "Antrean Antarmuka Layanan (Appointment Display)"
+                      : engine === "service"
+                      ? "Antrean Pengerjaan Servis (Service Display)"
+                      : isFashion
+                      ? "Antrean Pengemasan (Packing Display)"
+                      : "Antrean Dapur (Kitchen Display)"
+                    }
                   </h4>
                   <div className="grid sm:grid-cols-2 gap-3 max-h-[380px] overflow-y-auto pr-1">
                     {combinedKitchenQueue.length === 0 ? (
                       <div className="col-span-2 text-center py-8 text-xs text-muted-foreground bg-muted/10 border border-border rounded-xl">
-                        {isFashion ? "Belum ada antrean pengemasan" : "Belum ada antrean di dapur"}
+                        {engine === "booking"
+                          ? "Belum ada jadwal booking hari ini"
+                          : engine === "appointment"
+                          ? "Belum ada antrean layanan aktif"
+                          : engine === "service"
+                          ? "Belum ada pengerjaan servis aktif"
+                          : isFashion
+                          ? "Belum ada antrean pengemasan"
+                          : "Belum ada antrean di dapur"
+                        }
                       </div>
                     ) : (
                       combinedKitchenQueue.map(kq => (
@@ -1582,7 +1657,13 @@ function OwnerDashboard() {
                             <div className="text-[10px] text-muted-foreground mt-1 flex justify-between">
                               <span>{kq.table}</span>
                               <span className={`font-semibold uppercase text-[8px] ${kq.status === "Dimasak" ? "text-amber-500" : kq.status === "Siap Saji" ? "text-green-500" : "text-muted-foreground"}`}>
-                                {isFashion
+                                {engine === "booking"
+                                  ? (kq.status === "Antre" ? "Terjadwal" : kq.status === "Dimasak" ? "Sedang Bermain" : "Selesai")
+                                  : engine === "appointment"
+                                  ? (kq.status === "Antre" ? "Menunggu" : kq.status === "Dimasak" ? "Melayani" : "Selesai")
+                                  : engine === "service"
+                                  ? (kq.status === "Antre" ? "Antre" : kq.status === "Dimasak" ? "Diperbaiki" : "Selesai")
+                                  : isFashion
                                   ? (kq.status === "Antre" ? "Menunggu" : kq.status === "Dimasak" ? "Dipacking" : "Siap Kirim")
                                   : kq.status
                                 }
@@ -1599,7 +1680,7 @@ function OwnerDashboard() {
                                 }}
                                 className="flex-1 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-lg text-[9px] font-bold transition-all"
                               >
-                                {isFashion ? "Mulai Packing" : "Masak"}
+                                {engine === "booking" ? "Mulai Main" : engine === "appointment" ? "Mulai Layani" : engine === "service" ? "Kerjakan" : isFashion ? "Mulai Packing" : "Masak"}
                               </button>
                             )}
                             {kq.status === "Dimasak" && (
@@ -1610,7 +1691,7 @@ function OwnerDashboard() {
                                 }}
                                 className="flex-1 py-1 bg-green-500 hover:bg-green-600 text-white rounded-lg text-[9px] font-bold transition-all"
                               >
-                                {isFashion ? "Selesaikan Packing" : "Siap Saji"}
+                                {engine === "booking" ? "Selesai Main" : engine === "appointment" ? "Selesaikan" : engine === "service" ? "Selesaikan" : isFashion ? "Selesaikan Packing" : "Siap Saji"}
                               </button>
                             )}
                             <button
@@ -1631,8 +1712,8 @@ function OwnerDashboard() {
               </div>
 
               {/* Cashiers & Delivery Tracking */}
-              <div className="grid md:grid-cols-2 gap-6">
-                <div className="bg-card border border-card-border rounded-2xl p-4 shadow-sm space-y-3">
+              <div className={engine !== "retail" ? "w-full" : "grid md:grid-cols-2 gap-6"}>
+                <div className={`bg-card border border-card-border rounded-2xl p-4 shadow-sm space-y-3 ${engine !== "retail" ? "w-full" : ""}`}>
                   <h4 className="font-semibold text-xs text-foreground flex items-center gap-1.5">
                     <Laptop size={13} className="text-primary" /> Kasir Aktif & Laci Uang (Drawer)
                   </h4>
@@ -1658,30 +1739,32 @@ function OwnerDashboard() {
                   </div>
                 </div>
 
-                <div className="bg-card border border-card-border rounded-2xl p-4 shadow-sm space-y-3">
-                  <h4 className="font-semibold text-xs text-foreground flex items-center gap-1.5">
-                    <Truck size={13} className="text-primary" /> Pelacakan Kurir (Delivery)
-                  </h4>
-                  <div className="space-y-2 text-xs font-sans">
-                    {isDeliveriesEmpty ? (
-                      <div className="text-center py-8 text-xs text-muted-foreground bg-muted/10 border border-border rounded-xl">
-                        Belum ada pengiriman aktif hari ini
-                      </div>
-                    ) : (
-                      displayDeliveries.map((d, i) => (
-                        <div key={i} className="flex justify-between items-center p-3 border border-border rounded-xl bg-background/50">
-                          <div>
-                            <div className="font-bold text-foreground">{d.name} <span className="font-mono text-[10px] text-primary">[{d.order}]</span></div>
-                            <div className="text-[10px] text-muted-foreground truncate max-w-[200px]">{d.dest}</div>
-                          </div>
-                          <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase ${d.status === "Mengirim" || d.status === "on_delivery" ? "bg-blue-100 text-blue-700 dark:bg-blue-950/20" : "bg-amber-100 text-amber-700 dark:bg-amber-950/20"}`}>
-                            {d.status === "on_delivery" ? "Mengirim" : d.status}
-                          </span>
+                {engine === "retail" && (
+                  <div className="bg-card border border-card-border rounded-2xl p-4 shadow-sm space-y-3">
+                    <h4 className="font-semibold text-xs text-foreground flex items-center gap-1.5">
+                      <Truck size={13} className="text-primary" /> Pelacakan Kurir (Delivery)
+                    </h4>
+                    <div className="space-y-2 text-xs font-sans">
+                      {isDeliveriesEmpty ? (
+                        <div className="text-center py-8 text-xs text-muted-foreground bg-muted/10 border border-border rounded-xl">
+                          Belum ada pengiriman aktif hari ini
                         </div>
-                      ))
-                    )}
+                      ) : (
+                        displayDeliveries.map((d, i) => (
+                          <div key={i} className="flex justify-between items-center p-3 border border-border rounded-xl bg-background/50">
+                            <div>
+                              <div className="font-bold text-foreground">{d.name} <span className="font-mono text-[10px] text-primary">[{d.order}]</span></div>
+                              <div className="text-[10px] text-muted-foreground truncate max-w-[200px]">{d.dest}</div>
+                            </div>
+                            <span className={`px-2 py-0.5 rounded text-[8px] font-bold uppercase ${d.status === "Mengirim" || d.status === "on_delivery" ? "bg-blue-100 text-blue-700 dark:bg-blue-950/20" : "bg-amber-100 text-amber-700 dark:bg-amber-950/20"}`}>
+                              {d.status === "on_delivery" ? "Mengirim" : d.status}
+                            </span>
+                          </div>
+                        ))
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             </div>
           )}

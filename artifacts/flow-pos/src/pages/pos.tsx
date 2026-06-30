@@ -35,6 +35,7 @@ export default function POSPage() {
   const { activeBranchId } = useActiveBranch();
   const { data: tenant } = useGetTenant();
   const isFashion = tenant?.businessType === "fashion";
+  const engine = (tenant as any)?.businessEngine || "retail";
   const [search, setSearch] = useState("");
   const [activeCat, setActiveCat] = useState<number | null>(null);
 
@@ -332,12 +333,30 @@ const { data: categories } = useListCategories();
   const tenantAny = tenant as any;
 
   const allowedOrderTypes = useMemo(() => {
+    if (engine === "booking") {
+      return [
+        { value: "dine_in", label: "Sewa Lapangan", icon: "🏸", enabled: tenantAny?.enableDineIn !== false },
+        { value: "take_away", label: "Booking Slot", icon: "📅", enabled: tenantAny?.enableTakeAway !== false }
+      ].filter(ot => ot.enabled);
+    }
+    if (engine === "appointment") {
+      return [
+        { value: "dine_in", label: "Layanan Studio", icon: "💇", enabled: tenantAny?.enableDineIn !== false },
+        { value: "take_away", label: "Home Service", icon: "🏠", enabled: tenantAny?.enableTakeAway !== false }
+      ].filter(ot => ot.enabled);
+    }
+    if (engine === "service") {
+      return [
+        { value: "dine_in", label: "Servis di Workshop", icon: "🛠️", enabled: tenantAny?.enableDineIn !== false },
+        { value: "take_away", label: "Servis Panggilan", icon: "🛵", enabled: tenantAny?.enableTakeAway !== false }
+      ].filter(ot => ot.enabled);
+    }
     return [
       { value: "dine_in", label: isFashion ? "Fitting Room" : "Dine In", icon: isFashion ? "👚" : "🪑", enabled: tenantAny?.enableDineIn !== false },
       { value: "take_away", label: isFashion ? "Ambil" : "Bawa Pulang", icon: "🛍️", enabled: tenantAny?.enableTakeAway !== false },
       { value: "delivery", label: isFashion ? "Kirim" : "Delivery", icon: "🛵", enabled: tenantAny?.enableDelivery !== false }
     ].filter(ot => ot.enabled);
-  }, [tenantAny, isFashion]);
+  }, [tenantAny, isFashion, engine]);
 
   const orderTypeGridClass = useMemo(() => {
     const len = allowedOrderTypes.length;
@@ -468,8 +487,9 @@ const { data: categories } = useListCategories();
     setModalQty(1);
     setModalNotes("");
     
-    let variants = isFashion ? [] : DEFAULT_VARIANTS;
-    let toppings = isFashion ? [] : DEFAULT_TOPPINGS;
+    const skipDefaults = isFashion || engine !== "retail";
+    let variants = skipDefaults ? [] : DEFAULT_VARIANTS;
+    let toppings = skipDefaults ? [] : DEFAULT_TOPPINGS;
 
     if (product.variantSettings) {
       try {
@@ -477,20 +497,20 @@ const { data: categories } = useListCategories();
         if (parsed.variants && Array.isArray(parsed.variants)) {
           variants = parsed.variants;
         } else {
-          variants = isFashion ? [] : DEFAULT_VARIANTS;
+          variants = skipDefaults ? [] : DEFAULT_VARIANTS;
         }
         if (parsed.toppings && Array.isArray(parsed.toppings)) {
           toppings = parsed.toppings;
         } else {
-          toppings = isFashion ? [] : DEFAULT_TOPPINGS;
+          toppings = skipDefaults ? [] : DEFAULT_TOPPINGS;
         }
       } catch (e) {
-        variants = isFashion ? [] : DEFAULT_VARIANTS;
-        toppings = isFashion ? [] : DEFAULT_TOPPINGS;
+        variants = skipDefaults ? [] : DEFAULT_VARIANTS;
+        toppings = skipDefaults ? [] : DEFAULT_TOPPINGS;
       }
     } else {
-      variants = isFashion ? [] : DEFAULT_VARIANTS;
-      toppings = isFashion ? [] : DEFAULT_TOPPINGS;
+      variants = skipDefaults ? [] : DEFAULT_VARIANTS;
+      toppings = skipDefaults ? [] : DEFAULT_TOPPINGS;
     }
 
     setModalVariantsList(variants);
@@ -1370,7 +1390,15 @@ const { data: categories } = useListCategories();
               {/* Priority Toggle */}
               <div className="flex items-center justify-between p-1.5 xl:p-2 rounded-lg bg-destructive/5 border border-destructive/20 text-[10px] font-semibold text-destructive mt-1.5 xl:mt-2">
                 <span className="flex items-center gap-1">
-                  <span className="animate-pulse">🚨</span> Prioritaskan Pesanan (KDS)
+                  <span className="animate-pulse">🚨</span>
+                  {engine === "booking"
+                    ? "Prioritaskan Booking"
+                    : engine === "appointment"
+                    ? "Prioritaskan Antrean"
+                    : engine === "service"
+                    ? "Prioritaskan Servis"
+                    : "Prioritaskan Pesanan (KDS)"
+                  }
                 </span>
                 <input
                   type="checkbox"
@@ -1394,10 +1422,31 @@ const { data: categories } = useListCategories();
                     />
                   </div>
                   <div className="w-24 xl:w-full space-y-0.5">
-                    <label className="text-[9px] xl:text-[10px] font-semibold text-muted-foreground block">{isFashion ? "Fitting Room" : "Meja"}</label>
+                    <label className="text-[9px] xl:text-[10px] font-semibold text-muted-foreground block">
+                      {engine === "booking"
+                        ? "Lapangan / Room"
+                        : engine === "appointment"
+                        ? "Kursi / Ruangan"
+                        : engine === "service"
+                        ? "Slot Servis"
+                        : isFashion
+                        ? "Fitting Room"
+                        : "Meja"
+                      }
+                    </label>
                     <input
                       type="text"
-                      placeholder={isFashion ? "Kabin..." : "Meja..."}
+                      placeholder={
+                        engine === "booking"
+                          ? "Nomor..."
+                          : engine === "appointment"
+                          ? "Nomor..."
+                          : engine === "service"
+                          ? "Slot..."
+                          : isFashion
+                          ? "Kabin..."
+                          : "Meja..."
+                      }
                       value={tableNumber}
                       onChange={e => setTableNumber(e.target.value)}
                       className="w-full px-2 py-1 xl:py-2 border border-input rounded-md xl:rounded-lg text-[10px] xl:text-xs bg-background focus:outline-none"
