@@ -1,7 +1,16 @@
 const pg = require('pg');
 
 async function run() {
-  const connectionString = 'postgresql://postgres.qmelcqjbdmntdfplsayv:%40Erick037425@aws-1-ap-south-1.pooler.supabase.com:5432/postgres';
+  const fs = require('fs');
+  const path = require('path');
+  let envDbUrl = '';
+  try {
+    const envContent = fs.readFileSync(path.join(__dirname, '../.env'), 'utf8');
+    const match = envContent.match(/DATABASE_URL=(.+)/);
+    if (match) envDbUrl = match[1].trim();
+  } catch (e) {}
+
+  const connectionString = envDbUrl || process.env.DATABASE_URL || 'postgresql://postgres.qmelcqjbdmntdfplsayv:%40Erick037425@aws-1-ap-south-1.pooler.supabase.com:5432/postgres';
   const client = new pg.Client({ 
     connectionString,
     ssl: { rejectUnauthorized: false }
