@@ -139,7 +139,7 @@ const loadLeaflet = (cb: () => void) => {
   document.body.appendChild(script);
 };
 
-function QrisCanvas({ payload, primary }: { payload: string; primary: string }) {
+function QrisCanvas({ payload, primary, size = 192 }: { payload: string; primary: string; size?: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -148,7 +148,7 @@ function QrisCanvas({ payload, primary }: { payload: string; primary: string }) 
         canvasRef.current,
         payload,
         {
-          width: 192,
+          width: size,
           margin: 1,
           color: {
             dark: "#000000",
@@ -160,10 +160,13 @@ function QrisCanvas({ payload, primary }: { payload: string; primary: string }) 
         }
       );
     }
-  }, [payload]);
+  }, [payload, size]);
 
   return (
-    <div className="w-48 h-48 border rounded-2xl overflow-hidden bg-white p-2 flex items-center justify-center">
+    <div 
+      className="border rounded-2xl overflow-hidden bg-white p-2 flex items-center justify-center shadow-md shadow-slate-100"
+      style={{ width: size + 16, height: size + 16 }}
+    >
       <canvas ref={canvasRef} className="w-full h-full object-contain" />
     </div>
   );
@@ -193,6 +196,7 @@ function TrackingView({
 }) {
   const [order, setOrder] = useState<any>(null);
   const [error, setError] = useState("");
+  const [showQrisZoom, setShowQrisZoom] = useState(false);
 
   const fetchOrder = useCallback(async () => {
     try {
@@ -610,7 +614,10 @@ function TrackingView({
 
         {/* QRIS Payment Instruction Card */}
         {order.paymentMethod === "qris" && order.status !== "completed" && order.status !== "cancelled" && (
-          <div className="bg-white rounded-3xl p-6 shadow-md border border-slate-100 flex flex-col items-center text-center space-y-4">
+          <div 
+            onClick={() => setShowQrisZoom(true)}
+            className="bg-white rounded-3xl p-6 shadow-md border border-slate-100 flex flex-col items-center text-center space-y-4 cursor-pointer hover:shadow-lg hover:border-slate-200 transition-all"
+          >
             {/* Header Instansi QRIS */}
             <div className="w-full flex items-center justify-between border-b pb-2 mb-1">
               <div className="flex items-center gap-1.5">
@@ -703,6 +710,68 @@ function TrackingView({
           Kembali Belanja
         </button>
       </div>
+
+      {/* Zoom QRIS Modal */}
+      {showQrisZoom && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
+          onClick={() => setShowQrisZoom(false)}
+        >
+          <div 
+            className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl relative flex flex-col items-center space-y-4 animate-scale-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close Button */}
+            <button 
+              onClick={() => setShowQrisZoom(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full p-1.5 transition-colors border-0 cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+
+            {/* Header Instansi QRIS */}
+            <div className="w-full flex items-center justify-between border-b pb-2 mb-1">
+              <div className="flex items-center gap-1.5">
+                <span className="font-black text-blue-900 text-lg tracking-widest italic">QRIS</span>
+                <span className="text-[10px] bg-red-600 text-white font-extrabold px-1 rounded">GPN</span>
+              </div>
+              <span className="text-xs text-slate-400 font-bold uppercase">Standard Nasional</span>
+            </div>
+
+            {/* Merchant Details */}
+            <div className="text-center">
+              <div className="font-extrabold text-slate-800 text-base tracking-wide uppercase">
+                {tenantName}
+              </div>
+              {qrisId && (
+                <div className="text-xs text-slate-500 font-mono tracking-tight mt-0.5">
+                  NMID: {qrisId}
+                </div>
+              )}
+            </div>
+
+            {/* Scannable Area */}
+            {qrisImageUrl ? (
+              <div className="w-64 h-64 border border-slate-100 rounded-3xl overflow-hidden bg-white p-3 flex items-center justify-center shadow-inner animate-fade-in">
+                <img src={qrisImageUrl.startsWith("http") ? qrisImageUrl : `${BASE}${qrisImageUrl}`} alt="QRIS" className="w-full h-full object-contain" />
+              </div>
+            ) : qrisId ? (
+              <QrisCanvas payload={qrisId} primary={primary} size={220} />
+            ) : (
+              <div className="w-64 h-64 border border-dashed border-slate-200 bg-slate-50 rounded-3xl flex flex-col items-center justify-center p-4">
+                <QrCode size={48} className="text-slate-300 mb-2" />
+                <span className="text-xs text-slate-400 font-semibold leading-tight">Barcode QRIS belum di-set</span>
+              </div>
+            )}
+
+            <div className="w-full border-t pt-3 flex flex-col items-center space-y-1">
+              <div className="text-xs text-slate-400 font-black tracking-widest uppercase">
+                Satu QRIS untuk Semua
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

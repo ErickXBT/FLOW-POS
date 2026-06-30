@@ -62,6 +62,7 @@ export default function POSPage() {
   const [isPriority, setIsPriority] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [lastCreatedOrder, setLastCreatedOrder] = useState<any | null>(null);
+  const [showQrisZoom, setShowQrisZoom] = useState(false);
 
   const fetchActiveShift = async () => {
     if (!activeBranchId) return;
@@ -1457,7 +1458,10 @@ const { data: categories } = useListCategories();
 
             {/* QRIS Display for Cashier */}
             {paymentMethod === "qris" && (
-              <div className="mt-2 p-4 rounded-xl border border-border bg-white flex flex-col items-center shadow-sm space-y-3 font-sans">
+              <div 
+                onClick={() => setShowQrisZoom(true)}
+                className="mt-2 p-4 rounded-xl border border-border bg-white flex flex-col items-center shadow-sm space-y-3 font-sans cursor-pointer hover:border-primary/40 hover:shadow transition-all"
+              >
                 {/* QRIS Card Header */}
                 <div className="w-full flex items-center justify-between border-b pb-2">
                   <div className="flex items-center gap-1">
@@ -2146,6 +2150,68 @@ const { data: categories } = useListCategories();
           </div>
         </div>
       )}
+      {/* Zoom QRIS Modal */}
+      {showQrisZoom && (
+        <div 
+          className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in"
+          onClick={() => setShowQrisZoom(false)}
+        >
+          <div 
+            className="bg-white rounded-3xl p-6 max-w-sm w-full shadow-2xl relative flex flex-col items-center space-y-4 animate-scale-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close Button */}
+            <button 
+              onClick={() => setShowQrisZoom(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full p-1.5 transition-colors border-0 cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+
+            {/* QRIS Header */}
+            <div className="w-full flex items-center justify-between border-b pb-2 mb-1">
+              <div className="flex items-center gap-1.5">
+                <span className="font-black text-blue-900 text-lg tracking-widest italic">QRIS</span>
+                <span className="text-[10px] bg-red-600 text-white font-extrabold px-1 rounded">GPN</span>
+              </div>
+              <span className="text-xs text-slate-400 font-bold uppercase">Standard Nasional</span>
+            </div>
+
+            {/* Merchant Details */}
+            <div className="text-center">
+              <div className="font-extrabold text-slate-800 text-base tracking-wide uppercase">
+                {tenantAny?.name || "TOKO KITA"}
+              </div>
+              {tenantAny?.qrisId && (
+                <div className="text-xs text-slate-500 font-mono tracking-tight mt-0.5">
+                  NMID: {tenantAny.qrisId}
+                </div>
+              )}
+            </div>
+
+            {/* Scannable Area */}
+            {tenantAny?.qrisImageUrl ? (
+              <div className="w-64 h-64 border border-slate-100 rounded-3xl overflow-hidden bg-white p-3 flex items-center justify-center shadow-inner">
+                <img src={tenantAny.qrisImageUrl} alt="QRIS" className="w-full h-full object-contain animate-fade-in" />
+              </div>
+            ) : tenantAny?.qrisId ? (
+              <QrisCanvas payload={tenantAny.qrisId} primary={tenantAny.primaryColor || "#1D4EF5"} size={220} />
+            ) : (
+              <div className="w-64 h-64 border border-dashed border-slate-200 bg-slate-50 rounded-3xl flex flex-col items-center justify-center p-4">
+                <QrCode size={48} className="text-slate-300 mb-2" />
+                <span className="text-xs text-slate-400 font-semibold leading-tight">Barcode QRIS belum di-set</span>
+              </div>
+            )}
+
+            <div className="w-full border-t pt-3 flex flex-col items-center space-y-1">
+              <div className="text-xs text-slate-400 font-black tracking-widest uppercase">
+                Satu QRIS untuk Semua
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Floating Cart Button for Mobile */}
       <button
         type="button"
@@ -2168,7 +2234,7 @@ const { data: categories } = useListCategories();
   );
 }
 
-function QrisCanvas({ payload, primary }: { payload: string; primary: string }) {
+function QrisCanvas({ payload, primary, size = 160 }: { payload: string; primary: string; size?: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
@@ -2177,7 +2243,7 @@ function QrisCanvas({ payload, primary }: { payload: string; primary: string }) 
         canvasRef.current,
         payload,
         {
-          width: 160,
+          width: size,
           margin: 1,
           color: {
             dark: "#000000",
@@ -2189,10 +2255,13 @@ function QrisCanvas({ payload, primary }: { payload: string; primary: string }) 
         }
       );
     }
-  }, [payload]);
+  }, [payload, size]);
 
   return (
-    <div className="w-40 h-40 border rounded-lg overflow-hidden bg-white p-2 flex items-center justify-center shadow-sm">
+    <div 
+      className="border rounded-lg overflow-hidden bg-white p-2 flex items-center justify-center shadow-sm"
+      style={{ width: size + 16, height: size + 16 }}
+    >
       <canvas ref={canvasRef} className="w-full h-full object-contain" />
     </div>
   );
