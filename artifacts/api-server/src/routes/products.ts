@@ -231,37 +231,79 @@ router.get("/products", async (req, res): Promise<void> => {
   const engine = tenant?.businessEngine || "retail";
 
   if (engine === "booking") {
-    const conditions = [eq(bookingResourcesTable.tenantId, claims.tenantId!)];
-    if (search) {
-      conditions.push(ilike(bookingResourcesTable.name, `%${search}%`));
+    let formattedResources: any[] = [];
+    if (!categoryId || categoryId === 1000000) {
+      const conditionsRes = [eq(bookingResourcesTable.tenantId, claims.tenantId!)];
+      if (search) {
+        conditionsRes.push(ilike(bookingResourcesTable.name, `%${search}%`));
+      }
+      const whereRes = and(...conditionsRes);
+      const resourcesRows = await db.select().from(bookingResourcesTable).where(whereRes);
+      formattedResources = resourcesRows.map(r => ({
+        id: r.id + 1000000,
+        name: r.name,
+        price: Number(r.priceWeekday),
+        sku: `booking-resource-${r.id}`,
+        barcode: null,
+        description: r.description || "",
+        stock: 999,
+        minStock: 0,
+        isActive: r.status === "active",
+        categoryId: 1000000,
+        categoryName: "Lapangan",
+        imageUrl: r.imageUrl,
+        createdAt: r.createdAt.toISOString(),
+        updatedAt: r.updatedAt.toISOString(),
+      }));
     }
-    const where = and(...conditions);
-    const [totalResult] = await db.select({ count: count() }).from(bookingResourcesTable).where(where);
-    const rows = await db.select().from(bookingResourcesTable)
-      .where(where)
-      .limit(limit)
-      .offset(offset);
 
-    const formatted = rows.map(r => ({
-      id: r.id,
-      name: r.name,
-      price: Number(r.priceWeekday),
-      sku: `booking-resource-${r.id}`,
-      barcode: null,
-      description: r.description || "",
-      stock: 999,
-      minStock: 0,
-      isActive: r.status === "active",
-      categoryId: 0,
-      categoryName: "Lapangan",
-      imageUrl: r.imageUrl,
-      createdAt: r.createdAt.toISOString(),
-      updatedAt: r.updatedAt.toISOString(),
-    }));
+    let formattedProducts: any[] = [];
+    if (!categoryId || categoryId !== 1000000) {
+      const conditionsProd = [eq(productsTable.tenantId, claims.tenantId!)];
+      if (search) {
+        const searchOr = or(
+          ilike(productsTable.name, `%${search}%`),
+          ilike(productsTable.sku, `%${search}%`),
+          ilike(productsTable.barcode, `%${search}%`)
+        );
+        if (searchOr) {
+          conditionsProd.push(searchOr);
+        }
+      }
+      if (categoryId) {
+        conditionsProd.push(eq(productsTable.categoryId, categoryId));
+      }
+      const whereProd = and(...conditionsProd);
+      const productsRows = await db
+        .select({
+          product: productsTable,
+          categoryName: categoriesTable.name,
+          branchProduct: {
+            price: publicMenuProductsTable.price,
+            promoPrice: publicMenuProductsTable.promoPrice,
+            isAvailable: publicMenuProductsTable.isAvailable,
+            stock: publicMenuProductsTable.stock,
+          }
+        })
+        .from(productsTable)
+        .leftJoin(categoriesTable, eq(productsTable.categoryId, categoriesTable.id))
+        .leftJoin(
+          publicMenuProductsTable,
+          and(
+            eq(productsTable.id, publicMenuProductsTable.productId),
+            eq(publicMenuProductsTable.branchId, branchId ? branchId : -1)
+          )
+        )
+        .where(whereProd);
+      formattedProducts = productsRows.map(r => formatProduct(r.product, r.categoryName, r.branchProduct));
+    }
+
+    const combined = [...formattedResources, ...formattedProducts];
+    const paginated = combined.slice(offset, offset + limit);
 
     res.json({
-      data: formatted,
-      total: totalResult.count,
+      data: paginated,
+      total: combined.length,
       page,
       limit,
     });
@@ -269,37 +311,79 @@ router.get("/products", async (req, res): Promise<void> => {
   }
 
   if (engine === "appointment") {
-    const conditions = [eq(servicesTable.tenantId, claims.tenantId!)];
-    if (search) {
-      conditions.push(ilike(servicesTable.name, `%${search}%`));
+    let formattedServices: any[] = [];
+    if (!categoryId || categoryId === 2000000) {
+      const conditionsServ = [eq(servicesTable.tenantId, claims.tenantId!)];
+      if (search) {
+        conditionsServ.push(ilike(servicesTable.name, `%${search}%`));
+      }
+      const whereServ = and(...conditionsServ);
+      const servicesRows = await db.select().from(servicesTable).where(whereServ);
+      formattedServices = servicesRows.map(r => ({
+        id: r.id + 2000000,
+        name: r.name,
+        price: Number(r.price),
+        sku: `appointment-service-${r.id}`,
+        barcode: null,
+        description: r.description || "",
+        stock: 999,
+        minStock: 0,
+        isActive: r.status === "active",
+        categoryId: 2000000,
+        categoryName: "Layanan",
+        imageUrl: null,
+        createdAt: r.createdAt.toISOString(),
+        updatedAt: r.updatedAt.toISOString(),
+      }));
     }
-    const where = and(...conditions);
-    const [totalResult] = await db.select({ count: count() }).from(servicesTable).where(where);
-    const rows = await db.select().from(servicesTable)
-      .where(where)
-      .limit(limit)
-      .offset(offset);
 
-    const formatted = rows.map(r => ({
-      id: r.id,
-      name: r.name,
-      price: Number(r.price),
-      sku: `appointment-service-${r.id}`,
-      barcode: null,
-      description: r.description || "",
-      stock: 999,
-      minStock: 0,
-      isActive: r.status === "active",
-      categoryId: 0,
-      categoryName: "Layanan",
-      imageUrl: null,
-      createdAt: r.createdAt.toISOString(),
-      updatedAt: r.updatedAt.toISOString(),
-    }));
+    let formattedProducts: any[] = [];
+    if (!categoryId || categoryId !== 2000000) {
+      const conditionsProd = [eq(productsTable.tenantId, claims.tenantId!)];
+      if (search) {
+        const searchOr = or(
+          ilike(productsTable.name, `%${search}%`),
+          ilike(productsTable.sku, `%${search}%`),
+          ilike(productsTable.barcode, `%${search}%`)
+        );
+        if (searchOr) {
+          conditionsProd.push(searchOr);
+        }
+      }
+      if (categoryId) {
+        conditionsProd.push(eq(productsTable.categoryId, categoryId));
+      }
+      const whereProd = and(...conditionsProd);
+      const productsRows = await db
+        .select({
+          product: productsTable,
+          categoryName: categoriesTable.name,
+          branchProduct: {
+            price: publicMenuProductsTable.price,
+            promoPrice: publicMenuProductsTable.promoPrice,
+            isAvailable: publicMenuProductsTable.isAvailable,
+            stock: publicMenuProductsTable.stock,
+          }
+        })
+        .from(productsTable)
+        .leftJoin(categoriesTable, eq(productsTable.categoryId, categoriesTable.id))
+        .leftJoin(
+          publicMenuProductsTable,
+          and(
+            eq(productsTable.id, publicMenuProductsTable.productId),
+            eq(publicMenuProductsTable.branchId, branchId ? branchId : -1)
+          )
+        )
+        .where(whereProd);
+      formattedProducts = productsRows.map(r => formatProduct(r.product, r.categoryName, r.branchProduct));
+    }
+
+    const combined = [...formattedServices, ...formattedProducts];
+    const paginated = combined.slice(offset, offset + limit);
 
     res.json({
-      data: formatted,
-      total: totalResult.count,
+      data: paginated,
+      total: combined.length,
       page,
       limit,
     });

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, or, isNull } from "drizzle-orm";
-import { db, categoriesTable } from "@workspace/db";
+import { db, categoriesTable, tenantsTable } from "@workspace/db";
 import {
   CreateCategoryBody,
   UpdateCategoryParams,
@@ -30,7 +30,37 @@ router.get("/categories", async (req, res): Promise<void> => {
   const cats = await db.select().from(categoriesTable)
     .where(and(...conditions));
 
-  res.json(cats.map(c => ({ ...c, createdAt: c.createdAt.toISOString() })));
+  const [tenant] = await db.select({ businessEngine: tenantsTable.businessEngine })
+    .from(tenantsTable)
+    .where(eq(tenantsTable.id, claims.tenantId!))
+    .limit(1);
+  const engine = tenant?.businessEngine || "retail";
+
+  const formatted = cats.map(c => ({ ...c, createdAt: c.createdAt.toISOString() }));
+
+  if (engine === "booking") {
+    formatted.unshift({
+      id: 1000000,
+      tenantId: claims.tenantId!,
+      branchId: branchId ?? null,
+      name: "Lapangan",
+      description: "Sewa Lapangan / Resource",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date(),
+    } as any);
+  } else if (engine === "appointment") {
+    formatted.unshift({
+      id: 2000000,
+      tenantId: claims.tenantId!,
+      branchId: branchId ?? null,
+      name: "Layanan",
+      description: "Layanan / Jasa Reservasi",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date(),
+    } as any);
+  }
+
+  res.json(formatted);
 });
 
 router.post("/categories", async (req, res): Promise<void> => {

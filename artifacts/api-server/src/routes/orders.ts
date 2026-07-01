@@ -279,9 +279,37 @@ router.post("/orders", async (req, res): Promise<void> => {
   let products: any[] = [];
   if (productIds.length > 0) {
     if (engine === "booking") {
-      products = await db.select().from(bookingResourcesTable).where(and(inArray(bookingResourcesTable.id, productIds), eq(bookingResourcesTable.tenantId, claims.tenantId!)));
+      const resourceIds = productIds.filter(id => id >= 1000000).map(id => id - 1000000);
+      const retailProductIds = productIds.filter(id => id < 1000000);
+
+      const dbResources = resourceIds.length > 0
+        ? await db.select().from(bookingResourcesTable).where(and(inArray(bookingResourcesTable.id, resourceIds), eq(bookingResourcesTable.tenantId, claims.tenantId!)))
+        : [];
+      
+      const dbProducts = retailProductIds.length > 0
+        ? await db.select().from(productsTable).where(and(inArray(productsTable.id, retailProductIds), eq(productsTable.tenantId, claims.tenantId!)))
+        : [];
+
+      products = [
+        ...dbResources.map(r => ({ ...r, id: r.id + 1000000 })),
+        ...dbProducts
+      ];
     } else if (engine === "appointment") {
-      products = await db.select().from(servicesTable).where(and(inArray(servicesTable.id, productIds), eq(servicesTable.tenantId, claims.tenantId!)));
+      const serviceIds = productIds.filter(id => id >= 2000000).map(id => id - 2000000);
+      const retailProductIds = productIds.filter(id => id < 2000000);
+
+      const dbServices = serviceIds.length > 0
+        ? await db.select().from(servicesTable).where(and(inArray(servicesTable.id, serviceIds), eq(servicesTable.tenantId, claims.tenantId!)))
+        : [];
+
+      const dbProducts = retailProductIds.length > 0
+        ? await db.select().from(productsTable).where(and(inArray(productsTable.id, retailProductIds), eq(productsTable.tenantId, claims.tenantId!)))
+        : [];
+
+      products = [
+        ...dbServices.map(s => ({ ...s, id: s.id + 2000000 })),
+        ...dbProducts
+      ];
     } else {
       products = await db.select().from(productsTable).where(and(inArray(productsTable.id, productIds), eq(productsTable.tenantId, claims.tenantId!)));
     }
