@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, gte, lte, count, sql, desc, inArray, ilike } from "drizzle-orm";
-import { db, ordersTable, orderItemsTable, productsTable, customersTable, employeesTable, usersTable, branchesTable, customerOrdersTable, customerOrderItemsTable, tenantsTable, publicMenuProductsTable, publicMenusTable, publicMenuCategoriesTable, categoriesTable } from "@workspace/db";
+import { db, ordersTable, orderItemsTable, productsTable, customersTable, employeesTable, usersTable, branchesTable, customerOrdersTable, customerOrderItemsTable, tenantsTable, publicMenuProductsTable, publicMenusTable, publicMenuCategoriesTable, categoriesTable, bookingResourcesTable, servicesTable } from "@workspace/db";
 import { broadcastNewOrder } from "./menu";
 import {
   ListOrdersQueryParams,
@@ -266,16 +266,27 @@ router.post("/orders", async (req, res): Promise<void> => {
     }
   }
 
+  const [tenant] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, claims.tenantId!)).limit(1);
   if (!employeeName) {
-    const [t] = await db.select().from(tenantsTable).where(eq(tenantsTable.id, claims.tenantId!)).limit(1);
-    employeeName = (t as any)?.defaultCashierName || "Kasir Utama";
+    employeeName = (tenant as any)?.defaultCashierName || "Kasir Utama";
   }
+
+  const engine = (tenant as any)?.businessEngine || "retail";
 
   const itemInputs = body.data.items;
   const productIds = itemInputs.map(i => i.productId);
-  const products = productIds.length > 0
-    ? await db.select().from(productsTable).where(and(inArray(productsTable.id, productIds), eq(productsTable.tenantId, claims.tenantId!)))
-    : [];
+
+  let products: any[] = [];
+  if (productIds.length > 0) {
+    if (engine === "booking") {
+      products = await db.select().from(bookingResourcesTable).where(and(inArray(bookingResourcesTable.id, productIds), eq(bookingResourcesTable.tenantId, claims.tenantId!)));
+    } else if (engine === "appointment") {
+      products = await db.select().from(servicesTable).where(and(inArray(servicesTable.id, productIds), eq(servicesTable.tenantId, claims.tenantId!)));
+    } else {
+      products = await db.select().from(productsTable).where(and(inArray(productsTable.id, productIds), eq(productsTable.tenantId, claims.tenantId!)));
+    }
+  }
+
   const productMap = products.reduce((m: any, p) => { m[p.id] = p; return m; }, {});
 
   if (isClaimReward && discount === 0) {

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { eq, and, ilike, count, sql, desc, or } from "drizzle-orm";
-import { db, productsTable, categoriesTable, orderItemsTable, ordersTable, employeesTable, publicMenuProductsTable, publicMenusTable, publicMenuCategoriesTable, tenantsTable } from "@workspace/db";
+import { db, productsTable, categoriesTable, orderItemsTable, ordersTable, employeesTable, publicMenuProductsTable, publicMenusTable, publicMenuCategoriesTable, tenantsTable, bookingResourcesTable, servicesTable } from "@workspace/db";
 import fs from "fs";
 import path from "path";
 import { uploadProductImage } from "../lib/storage";
@@ -223,6 +223,88 @@ router.get("/products", async (req, res): Promise<void> => {
   const offset = (page - 1) * limit;
 
   const branchId = await getRequestedBranchId(req, claims);
+
+  const [tenant] = await db.select({ businessEngine: tenantsTable.businessEngine })
+    .from(tenantsTable)
+    .where(eq(tenantsTable.id, claims.tenantId!))
+    .limit(1);
+  const engine = tenant?.businessEngine || "retail";
+
+  if (engine === "booking") {
+    const conditions = [eq(bookingResourcesTable.tenantId, claims.tenantId!)];
+    if (search) {
+      conditions.push(ilike(bookingResourcesTable.name, `%${search}%`));
+    }
+    const where = and(...conditions);
+    const [totalResult] = await db.select({ count: count() }).from(bookingResourcesTable).where(where);
+    const rows = await db.select().from(bookingResourcesTable)
+      .where(where)
+      .limit(limit)
+      .offset(offset);
+
+    const formatted = rows.map(r => ({
+      id: r.id,
+      name: r.name,
+      price: Number(r.priceWeekday),
+      sku: `booking-resource-${r.id}`,
+      barcode: null,
+      description: r.description || "",
+      stock: 999,
+      minStock: 0,
+      isActive: r.status === "active",
+      categoryId: 0,
+      categoryName: "Lapangan",
+      imageUrl: null,
+      createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt.toISOString(),
+    }));
+
+    res.json({
+      data: formatted,
+      total: totalResult.count,
+      page,
+      limit,
+    });
+    return;
+  }
+
+  if (engine === "appointment") {
+    const conditions = [eq(servicesTable.tenantId, claims.tenantId!)];
+    if (search) {
+      conditions.push(ilike(servicesTable.name, `%${search}%`));
+    }
+    const where = and(...conditions);
+    const [totalResult] = await db.select({ count: count() }).from(servicesTable).where(where);
+    const rows = await db.select().from(servicesTable)
+      .where(where)
+      .limit(limit)
+      .offset(offset);
+
+    const formatted = rows.map(r => ({
+      id: r.id,
+      name: r.name,
+      price: Number(r.price),
+      sku: `appointment-service-${r.id}`,
+      barcode: null,
+      description: r.description || "",
+      stock: 999,
+      minStock: 0,
+      isActive: r.status === "active",
+      categoryId: 0,
+      categoryName: "Layanan",
+      imageUrl: null,
+      createdAt: r.createdAt.toISOString(),
+      updatedAt: r.updatedAt.toISOString(),
+    }));
+
+    res.json({
+      data: formatted,
+      total: totalResult.count,
+      page,
+      limit,
+    });
+    return;
+  }
 
   const conditions = [eq(productsTable.tenantId, claims.tenantId!)];
   if (search) {
