@@ -495,10 +495,15 @@ router.get("/menu/:slug/bookings", async (req, res): Promise<void> => {
   const { tenant } = await resolveTenantAndMenu(slug);
   if (!tenant) { res.status(404).json({ error: "Tenant tidak ditemukan" }); return; }
 
+  let targetDate = dateStr;
+  if (!targetDate || targetDate === "undefined") {
+    targetDate = new Date().toLocaleDateString("sv-SE");
+  }
+
   const rows = await db.select().from(bookingsTable)
     .where(and(
       eq(bookingsTable.tenantId, tenant.id),
-      eq(bookingsTable.bookingDate, dateStr || new Date().toLocaleDateString("sv-SE"))
+      eq(bookingsTable.bookingDate, targetDate)
     ));
 
   res.json(rows.map(r => ({

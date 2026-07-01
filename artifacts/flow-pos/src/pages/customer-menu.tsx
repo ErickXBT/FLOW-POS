@@ -1029,9 +1029,10 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
     async function loadCalendarData() {
       setLoadingCalendar(true);
       try {
+        const queryDate = (selectedDate && selectedDate !== "undefined") ? selectedDate : new Date().toLocaleDateString("sv-SE");
         const [resRes, resBook] = await Promise.all([
           fetch(`${BASE}/api/menu/${slug}/resources`),
-          fetch(`${BASE}/api/menu/${slug}/bookings?date=${selectedDate}`)
+          fetch(`${BASE}/api/menu/${slug}/bookings?date=${queryDate}`)
         ]);
         if (resRes.ok) {
           const resourcesData = await resRes.json();
@@ -2718,10 +2719,10 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
                               ) : (
                                 <button
                                   onClick={() => handlePublicCellClick(resItem, hour)}
-                                  className="w-full flex flex-col items-center justify-center p-1.5 rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-600 hover:bg-emerald-100 transition-all font-semibold active:scale-95 text-[10px] cursor-pointer"
+                                  className="w-full flex flex-col items-center justify-center p-2 rounded-xl bg-emerald-50 border border-emerald-150 text-emerald-700 hover:bg-emerald-500 hover:text-white transition-all font-bold active:scale-95 text-xs cursor-pointer shadow-sm"
                                 >
-                                  <span>✓ Sewa</span>
-                                  <span className="text-[8px] opacity-80 mt-0.5">Mulai</span>
+                                  <span>Booking</span>
+                                  <span className="text-[9px] opacity-80 mt-0.5">{hour}</span>
                                 </button>
                               )}
                             </td>
@@ -3084,10 +3085,23 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
                 </div>
               ) : (
                 <button
-                  onClick={() => { setCartOpen(false); setStep("order-type"); }}
+                  onClick={() => {
+                    setCartOpen(false);
+                    if (tenant?.businessEngine === "booking") {
+                      setOrderType("dine_in");
+                      setStep("form");
+                    } else {
+                      setStep("order-type");
+                    }
+                  }}
                   className="w-full py-4 rounded-3xl text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-primary/20 hover:opacity-95"
                   style={{ backgroundColor: primary }}>
-                  Lanjut Pilih Jenis Pesanan <ChevronRight size={16} />
+                  <span>
+                    {tenant?.businessEngine === "booking"
+                      ? "Lanjut Isi Data Booking"
+                      : "Lanjut Pilih Jenis Pesanan"}
+                  </span>
+                  <ChevronRight size={16} />
                 </button>
               )}
             </div>
