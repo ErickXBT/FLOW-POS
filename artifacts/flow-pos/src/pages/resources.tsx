@@ -285,7 +285,7 @@ export default function ResourcesPage() {
 
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in font-sans">
-          <div className="bg-card border border-card-border rounded-2xl shadow-xl w-full max-w-md animate-scale-up overflow-hidden">
+          <div className="bg-card border border-card-border rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto animate-scale-up">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <h2 className="font-bold text-foreground text-sm">
                 {editingId ? "Edit Resource" : "Tambah Resource Baru"}
@@ -299,7 +299,7 @@ export default function ResourcesPage() {
             </div>
 
             <form onSubmit={handleSubmit}>
-              <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+              <div className="p-6 space-y-4">
                 {/* Image Upload Input */}
                 <div>
                   <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Foto Lapangan / Resource</label>
