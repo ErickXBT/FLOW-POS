@@ -6,7 +6,8 @@ import {
   customerOrdersTable, customerOrderItemsTable, tableQrCodesTable,
   publicMenusTable, branchesTable, customerSessionsTable, customerCartsTable,
   publicMenuCategoriesTable, publicMenuProductsTable, branchSettingsTable,
-  customersTable, usersTable, employeesTable,
+  customersTable, usersTable, employeesTable, bookingsTable, bookingResourcesTable,
+  servicesTable
 } from "@workspace/db";
 import { extractToken, getRequestedBranchId } from "./auth";
 import { deductBranchStock } from "./orders";
@@ -326,6 +327,8 @@ router.get("/menu/:slug/products", async (req, res): Promise<void> => {
   const { tenant } = await resolveTenantAndMenu(slug, branchId);
   if (!tenant) { res.status(404).json({ error: "Tenant tidak ditemukan" }); return; }
 
+  const engine = (tenant as any).businessEngine || "retail";
+
   // 1. Fetch all active global categories for this tenant
   const stdCats = await db.select().from(categoriesTable)
     .where(eq(categoriesTable.tenantId, tenant.id))
@@ -342,8 +345,59 @@ router.get("/menu/:slug/products", async (req, res): Promise<void> => {
     description: c.description,
   }));
 
+  if (engine === "booking") {
+    categories.unshift({
+      id: 1000000,
+      name: "Lapangan",
+      description: "Sewa Lapangan / Resource",
+    });
+  } else if (engine === "appointment") {
+    categories.unshift({
+      id: 2000000,
+      name: "Layanan",
+      description: "Layanan / Jasa Reservasi",
+    });
+  }
+
   let products: any[] = [];
 
+  if (engine === "booking") {
+    const resources = await db.select().from(bookingResourcesTable)
+      .where(and(eq(bookingResourcesTable.tenantId, tenant.id), eq(bookingResourcesTable.status, "active")));
+    products = resources.map(r => ({
+      id: r.id + 1000000,
+      productId: r.id + 1000000,
+      name: r.name,
+      description: r.description || "",
+      price: Number(r.priceWeekday),
+      promoPrice: null,
+      imageUrl: r.imageUrl,
+      isAvailable: true,
+      stock: 999,
+      variantSettings: null,
+      publicMenuCategoryId: 1000000,
+      isBestSeller: false,
+    }));
+  } else if (engine === "appointment") {
+    const services = await db.select().from(servicesTable)
+      .where(and(eq(servicesTable.tenantId, tenant.id), eq(servicesTable.status, "active")));
+    products = services.map(r => ({
+      id: r.id + 2000000,
+      productId: r.id + 2000000,
+      name: r.name,
+      description: r.description || "",
+      price: Number(r.price),
+      promoPrice: null,
+      imageUrl: null,
+      isAvailable: true,
+      stock: 999,
+      variantSettings: null,
+      publicMenuCategoryId: 2000000,
+      isBestSeller: false,
+    }));
+  }
+
+  let normalProducts: any[] = [];
   if (branchId) {
     const [menu] = await db.select().from(publicMenusTable)
       .where(and(
@@ -354,11 +408,9 @@ router.get("/menu/:slug/products", async (req, res): Promise<void> => {
       .limit(1);
 
     if (menu) {
-      // Fetch branch-specific categories
       const customCats = await db.select().from(publicMenuCategoriesTable)
         .where(eq(publicMenuCategoriesTable.publicMenuId, menu.id));
 
-      // Map customCategoryId -> globalCategoryId by name match
       const customToGlobalCatIdMap: Record<number, number> = {};
       for (const cCat of customCats) {
         const matchedGlobal = stdCats.find(gCat => gCat.name.toLowerCase() === cCat.name.toLowerCase());
@@ -367,7 +419,6 @@ router.get("/menu/:slug/products", async (req, res): Promise<void> => {
         }
       }
 
-      // Fetch branch-specific product overrides
       const branchProds = await db.select().from(publicMenuProductsTable)
         .where(eq(publicMenuProductsTable.branchId, branchId));
 
@@ -379,12 +430,11 @@ router.get("/menu/:slug/products", async (req, res): Promise<void> => {
       for (const p of stdProds) {
         const bp = branchProdMap.get(p.id);
         if (bp) {
-          // If explicitly marked unavailable for this branch, exclude it from menu
           if (bp.isAvailable === false) {
             continue;
           }
           const mappedCatId = customToGlobalCatIdMap[bp.publicMenuCategoryId] ?? p.categoryId;
-          products.push({
+          normalProducts.push({
             id: bp.id,
             productId: p.id,
             name: bp.name || p.name,
@@ -399,8 +449,7 @@ router.get("/menu/:slug/products", async (req, res): Promise<void> => {
             isBestSeller: p.isBestSeller,
           });
         } else {
-          // No override exists, use global active product directly
-          products.push({
+          normalProducts.push({
             id: p.id,
             productId: p.id,
             name: p.name,
@@ -416,26 +465,10 @@ router.get("/menu/:slug/products", async (req, res): Promise<void> => {
           });
         }
       }
-    } else {
-      // Menu not found, use global active products directly
-      products = stdProds.map(p => ({
-        id: p.id,
-        productId: p.id,
-        name: p.name,
-        description: p.description,
-        price: Number(p.price),
-        promoPrice: null,
-        imageUrl: p.imageUrl,
-        isAvailable: p.isActive,
-        stock: p.stock,
-        variantSettings: p.variantSettings,
-        publicMenuCategoryId: p.categoryId,
-        isBestSeller: p.isBestSeller,
-      }));
     }
   } else {
     // No branchId provided, use global active products directly
-    products = stdProds.map(p => ({
+    normalProducts = stdProds.map(p => ({
       id: p.id,
       productId: p.id,
       name: p.name,
@@ -451,7 +484,46 @@ router.get("/menu/:slug/products", async (req, res): Promise<void> => {
     }));
   }
 
+  products = [...products, ...normalProducts];
+
   res.json({ categories, products });
+});
+
+router.get("/menu/:slug/bookings", async (req, res): Promise<void> => {
+  const { slug } = req.params;
+  const dateStr = req.query.date as string;
+  const { tenant } = await resolveTenantAndMenu(slug);
+  if (!tenant) { res.status(404).json({ error: "Tenant tidak ditemukan" }); return; }
+
+  const rows = await db.select().from(bookingsTable)
+    .where(and(
+      eq(bookingsTable.tenantId, tenant.id),
+      eq(bookingsTable.bookingDate, dateStr || new Date().toLocaleDateString("sv-SE"))
+    ));
+
+  res.json(rows.map(r => ({
+    id: r.id,
+    resourceId: r.resourceId,
+    bookingDate: r.bookingDate,
+    startTime: r.startTime,
+    endTime: r.endTime,
+    status: r.status,
+    customerName: r.customerName,
+  })));
+});
+
+router.get("/menu/:slug/resources", async (req, res): Promise<void> => {
+  const { slug } = req.params;
+  const { tenant } = await resolveTenantAndMenu(slug);
+  if (!tenant) { res.status(404).json({ error: "Tenant tidak ditemukan" }); return; }
+
+  const rows = await db.select().from(bookingResourcesTable)
+    .where(and(
+      eq(bookingResourcesTable.tenantId, tenant.id),
+      eq(bookingResourcesTable.status, "active")
+    ));
+
+  res.json(rows);
 });
 
 router.post("/menu/:slug/orders", async (req, res): Promise<void> => {
@@ -479,11 +551,47 @@ router.post("/menu/:slug/orders", async (req, res): Promise<void> => {
     }
   }
 
+  const engine = (tenant as any).businessEngine || "retail";
+
   const productIds = items.map((i: any) => i.productId);
-  const products = productIds.length > 0
-    ? await db.select().from(productsTable)
-        .where(and(inArray(productsTable.id, productIds), eq(productsTable.tenantId, tenant.id)))
-    : [];
+  let products: any[] = [];
+  if (productIds.length > 0) {
+    if (engine === "booking") {
+      const resourceIds = productIds.filter((id: number) => id >= 1000000).map((id: number) => id - 1000000);
+      const retailProductIds = productIds.filter((id: number) => id < 1000000);
+
+      const dbResources = resourceIds.length > 0
+        ? await db.select().from(bookingResourcesTable).where(and(inArray(bookingResourcesTable.id, resourceIds), eq(bookingResourcesTable.tenantId, tenant.id)))
+        : [];
+      
+      const dbProducts = retailProductIds.length > 0
+        ? await db.select().from(productsTable).where(and(inArray(productsTable.id, retailProductIds), eq(productsTable.tenantId, tenant.id)))
+        : [];
+
+      products = [
+        ...dbResources.map(r => ({ ...r, id: r.id + 1000000, price: r.priceWeekday })),
+        ...dbProducts
+      ];
+    } else if (engine === "appointment") {
+      const serviceIds = productIds.filter((id: number) => id >= 2000000).map((id: number) => id - 2000000);
+      const retailProductIds = productIds.filter((id: number) => id < 2000000);
+
+      const dbServices = serviceIds.length > 0
+        ? await db.select().from(servicesTable).where(and(inArray(servicesTable.id, serviceIds), eq(servicesTable.tenantId, tenant.id)))
+        : [];
+
+      const dbProducts = retailProductIds.length > 0
+        ? await db.select().from(productsTable).where(and(inArray(productsTable.id, retailProductIds), eq(productsTable.tenantId, tenant.id)))
+        : [];
+
+      products = [
+        ...dbServices.map(s => ({ ...s, id: s.id + 2000000 })),
+        ...dbProducts
+      ];
+    } else {
+      products = await db.select().from(productsTable).where(and(inArray(productsTable.id, productIds), eq(productsTable.tenantId, tenant.id)));
+    }
+  }
   const productMap = products.reduce((m: any, p) => { m[p.id] = p; return m; }, {});
 
   let subtotal = 0;
@@ -612,6 +720,42 @@ router.post("/menu/:slug/orders", async (req, res): Promise<void> => {
 
   const insertedItems = await db.insert(customerOrderItemsTable)
     .values(orderItems.map((i: any) => ({ ...i, customerOrderId: order.id, tenantId: tenant.id, branchId: activeBranchId }))).returning();
+
+  if (engine === "booking") {
+    for (const item of items) {
+      if (item.productId >= 1000000) {
+        const resourceId = item.productId - 1000000;
+        let bookingDate = new Date().toLocaleDateString("sv-SE");
+        let startTime = "08:00";
+        let endTime = "09:00";
+        
+        if (item.variantSelection) {
+          try {
+            const parsed = typeof item.variantSelection === "string" ? JSON.parse(item.variantSelection) : item.variantSelection;
+            if (parsed.bookingDate) bookingDate = parsed.bookingDate;
+            if (parsed.startTime) startTime = parsed.startTime;
+            if (parsed.endTime) endTime = parsed.endTime;
+          } catch (e) {}
+        }
+        
+        const price = productMap[item.productId] ? Number(productMap[item.productId].price) : 0;
+
+        await db.insert(bookingsTable).values({
+          tenantId: tenant.id,
+          branchId: activeBranchId,
+          resourceId: resourceId,
+          customerName: customerName,
+          customerPhone: customerPhone ?? null,
+          bookingDate: bookingDate,
+          startTime: startTime,
+          endTime: endTime,
+          totalPrice: String(price * item.quantity),
+          paymentStatus: paymentStatus,
+          status: "confirmed",
+        });
+      }
+    }
+  }
 
   const insertedItemsWithImage = insertedItems.map((i: any) => ({
     ...i,

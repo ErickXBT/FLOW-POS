@@ -83,6 +83,7 @@ interface CartItem {
   selectedVariant: string;
   selectedToppings: string[];
   totalPrice: number;
+  variantSelection?: any;
 }
 
 const STATUS_STEPS: Record<string, { label: string; icon: any; step: number }> = {
@@ -1016,6 +1017,77 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
   const [branch, setBranch] = useState<BranchInfo | null>(null);
   const [menu, setMenu] = useState<PublicMenuInfo | null>(null);
 
+  const [selectedDate, setSelectedDate] = useState(() => new Date().toLocaleDateString("sv-SE"));
+  const [bookingSelection, setBookingSelection] = useState<any>(null);
+  const [publicResources, setPublicResources] = useState<any[]>([]);
+  const [publicBookings, setPublicBookings] = useState<any[]>([]);
+  const [loadingCalendar, setLoadingCalendar] = useState(false);
+
+  useEffect(() => {
+    if (!tenant || (tenant as any).businessEngine !== "booking") return;
+
+    async function loadCalendarData() {
+      setLoadingCalendar(true);
+      try {
+        const [resRes, resBook] = await Promise.all([
+          fetch(`${BASE}/api/menu/${slug}/resources`),
+          fetch(`${BASE}/api/menu/${slug}/bookings?date=${selectedDate}`)
+        ]);
+        if (resRes.ok) {
+          const resourcesData = await resRes.json();
+          setPublicResources(resourcesData);
+        }
+        if (resBook.ok) {
+          const bookingsData = await resBook.json();
+          setPublicBookings(bookingsData);
+        }
+      } catch (err) {
+        console.error("Failed to load public calendar:", err);
+      } finally {
+        setLoadingCalendar(false);
+      }
+    }
+    loadCalendarData();
+  }, [tenant, selectedDate, slug]);
+
+  const bookingGrid = useMemo(() => {
+    const grid: Record<string, any> = {};
+    publicBookings.forEach(b => {
+      const startHour = b.startTime.substring(0, 5);
+      grid[`${b.resourceId}-${startHour}`] = b;
+    });
+    return grid;
+  }, [publicBookings]);
+
+  const OPERATIONAL_HOURS = useMemo(() => [
+    "08:00", "09:00", "10:00", "11:00", "12:00", "13:00", "14:00",
+    "15:00", "16:00", "17:00", "18:00", "19:00", "20:00", "21:00", "22:00"
+  ], []);
+
+  const handlePublicCellClick = (resItem: any, hour: string) => {
+    const [h, m] = hour.split(":").map(Number);
+    const endH = String(h + 1).padStart(2, "0");
+    const endM = String(m).padStart(2, "0");
+    const endTime = `${endH}:${endM}`;
+
+    const mappedProductId = resItem.id + 1000000;
+    const courtProduct = products.find(p => p.id === mappedProductId);
+    
+    if (courtProduct) {
+      setSelectedProduct({
+        ...courtProduct,
+        description: `Sewa ${resItem.name} | Tanggal: ${selectedDate} | Jam: ${hour} - ${endTime}`,
+      });
+      setBookingSelection({
+        bookingDate: selectedDate,
+        startTime: hour,
+        endTime: endTime,
+        resourceId: resItem.id,
+      });
+      setModalQty(1);
+    }
+  };
+
   const isStoreOpen = useMemo(() => {
     if (!tenant) return true;
     if (!tenant.enableOpsHours) return true;
@@ -1837,7 +1909,8 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
       notes: modalNotes,
       selectedVariant: variant,
       selectedToppings: toppings,
-      totalPrice: itemTotalPrice
+      totalPrice: itemTotalPrice,
+      variantSelection: bookingSelection,
     };
 
     setCart(prev => {
@@ -1857,6 +1930,7 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
     });
 
     setSelectedProduct(null);
+    setBookingSelection(null);
   };
 
   const updateQty = (itemId: string, newQuantity: number) => {
@@ -1995,9 +2069,11 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
             quantity: c.quantity,
             price: c.product.promoPrice ?? c.product.price,
             notes: c.notes || null,
-            variantSelection: c.selectedVariant
-              ? `${c.selectedVariant}${c.selectedToppings && c.selectedToppings.length > 0 ? " " + c.selectedToppings.join(", ") : ""}`
-              : (c.selectedToppings && c.selectedToppings.length > 0 ? c.selectedToppings.join(", ") : null),
+            variantSelection: c.variantSelection
+              ? JSON.stringify(c.variantSelection)
+              : (c.selectedVariant
+                  ? `${c.selectedVariant}${c.selectedToppings && c.selectedToppings.length > 0 ? " " + c.selectedToppings.join(", ") : ""}`
+                  : (c.selectedToppings && c.selectedToppings.length > 0 ? c.selectedToppings.join(", ") : null)),
           })),
         }),
       });
@@ -2565,9 +2641,98 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
         </div>
       </div>
 
-      {/* 3. Product Grid */}
+      {/* 3. Product Grid or Booking Calendar */}
       <div className="p-4 max-w-7xl mx-auto w-full">
-        {filteredProducts.length === 0 ? (
+        {activeCat === 1000000 ? (
+          <div className="bg-white border border-gray-100 rounded-3xl p-5 shadow-sm space-y-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+              <div>
+                <h3 className="font-bold text-gray-900 text-base">Jadwal Lapangan</h3>
+                <p className="text-xs text-gray-500 mt-0.5">Silakan pilih tanggal dan jam yang tersedia (hijau) untuk disewa</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={e => setSelectedDate(e.target.value)}
+                  className="px-3.5 py-2 border rounded-xl text-xs font-bold text-gray-800 bg-gray-50 focus:outline-none focus:border-gray-200"
+                />
+              </div>
+            </div>
+
+            {/* Legend */}
+            <div className="flex flex-wrap gap-4 items-center bg-gray-50 p-3 rounded-2xl text-[10px] sm:text-xs font-semibold text-gray-600">
+              <span className="text-gray-400 uppercase text-[9px] font-bold mr-1">Petunjuk:</span>
+              <div className="flex items-center gap-1.5 text-emerald-600">
+                <span className="w-3.5 h-3.5 rounded-full bg-emerald-500/25 border border-emerald-500/40 flex items-center justify-center text-[8px] font-bold">✓</span>
+                <span>Tersedia (Klik untuk Sewa)</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-rose-600">
+                <span className="w-3.5 h-3.5 rounded-full bg-rose-500/25 border border-rose-500/40 flex items-center justify-center text-[8px] font-bold">✗</span>
+                <span>Sudah Dibooking</span>
+              </div>
+            </div>
+
+            {/* Calendar Table Grid */}
+            <div className="overflow-x-auto border border-gray-100 rounded-2xl">
+              <table className="w-full border-collapse text-left min-w-[700px] text-xs">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-100">
+                    <th className="p-3.5 font-bold text-gray-600 w-36">Lapangan</th>
+                    {OPERATIONAL_HOURS.map((hour) => (
+                      <th key={hour} className="p-3.5 font-bold text-gray-600 text-center border-l border-gray-100/80">
+                        {hour}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {publicResources && publicResources.length > 0 ? (
+                    publicResources.map((resItem: any) => (
+                      <tr key={resItem.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition-colors">
+                        <td className="p-3.5 font-bold text-gray-800 bg-white sticky left-0 z-10 border-r border-gray-100 shadow-[2px_0_4px_rgba(0,0,0,0.02)]">
+                          {resItem.name}
+                        </td>
+                        {OPERATIONAL_HOURS.map((hour) => {
+                          const booking = bookingGrid[`${resItem.id}-${hour}`];
+                          const isOccupied = !!booking;
+
+                          return (
+                            <td
+                              key={hour}
+                              className="p-1.5 border-l border-gray-100 text-center min-w-[100px]"
+                            >
+                              {isOccupied ? (
+                                <div className="flex flex-col items-center justify-center p-1.5 rounded-lg bg-rose-50 border border-rose-100 text-rose-600 font-medium text-[10px]">
+                                  <span className="font-bold">✗ Terisi</span>
+                                  <span className="text-[8px] opacity-80 mt-0.5 line-clamp-1">{booking.customerName}</span>
+                                </div>
+                              ) : (
+                                <button
+                                  onClick={() => handlePublicCellClick(resItem, hour)}
+                                  className="w-full flex flex-col items-center justify-center p-1.5 rounded-lg bg-emerald-50 border border-emerald-100 text-emerald-600 hover:bg-emerald-100 transition-all font-semibold active:scale-95 text-[10px] cursor-pointer"
+                                >
+                                  <span>✓ Sewa</span>
+                                  <span className="text-[8px] opacity-80 mt-0.5">Mulai</span>
+                                </button>
+                              )}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={OPERATIONAL_HOURS.length + 1} className="p-8 text-center text-gray-400">
+                        Memuat data lapangan...
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : filteredProducts.length === 0 ? (
           <div className="text-center py-16 text-gray-400 bg-white rounded-3xl border border-gray-100">
             <div className="text-5xl mb-3">{isFashion ? "👗" : "🍽️"}</div>
             <div className="text-sm font-semibold">{isFashion ? "Produk tidak ditemukan" : "Menu tidak ditemukan"}</div>
