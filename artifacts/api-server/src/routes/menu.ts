@@ -177,7 +177,8 @@ router.get("/menu/:slug", async (req, res): Promise<void> => {
   res.json({
     tenant: {
       id: tenant.id, name: tenant.name, slug: tenant.slug,
-      businessType: tenant.businessType, address: tenant.address, phone: tenant.phone,
+      businessType: tenant.businessType, businessEngine: (tenant as any).businessEngine ?? "retail",
+      address: tenant.address, phone: tenant.phone,
       logoUrl: tenant.logoUrl, primaryColor: tenant.primaryColor ?? "#1D4EF5",
       bannerUrl: (tenant as any).bannerUrl ?? null,
       coverUrl: tenant.coverUrl ?? null,
