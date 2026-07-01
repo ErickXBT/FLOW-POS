@@ -119,7 +119,7 @@ export const customerOrderItemsTable = pgTable("customer_order_items", {
   tenantId: integer("tenant_id").notNull(),
   branchId: integer("branch_id").notNull(),
   customerOrderId: integer("customer_order_id").notNull().references(() => customerOrdersTable.id, { onDelete: "cascade" }),
-  productId: integer("product_id").notNull().references(() => productsTable.id, { onDelete: "cascade" }),
+  productId: integer("product_id").notNull(),
   productName: text("product_name").notNull(),
   quantity: integer("quantity").notNull(),
   price: numeric("price", { precision: 15, scale: 2 }).notNull(),
