@@ -546,6 +546,7 @@ export const ListBookingResourcesResponseItem = zod.object({
   "priceWeekday": zod.number(),
   "priceWeekend": zod.number(),
   "priceMember": zod.number(),
+  "imageUrl": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })
@@ -563,7 +564,8 @@ export const CreateBookingResourceBody = zod.object({
   "priceWeekday": zod.number(),
   "priceWeekend": zod.number(),
   "priceMember": zod.number(),
-  "branchId": zod.number().nullish()
+  "branchId": zod.number().nullish(),
+  "imageUrl": zod.string().nullish()
 })
 
 
@@ -582,7 +584,8 @@ export const UpdateBookingResourceBody = zod.object({
   "priceWeekday": zod.number(),
   "priceWeekend": zod.number(),
   "priceMember": zod.number(),
-  "branchId": zod.number().nullish()
+  "branchId": zod.number().nullish(),
+  "imageUrl": zod.string().nullish()
 })
 
 export const UpdateBookingResourceResponse = zod.object({
@@ -596,6 +599,7 @@ export const UpdateBookingResourceResponse = zod.object({
   "priceWeekday": zod.number(),
   "priceWeekend": zod.number(),
   "priceMember": zod.number(),
+  "imageUrl": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
 })

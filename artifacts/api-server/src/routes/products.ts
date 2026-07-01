@@ -254,7 +254,7 @@ router.get("/products", async (req, res): Promise<void> => {
       isActive: r.status === "active",
       categoryId: 0,
       categoryName: "Lapangan",
-      imageUrl: null,
+      imageUrl: r.imageUrl,
       createdAt: r.createdAt.toISOString(),
       updatedAt: r.updatedAt.toISOString(),
     }));

@@ -14,6 +14,7 @@ export const bookingResourcesTable = pgTable("booking_resources", {
   priceWeekday: numeric("price_weekday", { precision: 10, scale: 2 }).notNull().default("0.00"),
   priceWeekend: numeric("price_weekend", { precision: 10, scale: 2 }).notNull().default("0.00"),
   priceMember: numeric("price_member", { precision: 10, scale: 2 }).notNull().default("0.00"),
+  imageUrl: text("image_url"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
 }, (table) => {

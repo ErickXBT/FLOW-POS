@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   useListBookingResources,
   useCreateBookingResource,
@@ -7,7 +7,7 @@ import {
   getListBookingResourcesQueryKey,
 } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Edit2, Trash2, ShieldAlert, Check, X, Dumbbell } from "lucide-react";
+import { Plus, Edit2, Trash2, ShieldAlert, Check, X, Dumbbell, UploadCloud } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const RESOURCE_TYPES = [
@@ -30,6 +30,10 @@ export default function ResourcesPage() {
 
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const [form, setForm] = useState({
     name: "",
     type: "court",
@@ -38,10 +42,12 @@ export default function ResourcesPage() {
     priceWeekend: 0,
     priceMember: 0,
     status: "active" as "active" | "inactive" | "maintenance",
+    imageUrl: "",
   });
 
   const handleOpenCreate = () => {
     setEditingId(null);
+    setUploadError("");
     setForm({
       name: "",
       type: "court",
@@ -50,12 +56,14 @@ export default function ResourcesPage() {
       priceWeekend: 0,
       priceMember: 0,
       status: "active",
+      imageUrl: "",
     });
     setShowModal(true);
   };
 
   const handleOpenEdit = (resItem: any) => {
     setEditingId(resItem.id);
+    setUploadError("");
     setForm({
       name: resItem.name,
       type: resItem.type,
@@ -64,8 +72,59 @@ export default function ResourcesPage() {
       priceWeekend: Number(resItem.priceWeekend),
       priceMember: Number(resItem.priceMember),
       status: resItem.status,
+      imageUrl: resItem.imageUrl || "",
     });
     setShowModal(true);
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) {
+      setUploadError("Ukuran gambar maksimal 5MB");
+      return;
+    }
+
+    setUploading(true);
+    setUploadError("");
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const base64 = reader.result as string;
+        try {
+          const token = localStorage.getItem("flow_token");
+          const res = await fetch("/api/products/upload", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${token || ""}`,
+            },
+            body: JSON.stringify({
+              name: file.name,
+              base64,
+            }),
+          });
+
+          if (!res.ok) {
+            const errData = await res.json();
+            throw new Error(errData.error || "Gagal mengunggah gambar");
+          }
+
+          const data = await res.json();
+          setForm(p => ({ ...p, imageUrl: data.imageUrl }));
+        } catch (err: any) {
+          setUploadError(err.message || "Gagal mengunggah gambar");
+        } finally {
+          setUploading(false);
+        }
+      };
+      reader.readAsDataURL(file);
+    } catch (err: any) {
+      setUploadError("Gagal membaca file");
+      setUploading(false);
+    }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -152,60 +211,67 @@ export default function ResourcesPage() {
             return (
               <div
                 key={resItem.id}
-                className="bg-card border border-card-border rounded-xl p-5 shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden"
+                className="bg-card border border-card-border rounded-xl shadow-sm flex flex-col justify-between hover:shadow-md transition-shadow relative overflow-hidden"
               >
-                <div className="space-y-3">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <div className="text-xs font-semibold text-muted-foreground uppercase flex items-center gap-1">
-                        <span>{typeIcon}</span> {typeLabel}
+                {resItem.imageUrl && (
+                  <div className="w-full h-40 border-b border-border overflow-hidden bg-muted/20">
+                    <img src={resItem.imageUrl} alt={resItem.name} className="w-full h-full object-cover" />
+                  </div>
+                )}
+                <div className="p-5 space-y-3 flex-1 flex flex-col justify-between">
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="text-xs font-semibold text-muted-foreground uppercase flex items-center gap-1">
+                          <span>{typeIcon}</span> {typeLabel}
+                        </div>
+                        <h3 className="font-bold text-foreground text-lg mt-0.5">{resItem.name}</h3>
                       </div>
-                      <h3 className="font-bold text-foreground text-lg mt-0.5">{resItem.name}</h3>
+                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
+                        resItem.status === "active"
+                          ? "bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400"
+                          : resItem.status === "inactive"
+                          ? "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
+                          : "bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400"
+                      }`}>
+                        {resItem.status}
+                      </span>
                     </div>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                      resItem.status === "active"
-                        ? "bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400"
-                        : resItem.status === "inactive"
-                        ? "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
-                        : "bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400"
-                    }`}>
-                      {resItem.status}
-                    </span>
+
+                    <p className="text-xs text-muted-foreground min-h-[32px] line-clamp-2">
+                      {resItem.description || "Tidak ada deskripsi."}
+                    </p>
+
+                    <div className="border-t border-border/80 pt-3 space-y-1.5 text-xs">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Harga Weekday:</span>
+                        <span className="font-semibold text-foreground">Rp {Number(resItem.priceWeekday).toLocaleString("id-ID")}/jam</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Harga Weekend:</span>
+                        <span className="font-semibold text-foreground">Rp {Number(resItem.priceWeekend).toLocaleString("id-ID")}/jam</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Harga Member:</span>
+                        <span className="font-semibold text-foreground">Rp {Number(resItem.priceMember).toLocaleString("id-ID")}/jam</span>
+                      </div>
+                    </div>
                   </div>
 
-                  <p className="text-xs text-muted-foreground min-h-[32px] line-clamp-2">
-                    {resItem.description || "Tidak ada deskripsi."}
-                  </p>
-
-                  <div className="border-t border-border/80 pt-3 space-y-1.5 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Harga Weekday:</span>
-                      <span className="font-semibold text-foreground">Rp {Number(resItem.priceWeekday).toLocaleString("id-ID")}/jam</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Harga Weekend:</span>
-                      <span className="font-semibold text-foreground">Rp {Number(resItem.priceWeekend).toLocaleString("id-ID")}/jam</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Harga Member:</span>
-                      <span className="font-semibold text-foreground">Rp {Number(resItem.priceMember).toLocaleString("id-ID")}/jam</span>
-                    </div>
+                  <div className="flex gap-2 border-t border-border/80 pt-4 mt-4">
+                    <button
+                      onClick={() => handleOpenEdit(resItem)}
+                      className="flex-1 py-1.5 border border-border rounded-lg text-xs font-semibold hover:bg-muted text-foreground flex items-center justify-center gap-1.5 cursor-pointer bg-transparent"
+                    >
+                      <Edit2 size={12} /> Edit
+                    </button>
+                    <button
+                      onClick={() => handleDelete(resItem.id, resItem.name)}
+                      className="flex-1 py-1.5 border border-destructive/20 rounded-lg text-xs font-semibold hover:bg-destructive/10 text-destructive flex items-center justify-center gap-1.5 cursor-pointer bg-transparent"
+                    >
+                      <Trash2 size={12} /> Hapus
+                    </button>
                   </div>
-                </div>
-
-                <div className="flex gap-2 border-t border-border/80 pt-4 mt-4">
-                  <button
-                    onClick={() => handleOpenEdit(resItem)}
-                    className="flex-1 py-1.5 border border-border rounded-lg text-xs font-semibold hover:bg-muted text-foreground flex items-center justify-center gap-1.5 cursor-pointer bg-transparent"
-                  >
-                    <Edit2 size={12} /> Edit
-                  </button>
-                  <button
-                    onClick={() => handleDelete(resItem.id, resItem.name)}
-                    className="flex-1 py-1.5 border border-destructive/20 rounded-lg text-xs font-semibold hover:bg-destructive/10 text-destructive flex items-center justify-center gap-1.5 cursor-pointer bg-transparent"
-                  >
-                    <Trash2 size={12} /> Hapus
-                  </button>
                 </div>
               </div>
             );
@@ -233,7 +299,66 @@ export default function ResourcesPage() {
             </div>
 
             <form onSubmit={handleSubmit}>
-              <div className="p-6 space-y-4">
+              <div className="p-6 space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+                {/* Image Upload Input */}
+                <div>
+                  <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Foto Lapangan / Resource</label>
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    onChange={handleFileChange}
+                    accept="image/*"
+                    className="hidden"
+                  />
+
+                  {form.imageUrl ? (
+                    <div className="relative group w-full h-40 rounded-2xl overflow-hidden border border-border bg-muted/20 flex items-center justify-center">
+                      <img
+                        src={form.imageUrl}
+                        alt="Preview"
+                        className="w-full h-full object-cover transition-transform group-hover:scale-105 duration-300"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          className="px-3 py-1.5 bg-primary text-primary-foreground text-xs font-bold rounded-lg hover:opacity-90 transition-opacity shadow cursor-pointer border-0"
+                        >
+                          Ubah Gambar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setForm(p => ({ ...p, imageUrl: "" }))}
+                          className="p-1.5 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-colors shadow cursor-pointer border-0"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className="w-full h-40 border-2 border-dashed border-input rounded-2xl flex flex-col items-center justify-center p-4 cursor-pointer hover:border-primary hover:bg-primary/5 transition-all group animate-fade-in"
+                    >
+                      {uploading ? (
+                        <div className="flex flex-col items-center gap-2">
+                          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                          <span className="text-xs text-muted-foreground font-semibold">Mengunggah gambar...</span>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="w-10 h-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center mb-2.5 group-hover:scale-110 transition-transform">
+                            <UploadCloud size={20} />
+                          </div>
+                          <span className="text-xs font-bold text-foreground text-center">Pilih gambar dari galeri HP atau PC</span>
+                          <span className="text-[10px] text-muted-foreground mt-1 text-center">Maks. 5MB, format gambar (JPG, PNG, WEBP)</span>
+                        </>
+                      )}
+                    </div>
+                  )}
+                  {uploadError && <p className="text-xs text-red-500 mt-1 font-semibold">⚠️ {uploadError}</p>}
+                </div>
+
                 <div>
                   <label className="block text-xs font-bold text-muted-foreground uppercase mb-1">Nama Lapangan / Asset</label>
                   <input
