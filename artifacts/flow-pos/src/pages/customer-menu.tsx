@@ -11,7 +11,7 @@ import QRCode from "qrcode";
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
 interface TenantInfo {
-  id: number; name: string; slug: string; businessType: string;
+  id: number; name: string; slug: string; businessType: string; businessEngine?: string;
   address: string | null; phone: string | null; logoUrl: string | null;
   primaryColor: string; bannerUrl: string | null;
   coverUrl: string | null; bio: string | null;
@@ -1681,6 +1681,10 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
         setBranch(data.branch);
         setMenu(data.menu);
 
+        if (data.tenant.businessEngine === "booking") {
+          setActiveCat(1000000);
+        }
+
         if (data.tenant.primaryColor) {
           document.documentElement.style.setProperty("--menu-primary", data.tenant.primaryColor);
         }
@@ -1845,6 +1849,10 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
   };
 
   const handleOpenDetailModal = (product: Product) => {
+    if (product.id >= 1000000 && product.id < 2000000) {
+      setActiveCat(1000000);
+      return;
+    }
     setSelectedProduct(product);
     setModalQty(1);
     setModalNotes("");
@@ -2515,7 +2523,7 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
             </div>
           </div>
 
-          {tenant.showDeliveryInfo !== false && (
+          {tenant.showDeliveryInfo !== false && tenant.businessEngine !== "booking" && (
             <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs font-bold text-gray-700 bg-gray-50 p-3 rounded-2xl">
               <span className="flex items-center gap-1"><Truck size={13} style={{ color: primary }} /> {(menu.enableDelivery || tenant.enableDelivery) ? "Menerima Pengantaran" : "Hanya Ambil Sendiri"}</span>
               <span className="text-gray-300 hidden sm:inline">|</span>
@@ -2922,11 +2930,13 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
 
                 {/* Notes Input */}
                 <div className="space-y-1.5">
-                  <div className="text-xs font-black text-gray-700 uppercase tracking-wide">Catatan Pesanan</div>
+                  <div className="text-xs font-black text-gray-700 uppercase tracking-wide">
+                    {selectedProduct.id >= 1000000 && selectedProduct.id < 2000000 ? "Catatan Booking" : "Catatan Pesanan"}
+                  </div>
                   <input
                     value={modalNotes}
                     onChange={e => setModalNotes(e.target.value)}
-                    placeholder="Contoh: Tidak pedas, kuah dipisah..."
+                    placeholder={selectedProduct.id >= 1000000 && selectedProduct.id < 2000000 ? "Contoh: Ingin sewa raket tambahan..." : "Contoh: Tidak pedas, kuah dipisah..."}
                     className="w-full px-4 py-3 bg-gray-50 border rounded-2xl text-xs focus:outline-none focus:border-gray-300"
                   />
                 </div>
@@ -2935,15 +2945,22 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
 
             {/* Sticky Modal Bottom */}
             <div className="border-t p-4 bg-white flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3 bg-gray-100 rounded-2xl p-1.5">
-                <button onClick={() => setModalQty(q => Math.max(1, q - 1))} className="w-8 h-8 rounded-xl bg-white border flex items-center justify-center text-gray-600 hover:bg-gray-50">
-                  <Minus size={14} />
-                </button>
-                <span className="font-black text-sm w-6 text-center">{modalQty}</span>
-                <button onClick={() => setModalQty(q => q + 1)} className="w-8 h-8 rounded-xl bg-white border flex items-center justify-center text-gray-600 hover:bg-gray-50">
-                  <Plus size={14} />
-                </button>
-              </div>
+              {selectedProduct.id >= 1000000 && selectedProduct.id < 2000000 ? (
+                <div className="text-xs font-bold text-gray-500 bg-gray-50 border border-gray-100 px-3.5 py-2.5 rounded-2xl flex items-center gap-1.5">
+                  <Clock size={14} className="text-primary" />
+                  <span>Durasi: 1 Jam</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-3 bg-gray-100 rounded-2xl p-1.5">
+                  <button onClick={() => setModalQty(q => Math.max(1, q - 1))} className="w-8 h-8 rounded-xl bg-white border flex items-center justify-center text-gray-600 hover:bg-gray-50">
+                    <Minus size={14} />
+                  </button>
+                  <span className="font-black text-sm w-6 text-center">{modalQty}</span>
+                  <button onClick={() => setModalQty(q => q + 1)} className="w-8 h-8 rounded-xl bg-white border flex items-center justify-center text-gray-600 hover:bg-gray-50">
+                    <Plus size={14} />
+                  </button>
+                </div>
+              )}
               {(() => {
                 const normalBasePrice = selectedProduct.promoPrice ?? selectedProduct.price;
                 const toppings = tenant?.showToppings !== false ? modalToppings : [];
@@ -2981,7 +2998,11 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
                     className="flex-1 py-3.5 rounded-2xl text-white font-bold text-xs flex items-center justify-center gap-2"
                     style={{ backgroundColor: primary }}
                   >
-                    <span>Masukkan Keranjang • {formatRp(totalPrice)}</span>
+                    <span>
+                      {selectedProduct.id >= 1000000 && selectedProduct.id < 2000000 
+                        ? `Booking Lapangan ini • ${formatRp(totalPrice)}` 
+                        : `Masukkan Keranjang • ${formatRp(totalPrice)}`}
+                    </span>
                   </button>
                 );
               })()}
