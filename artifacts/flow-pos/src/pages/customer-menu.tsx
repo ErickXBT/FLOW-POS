@@ -2071,7 +2071,7 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
   const availablePayments = (() => {
     if (!menu) return [];
     const opts: { value: string; label: string; desc: string }[] = [];
-    if (tenant?.enableCash) opts.push({ value: "cash", label: "Cash on Delivery", desc: "Bayar tunai di kurir saat barang sampai" });
+    if (tenant?.enableCash && tenant?.businessEngine !== "booking") opts.push({ value: "cash", label: "Cash on Delivery", desc: "Bayar tunai di kurir saat barang sampai" });
     if (menu.enableDineIn) opts.push({ value: "cashier", label: "Bayar di Kasir", desc: "Selesaikan pembayaran langsung di kasir toko" });
     if (tenant?.enableQris) opts.push({ value: "qris", label: "QRIS", desc: "Scan barcode digital secara realtime" });
     if (tenant?.enableBankTransfer) opts.push({ value: "bank_transfer", label: "Transfer Bank", desc: "Mandiri, BCA, BRI, BNI" });
@@ -2080,10 +2080,15 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
   })();
 
   const handleSubmitOrder = async () => {
+    const isBooking = tenant?.businessEngine === "booking";
     if (!form.customerName.trim()) { setSubmitError("Nama pelanggan wajib diisi"); return; }
-    if (orderType === "dine_in" && !form.tableNumber.trim()) { setSubmitError(isFashion ? "Nomor fitting room wajib diisi" : "Nomor meja wajib diisi"); return; }
-    if (orderType === "delivery" && !form.deliveryAddress.trim()) { setSubmitError("Alamat pengiriman wajib diisi"); return; }
-    if (orderType !== "dine_in" && !form.customerPhone.trim()) { setSubmitError("Nomor telepon wajib diisi"); return; }
+    if (isBooking) {
+      if (!form.customerPhone.trim()) { setSubmitError("Nomor HP / WhatsApp wajib diisi"); return; }
+    } else {
+      if (orderType === "dine_in" && !form.tableNumber.trim()) { setSubmitError(isFashion ? "Nomor fitting room wajib diisi" : "Nomor meja wajib diisi"); return; }
+      if (orderType === "delivery" && !form.deliveryAddress.trim()) { setSubmitError("Alamat pengiriman wajib diisi"); return; }
+      if (orderType !== "dine_in" && !form.customerPhone.trim()) { setSubmitError("Nomor telepon wajib diisi"); return; }
+    }
     
     setSubmitting(true); setSubmitError("");
     try {
@@ -3225,16 +3230,36 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
         </div>
       )}
 
-      {/* 8. Checkout Form */}
       {step === "form" && (
         <div className="fixed inset-0 z-50 bg-gray-50 sm:bg-black/60 sm:backdrop-blur-sm flex items-center justify-center p-0 sm:p-4 animate-fade-in">
-          <div className="absolute inset-0 sm:bg-transparent" onClick={() => setStep("order-type")} />
+          <div className="absolute inset-0 sm:bg-transparent" onClick={() => {
+            if (tenant?.businessEngine === "booking") {
+              setStep("menu");
+            } else {
+              setStep("order-type");
+            }
+          }} />
           <div className="relative bg-white rounded-none sm:rounded-3xl h-full sm:h-auto sm:max-h-[90vh] w-full max-w-lg flex flex-col shadow-2xl animate-slide-up overflow-hidden">
             <div className="bg-white border-b px-4 py-3.5 flex items-center gap-3 shadow-sm">
-              <button onClick={() => setStep("order-type")} className="text-gray-500 hover:bg-gray-100 p-1.5 rounded-full"><ArrowLeft size={18} /></button>
+              <button
+                onClick={() => {
+                  if (tenant?.businessEngine === "booking") {
+                    setStep("menu");
+                  } else {
+                    setStep("order-type");
+                  }
+                }}
+                className="text-gray-500 hover:bg-gray-100 p-1.5 rounded-full"
+              >
+                <ArrowLeft size={18} />
+              </button>
               <div>
-                <div className="font-black text-gray-900 text-sm">Lengkapi Data Pemesanan</div>
-                <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{displayOrderTypeLabels[orderType]}</div>
+                <div className="font-black text-gray-900 text-sm">
+                  {tenant?.businessEngine === "booking" ? "Lengkapi Data Booking" : "Lengkapi Data Pemesanan"}
+                </div>
+                <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                  {tenant?.businessEngine === "booking" ? "Sewa Lapangan" : displayOrderTypeLabels[orderType]}
+                </div>
               </div>
             </div>
 
@@ -3246,25 +3271,36 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
                   <label className="text-xs font-bold text-gray-600 block mb-1">Nama Lengkap *</label>
                   <input value={form.customerName} onChange={e => setForm(f => ({ ...f, customerName: e.target.value }))}
                     placeholder="Masukkan nama Anda"
-                    className="w-full px-4 py-3 bg-gray-50 rounded-2xl text-xs border border-transparent focus:border-gray-200 focus:bg-white focus:outline-none transition-all" />
+                    className="w-full px-4 py-3 bg-gray-55 rounded-2xl text-xs border border-transparent focus:border-gray-200 focus:bg-white focus:outline-none transition-all" />
                 </div>
-                
-                {orderType !== "dine_in" && (
+
+                {tenant?.businessEngine === "booking" ? (
                   <div>
                     <label className="text-xs font-bold text-gray-600 block mb-1">Nomor Telepon / WhatsApp *</label>
                     <input value={form.customerPhone} onChange={e => setForm(f => ({ ...f, customerPhone: e.target.value }))}
                       placeholder="Contoh: 081234567890" type="tel"
-                      className="w-full px-4 py-3 bg-gray-50 rounded-2xl text-xs border border-transparent focus:border-gray-200 focus:bg-white focus:outline-none transition-all" />
-                  </div>
-                )}
-
-                {orderType === "dine_in" && (
-                  <div>
-                    <label className="text-xs font-bold text-gray-600 block mb-1">{isFashion ? "Nomor Fitting Room *" : "Nomor Meja *"}</label>
-                    <input value={form.tableNumber} onChange={e => setForm(f => ({ ...f, tableNumber: e.target.value }))}
-                      placeholder={isFashion ? "Nomor Fitting Room / Kabin Anda" : "Nomor meja yang Anda duduki"}
                       className="w-full px-4 py-3 bg-gray-55 rounded-2xl text-xs border border-transparent focus:border-gray-200 focus:bg-white focus:outline-none transition-all" />
                   </div>
+                ) : (
+                  <>
+                    {orderType !== "dine_in" && (
+                      <div>
+                        <label className="text-xs font-bold text-gray-600 block mb-1">Nomor Telepon / WhatsApp *</label>
+                        <input value={form.customerPhone} onChange={e => setForm(f => ({ ...f, customerPhone: e.target.value }))}
+                          placeholder="Contoh: 081234567890" type="tel"
+                          className="w-full px-4 py-3 bg-gray-55 rounded-2xl text-xs border border-transparent focus:border-gray-200 focus:bg-white focus:outline-none transition-all" />
+                      </div>
+                    )}
+
+                    {orderType === "dine_in" && (
+                      <div>
+                        <label className="text-xs font-bold text-gray-600 block mb-1">{isFashion ? "Nomor Fitting Room *" : "Nomor Meja *"}</label>
+                        <input value={form.tableNumber} onChange={e => setForm(f => ({ ...f, tableNumber: e.target.value }))}
+                          placeholder={isFashion ? "Nomor Fitting Room / Kabin Anda" : "Nomor meja yang Anda duduki"}
+                          className="w-full px-4 py-3 bg-gray-55 rounded-2xl text-xs border border-transparent focus:border-gray-200 focus:bg-white focus:outline-none transition-all" />
+                      </div>
+                    )}
+                  </>
                 )}
 
                 {orderType === "delivery" && (
@@ -3340,10 +3376,12 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
                 )}
 
                 <div>
-                  <label className="text-xs font-bold text-gray-600 block mb-1">Catatan Tambahan Pesanan</label>
+                  <label className="text-xs font-bold text-gray-600 block mb-1">
+                    {tenant?.businessEngine === "booking" ? "Catatan Tambahan Booking" : "Catatan Tambahan Pesanan"}
+                  </label>
                   <input value={orderNotes} onChange={e => setOrderNotes(e.target.value)}
-                    placeholder="Alergi, permintaan khusus, sendok garpu..."
-                    className="w-full px-4 py-3 bg-gray-50 rounded-2xl text-xs border border-transparent focus:border-gray-200 focus:bg-white focus:outline-none transition-all" />
+                    placeholder={tenant?.businessEngine === "booking" ? "Contoh: Sewa raket tambahan, beli kok..." : "Alergi, permintaan khusus, sendok garpu..."}
+                    className="w-full px-4 py-3 bg-gray-55 rounded-2xl text-xs border border-transparent focus:border-gray-200 focus:bg-white focus:outline-none transition-all" />
                 </div>
               </div>
 
@@ -3406,7 +3444,7 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
                     {submitting ? (
                       <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                     ) : (
-                      <>Konfirmasi & Kirim Pesanan</>
+                      <>{tenant?.businessEngine === "booking" ? "Konfirmasi & Booking Sekarang" : "Konfirmasi & Kirim Pesanan"}</>
                     )}
                   </button>
                 )}
