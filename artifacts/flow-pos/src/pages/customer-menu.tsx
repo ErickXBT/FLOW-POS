@@ -1054,8 +1054,19 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
   const bookingGrid = useMemo(() => {
     const grid: Record<string, any> = {};
     publicBookings.forEach(b => {
-      const startHour = b.startTime.substring(0, 5);
-      grid[`${b.resourceId}-${startHour}`] = b;
+      try {
+        if (!b.startTime || !b.endTime) return;
+        const startH = parseInt(b.startTime.split(":")[0]);
+        const endH = parseInt(b.endTime.split(":")[0]);
+        if (isNaN(startH) || isNaN(endH)) return;
+
+        for (let h = startH; h < endH; h++) {
+          const hourStr = String(h).padStart(2, "0") + ":00";
+          grid[`${b.resourceId}-${hourStr}`] = b;
+        }
+      } catch (e) {
+        console.error("Error mapping public bookings:", e);
+      }
     });
     return grid;
   }, [publicBookings]);
@@ -1066,14 +1077,33 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
   ], []);
 
   const handlePublicCellClick = (resItem: any, hour: string) => {
-    const [h, m] = hour.split(":").map(Number);
-    const endH = String(h + 1).padStart(2, "0");
-    const endM = String(m).padStart(2, "0");
-    const endTime = `${endH}:${endM}`;
+    const startHour = parseInt(hour.split(":")[0]);
+
+    // Calculate maximum available duration (up to 23:00 or next booking)
+    let maxDuration = 1;
+    for (let d = 1; d <= 15; d++) {
+      const currentH = startHour + d - 1;
+      const currentHourStr = String(currentH).padStart(2, "0") + ":00";
+
+      if (currentH > 22) {
+        maxDuration = d - 1;
+        break;
+      }
+
+      if (bookingGrid[`${resItem.id}-${currentHourStr}`]) {
+        maxDuration = d - 1;
+        break;
+      }
+      maxDuration = d;
+    }
+    if (maxDuration < 1) maxDuration = 1;
+
+    const endH = String(startHour + 1).padStart(2, "0");
+    const endTime = `${endH}:00`;
 
     const mappedProductId = resItem.id + 1000000;
     const courtProduct = products.find(p => p.id === mappedProductId);
-    
+
     if (courtProduct) {
       setSelectedProduct({
         ...courtProduct,
@@ -1083,7 +1113,11 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
         bookingDate: selectedDate,
         startTime: hour,
         endTime: endTime,
+        duration: 1,
+        maxDuration: maxDuration,
         resourceId: resItem.id,
+        resItemName: resItem.name,
+        startHourInt: startHour,
       });
       setModalQty(1);
     }
@@ -2682,63 +2716,52 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
               </div>
             </div>
 
-            {/* Calendar Table Grid */}
-            <div className="overflow-x-auto border border-gray-100 rounded-2xl">
-              <table className="w-full border-collapse text-left min-w-[700px] text-xs">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-100">
-                    <th className="p-3.5 font-bold text-gray-600 w-36">Lapangan</th>
-                    {OPERATIONAL_HOURS.map((hour) => (
-                      <th key={hour} className="p-3.5 font-bold text-gray-600 text-center border-l border-gray-100/80">
-                        {hour}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {publicResources && publicResources.length > 0 ? (
-                    publicResources.map((resItem: any) => (
-                      <tr key={resItem.id} className="border-b border-gray-100 hover:bg-gray-50/50 transition-colors">
-                        <td className="p-3.5 font-bold text-gray-800 bg-white sticky left-0 z-10 border-r border-gray-100 shadow-[2px_0_4px_rgba(0,0,0,0.02)]">
-                          {resItem.name}
-                        </td>
-                        {OPERATIONAL_HOURS.map((hour) => {
-                          const booking = bookingGrid[`${resItem.id}-${hour}`];
-                          const isOccupied = !!booking;
+            {/* Calendar Grid Section */}
+            <div className="space-y-6">
+              {publicResources && publicResources.length > 0 ? (
+                publicResources.map((resItem: any) => (
+                  <div key={resItem.id} className="bg-white border border-gray-150 rounded-2xl p-4 sm:p-5 space-y-3 shadow-sm">
+                    <div className="flex items-center justify-between border-b pb-3 border-gray-200/60">
+                      <h4 className="font-extrabold text-gray-800 text-sm flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: primary }} />
+                        {resItem.name}
+                      </h4>
+                      <span className="text-[10px] text-gray-500 font-bold bg-gray-50 px-3 py-1 border rounded-xl shadow-sm">
+                        {resItem.description || "Lapangan Badminton"}
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-3 sm:grid-cols-5 gap-2.5">
+                      {OPERATIONAL_HOURS.map((hour) => {
+                        const booking = bookingGrid[`${resItem.id}-${hour}`];
+                        const isOccupied = !!booking;
 
-                          return (
-                            <td
-                              key={hour}
-                              className="p-1.5 border-l border-gray-100 text-center min-w-[100px]"
-                            >
-                              {isOccupied ? (
-                                <div className="flex flex-col items-center justify-center p-1.5 rounded-lg bg-rose-50 border border-rose-100 text-rose-600 font-medium text-[10px]">
-                                  <span className="font-bold">✗ Terisi</span>
-                                  <span className="text-[8px] opacity-80 mt-0.5 line-clamp-1">{booking.customerName}</span>
-                                </div>
-                              ) : (
-                                <button
-                                  onClick={() => handlePublicCellClick(resItem, hour)}
-                                  className="w-full flex flex-col items-center justify-center p-2 rounded-xl bg-emerald-50 border border-emerald-150 text-emerald-700 hover:bg-emerald-500 hover:text-white transition-all font-bold active:scale-95 text-xs cursor-pointer shadow-sm"
-                                >
-                                  <span>Booking</span>
-                                  <span className="text-[9px] opacity-80 mt-0.5">{hour}</span>
-                                </button>
-                              )}
-                            </td>
-                          );
-                        })}
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan={OPERATIONAL_HOURS.length + 1} className="p-8 text-center text-gray-400">
-                        Memuat data lapangan...
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+                        return (
+                          <div key={hour} className="relative">
+                            {isOccupied ? (
+                              <div className="w-full flex flex-col items-center justify-center p-2 rounded-2xl bg-rose-50 border border-rose-100 text-rose-600 font-medium text-[10px] min-h-[56px] shadow-sm select-none">
+                                <span className="font-bold text-xs">✗ Terisi</span>
+                                <span className="text-[8px] opacity-80 mt-0.5 line-clamp-1 max-w-[90%] text-center">{booking.customerName}</span>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => handlePublicCellClick(resItem, hour)}
+                                className="w-full flex flex-col items-center justify-center p-2 rounded-2xl bg-emerald-50 border border-emerald-150 text-emerald-700 hover:bg-emerald-500 hover:text-white transition-all font-bold active:scale-95 text-xs cursor-pointer shadow-sm min-h-[56px]"
+                              >
+                                <span>Booking</span>
+                                <span className="text-[9px] opacity-80 mt-0.5">{hour}</span>
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-10 text-gray-400 text-xs">
+                  Memuat data lapangan...
+                </div>
+              )}
             </div>
           </div>
         ) : filteredProducts.length === 0 ? (
@@ -2947,9 +2970,39 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
             {/* Sticky Modal Bottom */}
             <div className="border-t p-4 bg-white flex items-center justify-between gap-4">
               {selectedProduct.id >= 1000000 && selectedProduct.id < 2000000 ? (
-                <div className="text-xs font-bold text-gray-500 bg-gray-50 border border-gray-100 px-3.5 py-2.5 rounded-2xl flex items-center gap-1.5">
-                  <Clock size={14} className="text-primary" />
-                  <span>Durasi: 1 Jam</span>
+                <div className="flex flex-col gap-1 w-full max-w-[140px]">
+                  <label className="text-[9px] font-black text-gray-400 uppercase tracking-wider">Durasi Sewa</label>
+                  <div className="relative">
+                    <select
+                      value={modalQty}
+                      onChange={e => {
+                        const qty = Number(e.target.value);
+                        setModalQty(qty);
+                        if (bookingSelection) {
+                          const endH = String(bookingSelection.startHourInt + qty).padStart(2, "0");
+                          const endTime = `${endH}:00`;
+                          setBookingSelection((prev: any) => ({
+                            ...prev,
+                            duration: qty,
+                            endTime: endTime,
+                          }));
+                          setSelectedProduct((prev: any) => {
+                            if (!prev) return null;
+                            return {
+                              ...prev,
+                              description: `Sewa ${bookingSelection.resItemName} | Tanggal: ${bookingSelection.bookingDate} | Jam: ${bookingSelection.startTime} - ${endTime}`,
+                            };
+                          });
+                        }
+                      }}
+                      className="w-full pl-8 pr-3 py-2 border rounded-xl text-xs font-bold text-gray-800 bg-gray-50 focus:outline-none focus:border-gray-300 appearance-none"
+                    >
+                      {Array.from({ length: bookingSelection?.maxDuration || 1 }).map((_, idx) => (
+                        <option key={idx} value={idx + 1}>{idx + 1} Jam</option>
+                      ))}
+                    </select>
+                    <Clock size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                  </div>
                 </div>
               ) : (
                 <div className="flex items-center gap-3 bg-gray-100 rounded-2xl p-1.5">

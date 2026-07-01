@@ -44,8 +44,19 @@ export default function CalendarPage() {
     const grid: Record<string, any> = {};
     if (bookings) {
       bookings.forEach((b: any) => {
-        const key = `${b.resourceId}-${b.startTime}`;
-        grid[key] = b;
+        try {
+          if (!b.startTime || !b.endTime) return;
+          const startH = parseInt(b.startTime.split(":")[0]);
+          const endH = parseInt(b.endTime.split(":")[0]);
+          if (isNaN(startH) || isNaN(endH)) return;
+
+          for (let h = startH; h < endH; h++) {
+            const hourStr = String(h).padStart(2, "0") + ":00";
+            grid[`${b.resourceId}-${hourStr}`] = b;
+          }
+        } catch (e) {
+          console.error("Error mapping booking grid:", e);
+        }
       });
     }
     return grid;
