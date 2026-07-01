@@ -427,11 +427,21 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
     if (hasPermission(user, "view_reports")) {
       navItems.push({ href: "/reports", label: "Laporan", icon: <BarChart3 size={18} /> });
     }
-    // QR Menu is specific to Retail
-    if (engine === "retail" && hasPermission(user, "manage_qr_menu")) {
+    // QR Menu / Booking link enabled for all engines
+    if (hasPermission(user, "manage_qr_menu")) {
+      const qrLabel = engine === "booking"
+        ? "QR Booking"
+        : engine === "appointment"
+        ? "QR Reservasi"
+        : engine === "service"
+        ? "QR Layanan"
+        : isFashion
+        ? "QR Katalog"
+        : "QR Menu";
+
       navItems.push({
         href: "/qr-menu",
-        label: isFashion ? "QR Katalog" : "QR Menu",
+        label: qrLabel,
         icon: <QrCode size={18} />
       });
     }

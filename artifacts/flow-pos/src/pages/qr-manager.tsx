@@ -47,7 +47,92 @@ export default function QrManagerPage() {
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsSaved, setSettingsSaved] = useState(false);
   const [businessType, setBusinessType] = useState("fnb");
+  const [engine, setEngine] = useState("retail");
   const isFashion = businessType === "fashion";
+  const isBooking = engine === "booking";
+  const isAppointment = engine === "appointment";
+  const isService = engine === "service";
+
+  const titleText = isBooking 
+    ? "QR Booking & Reservasi Online" 
+    : isAppointment 
+    ? "QR Reservasi & Online Booking"
+    : isService
+    ? "QR Servis & Layanan Online"
+    : isFashion 
+    ? "QR Katalog & Pesanan Online" 
+    : "QR Menu & Online Order";
+
+  const subtitleText = isBooking 
+    ? "Kelola link booking publik dan QR code lapangan / studio Anda" 
+    : isAppointment 
+    ? "Kelola link reservasi publik dan QR code kursi / ruangan Anda"
+    : isService
+    ? "Kelola link layanan publik dan QR code slot servis Anda"
+    : isFashion 
+    ? "Kelola link katalog publik dan QR code fitting room" 
+    : "Kelola link menu publik dan QR code meja";
+
+  const linkLabel = isBooking 
+    ? "Link Booking Publik" 
+    : isAppointment 
+    ? "Link Reservasi Publik"
+    : isService
+    ? "Link Layanan Publik"
+    : isFashion 
+    ? "Link Katalog Publik" 
+    : "Link Menu Publik";
+
+  const qrTitle = isBooking 
+    ? "QR Code Booking Online" 
+    : isAppointment 
+    ? "QR Code Reservasi Online"
+    : isService
+    ? "QR Code Layanan Online"
+    : isFashion 
+    ? "QR Code Katalog Toko" 
+    : "QR Code Toko";
+
+  const qrDesc = isBooking 
+    ? "Pelanggan scan QR ini untuk melihat jadwal kosong dan booking langsung di ponsel mereka" 
+    : isAppointment 
+    ? "Pelanggan scan QR ini untuk melihat jadwal kosong dan reservasi langsung di ponsel mereka"
+    : isService
+    ? "Pelanggan scan QR ini untuk memesan layanan langsung di ponsel mereka"
+    : isFashion 
+    ? "Pelanggan scan QR ini untuk membuka katalog langsung di ponsel mereka" 
+    : "Pelanggan scan QR ini untuk membuka menu langsung di ponsel mereka";
+
+  const tableLabel = isBooking 
+    ? "Lapangan" 
+    : isAppointment 
+    ? "Kursi / Ruangan"
+    : isService
+    ? "Nomor Antrean / Slot"
+    : isFashion 
+    ? "Fitting Room" 
+    : "Meja";
+
+  const dineInLabel = isBooking
+    ? "Sewa Lapangan"
+    : isAppointment
+    ? "Layanan Studio"
+    : isService
+    ? "Servis di Workshop"
+    : isFashion
+    ? "Coba di Fitting Room"
+    : "Makan di Tempat";
+
+  const takeAwayLabel = isBooking
+    ? "Booking Slot"
+    : isAppointment
+    ? "Home Service"
+    : isService
+    ? "Servis Panggilan"
+    : isFashion
+    ? "Ambil di Toko"
+    : "Bawa Pulang";
+
   const token = useRef(localStorage.getItem("flow_token") ?? "");
 
   async function fetchData() {
@@ -98,6 +183,7 @@ export default function QrManagerPage() {
     if (rt.ok) {
       const t = await rt.json();
       setBusinessType(t.businessType || "fnb");
+      setEngine(t.businessEngine || "retail");
       setSettings(s => ({
         ...s,
         enableDineIn: t.enableDineIn ?? true,
@@ -337,14 +423,14 @@ export default function QrManagerPage() {
   return (
     <div className="p-6 space-y-6 max-w-4xl font-sans">
       <div>
-        <h1 className="text-xl font-bold text-foreground">{isFashion ? "QR Katalog & Pesanan Online" : "QR Menu & Online Order"}</h1>
-        <p className="text-muted-foreground text-sm">{isFashion ? "Kelola link katalog publik dan QR code fitting room" : "Kelola link menu publik dan QR code meja"}</p>
+        <h1 className="text-xl font-bold text-foreground">{titleText}</h1>
+        <p className="text-muted-foreground text-sm">{subtitleText}</p>
       </div>
 
       {/* Card 1: Link Menu Publik */}
       <div className="bg-card border border-card-border rounded-xl p-5 shadow-sm space-y-4">
         <div className="flex items-center gap-2 font-semibold text-foreground">
-          <Globe size={18} className="text-primary" /> {isFashion ? "Link Katalog Publik" : "Link Menu Publik"}
+          <Globe size={18} className="text-primary" /> {linkLabel}
         </div>
         
         <div className="flex flex-col sm:flex-row gap-2">
@@ -366,7 +452,7 @@ export default function QrManagerPage() {
         
         {!slug && (
           <div className="text-amber-600 text-xs bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
-            ⚠️ {isFashion ? "Tentukan slug terlebih dahulu untuk mengaktifkan pembuatan QR Code Katalog publik" : "Tentukan slug terlebih dahulu untuk mengaktifkan pembuatan QR Code Menu publik"}
+            ⚠️ Tentukan slug terlebih dahulu untuk mengaktifkan pembuatan QR Code publik.
           </div>
         )}
 
@@ -386,16 +472,16 @@ export default function QrManagerPage() {
 
             <div className="bg-muted/10 border border-border rounded-xl p-4 flex gap-4 items-center">
               {storeQrImg ? (
-                <img src={storeQrImg} alt={isFashion ? "QR Code Katalog Toko" : "QR Code Toko"} className="w-24 h-24 rounded-lg border border-border flex-shrink-0 bg-white p-1" />
+                <img src={storeQrImg} alt={qrTitle} className="w-24 h-24 rounded-lg border border-border flex-shrink-0 bg-white p-1" />
               ) : (
                 <div className="w-24 h-24 rounded-lg bg-muted flex items-center justify-center flex-shrink-0 p-1">
                   <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                 </div>
               )}
               <div className="space-y-1.5 flex-1">
-                <div className="font-bold text-foreground text-sm">{isFashion ? "QR Code Katalog Toko" : "QR Code Toko"}</div>
+                <div className="font-bold text-foreground text-sm">{qrTitle}</div>
                 <p className="text-muted-foreground text-xs leading-relaxed">
-                  {isFashion ? "Pelanggan scan QR ini untuk membuka katalog langsung di ponsel mereka" : "Pelanggan scan QR ini untuk membuka menu langsung di ponsel mereka"}
+                  {qrDesc}
                 </p>
                 <button onClick={() => downloadQR(storeQrImg, `store-${slug}`)}
                   className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground text-xs font-semibold rounded-lg hover:bg-primary/90 transition-colors mt-1">
@@ -410,7 +496,9 @@ export default function QrManagerPage() {
       {/* Card 2: Pengaturan Menu Online */}
       <div className="bg-card border border-card-border rounded-xl p-5 shadow-sm space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="font-semibold text-foreground text-sm font-sans">{isFashion ? "Pengaturan Katalog Online" : "Pengaturan Menu Online"}</div>
+          <div className="font-semibold text-foreground text-sm font-sans">
+            {isBooking ? "Pengaturan Booking Online" : isAppointment ? "Pengaturan Reservasi Online" : isFashion ? "Pengaturan Katalog Online" : "Pengaturan Menu Online"}
+          </div>
           <button onClick={saveSettings} disabled={settingsSaving}
             className="w-full sm:w-auto flex items-center justify-center gap-1.5 text-xs bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 font-semibold font-sans">
             {settingsSaved ? <><Check size={12} /> Tersimpan</> : settingsSaving ? "Menyimpan..." : "Simpan Pengaturan"}
@@ -419,12 +507,12 @@ export default function QrManagerPage() {
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2">
           <div>
-            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-3">Jenis Pesanan</div>
+            <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide mb-3">Jenis Layanan / Pesanan</div>
             <div className="space-y-3">
               {[
-                { key: "enableDineIn", label: isFashion ? "Coba di Fitting Room" : "Makan di Tempat", emoji: isFashion ? "👚" : "🪑" },
-                { key: "enableTakeAway", label: isFashion ? "Ambil di Toko" : "Bawa Pulang", emoji: "🛍️" },
-                { key: "enableDelivery", label: "Antar ke Alamat", emoji: "🛵" },
+                { key: "enableDineIn", label: dineInLabel, emoji: isBooking ? "🏸" : isFashion ? "👚" : "🪑" },
+                { key: "enableTakeAway", label: takeAwayLabel, emoji: isBooking ? "📅" : "🛍️" },
+                { key: "enableDelivery", label: "Antar ke Alamat / Panggilan", emoji: "🛵" },
               ].map(({ key, label, emoji }) => (
                 <div key={key} className="flex items-center gap-3">
                   <button
@@ -563,13 +651,13 @@ export default function QrManagerPage() {
       {slug && (
         <div className="bg-card border border-card-border rounded-xl p-5 shadow-sm space-y-4">
           <div className="font-semibold text-foreground text-sm flex items-center gap-2">
-            <QrCode size={18} className="text-primary" /> {isFashion ? "QR Code per Fitting Room" : "QR Code per Meja"}
+            <QrCode size={18} className="text-primary" /> {isBooking ? "QR Code per Lapangan" : isAppointment ? "QR Code per Ruangan/Kursi" : isFashion ? "QR Code per Fitting Room" : "QR Code per Meja"}
           </div>
           
           <div className="flex flex-col md:flex-row gap-3">
             <input
               type="text"
-              placeholder={isFashion ? "Nomor fitting room (contoh: 3)" : "Nomor meja (contoh: 5)"}
+              placeholder={isBooking ? "Nomor lapangan (contoh: A)" : isAppointment ? "Nomor kursi/ruangan (contoh: 1)" : isFashion ? "Nomor fitting room (contoh: 3)" : "Nomor meja (contoh: 5)"}
               value={newTable}
               onChange={e => setNewTable(e.target.value)}
               className="flex-1 px-4 py-2 border border-border rounded-lg bg-background text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary transition-all font-sans"
@@ -600,14 +688,14 @@ export default function QrManagerPage() {
                 return (
                   <div key={qr.id} className="border border-border rounded-xl p-4 flex gap-4 bg-muted/10 items-start">
                     {qrImg ? (
-                      <img src={qrImg} alt={isFashion ? `QR Fitting Room ${qr.tableId}` : `QR Meja ${qr.tableId}`} className="w-24 h-24 rounded-lg border border-border flex-shrink-0 bg-white p-1" />
+                      <img src={qrImg} alt={`${tableLabel} ${qr.tableId}`} className="w-24 h-24 rounded-lg border border-border flex-shrink-0 bg-white p-1" />
                     ) : (
                       <div className="w-24 h-24 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
                         <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
                       </div>
                     )}
                     <div className="flex-1 min-w-0 space-y-1">
-                      <div className="font-bold text-foreground text-sm font-sans">{isFashion ? "Fitting Room" : "Meja"} {qr.tableId}</div>
+                      <div className="font-bold text-foreground text-sm font-sans">{tableLabel} {qr.tableId}</div>
                       <div className="text-xs text-muted-foreground flex items-center gap-1 font-sans"><MapPin size={10} /> {branchName}</div>
                       {qr.label && <div className="text-xs text-primary font-semibold font-sans">Tag: {qr.label}</div>}
                       <div className="text-[10px] font-mono text-muted-foreground truncate">{url}</div>
@@ -619,7 +707,7 @@ export default function QrManagerPage() {
                           Salin Link
                         </button>
                         {qrImg && (
-                          <button onClick={() => downloadQR(qrImg, isFashion ? `qr-fitting-${qr.tableId}` : `qr-meja-${qr.tableId}`)}
+                          <button onClick={() => downloadQR(qrImg, isBooking ? `qr-court-${qr.tableId}` : isFashion ? `qr-fitting-${qr.tableId}` : `qr-meja-${qr.tableId}`)}
                             className="flex items-center gap-1 text-[10px] bg-primary/10 text-primary px-2 py-1 rounded-md hover:bg-primary/20 transition-colors font-sans">
                             <Download size={10} /> Save PNG
                           </button>
