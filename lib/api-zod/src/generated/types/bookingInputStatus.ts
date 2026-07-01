@@ -13,7 +13,9 @@ export const BookingInputStatus = {
   pending: 'pending',
   confirmed: 'confirmed',
   checked_in: 'checked_in',
+  playing: 'playing',
   completed: 'completed',
+  finished: 'finished',
   cancelled: 'cancelled',
   rescheduled: 'rescheduled',
 } as const;

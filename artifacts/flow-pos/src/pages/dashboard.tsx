@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import {
   useGetDashboardStats,
   useGetRecentOrders,
@@ -15,7 +15,9 @@ import {
   useCreateTicketReply,
   useCreateSupportTicket,
   getListSupportTicketsQueryKey,
-  getListTicketRepliesQueryKey
+  getListTicketRepliesQueryKey,
+  useListBookings,
+  useListBookingResources
 } from "@workspace/api-client-react";
 import {
   TrendingUp, TrendingDown, ShoppingCart, Package, Users, AlertTriangle, DollarSign, ChefHat, Truck, Clock,
@@ -221,6 +223,33 @@ function OwnerDashboard() {
 
   // Fetch announcements from super admin
   const { data: announcements } = useListAnnouncements();
+
+  // Fetch today's bookings and active courts
+  const todayStr = useMemo(() => new Date().toLocaleDateString("sv-SE"), []);
+  const { data: todayBookings } = useListBookings({ date: todayStr });
+  const { data: bookingResources } = useListBookingResources();
+
+  const currentHour = useMemo(() => {
+    const now = new Date();
+    return `${String(now.getHours()).padStart(2, "0")}:00`;
+  }, []);
+
+  const nextBooking = useMemo(() => {
+    if (!todayBookings || todayBookings.length === 0) return null;
+    const activeBookings = todayBookings.filter(b =>
+      (b.status === "confirmed" || b.status === "pending" || b.status === "rescheduled" || b.status === "checked_in")
+    );
+    const sorted = [...activeBookings].sort((a, b) => a.startTime.localeCompare(b.startTime));
+    return sorted.find(b => b.startTime >= currentHour) || sorted[0] || null;
+  }, [todayBookings, currentHour]);
+
+  const todayBookingsCount = todayBookings?.length || 0;
+  const playingCourtsCount = todayBookings?.filter(b => b.status === "playing").length || 0;
+  const activeResourcesCount = bookingResources?.filter(r => r.status === "active").length || 0;
+  const vacantCourtsCount = Math.max(0, activeResourcesCount - playingCourtsCount);
+  const maxSlots = activeResourcesCount * 15;
+  const bookedSlots = todayBookings?.filter(b => b.status !== "cancelled").length || 0;
+  const occupancyRate = maxSlots > 0 ? Math.round((bookedSlots / maxSlots) * 100) : 0;
 
   // Real-time fetched resources
   const { data: realEmployees } = useListEmployees();
@@ -1426,20 +1455,63 @@ function OwnerDashboard() {
             <div className="space-y-6 animate-fade-in">
 
 
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-                <StatCard label="Penjualan Hari Ini" value={formatRp(s.todaySales)} icon={<DollarSign size={16} />} sub={`${s.todayOrders} transaksi`} />
-                <StatCard label="Revenue Bulanan" value={formatRp(estimatedGrossProfit)} icon={<TrendingUp size={16} />} trend={isFreshTenant ? undefined : s.revenueGrowth} />
-                {engine === "booking" ? (
-                  <StatCard label="Total Lapangan/Studio" value={s.totalProducts.toString()} icon={<Layers size={16} />} sub="Fasilitas disewa" />
-                ) : engine === "appointment" ? (
-                  <StatCard label="Total Layanan/Jasa" value={s.totalProducts.toString()} icon={<Award size={16} />} sub="Menu layanan aktif" />
-                ) : engine === "service" ? (
-                  <StatCard label="Total Kategori Servis" value={s.totalProducts.toString()} icon={<Clipboard size={16} />} sub="Jenis servis aktif" />
-                ) : (
-                  <StatCard label="Barang Stok Rendah" value={s.lowStockCount.toString()} icon={<Package size={16} />} sub={s.lowStockCount > 0 ? "⚠️ Butuh Restock" : "Stok aman"} />
-                )}
-                <StatCard label="Kehadiran Staf" value={attendance.length > 0 ? `${attendance.filter(a => a.checkIn).length}/${attendance.length}` : "0"} icon={<Users size={16} />} sub={attendance.length > 0 ? "Shift Pagi Aktif" : "Belum ada staf"} />
-              </div>
+              {engine === "booking" ? (
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+                  <StatCard label="Pendapatan Hari Ini" value={formatRp(s.todaySales)} icon={<DollarSign size={16} />} sub={`${s.todayOrders} transaksi`} />
+                  <StatCard label="Booking Hari Ini" value={todayBookingsCount.toString()} icon={<Calendar size={16} />} sub="Jadwal hari ini" />
+                  <StatCard label="Lapangan Dipakai" value={`${playingCourtsCount}/${activeResourcesCount}`} icon={<Activity size={16} />} sub="Sedang main" />
+                  <StatCard label="Lapangan Kosong" value={`${vacantCourtsCount}`} icon={<Layers size={16} />} sub="Tersedia sewa" />
+                  <StatCard label="Okupansi Lapangan" value={`${occupancyRate}%`} icon={<Percent size={16} />} sub="Rasio slot terisi" />
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                  <StatCard label="Penjualan Hari Ini" value={formatRp(s.todaySales)} icon={<DollarSign size={16} />} sub={`${s.todayOrders} transaksi`} />
+                  <StatCard label="Revenue Bulanan" value={formatRp(estimatedGrossProfit)} icon={<TrendingUp size={16} />} trend={isFreshTenant ? undefined : s.revenueGrowth} />
+                  {engine === "appointment" ? (
+                    <StatCard label="Total Layanan/Jasa" value={s.totalProducts.toString()} icon={<Award size={16} />} sub="Menu layanan aktif" />
+                  ) : engine === "service" ? (
+                    <StatCard label="Total Kategori Servis" value={s.totalProducts.toString()} icon={<Clipboard size={16} />} sub="Jenis servis aktif" />
+                  ) : (
+                    <StatCard label="Barang Stok Rendah" value={s.lowStockCount.toString()} icon={<Package size={16} />} sub={s.lowStockCount > 0 ? "⚠️ Butuh Restock" : "Stok aman"} />
+                  )}
+                  <StatCard label="Kehadiran Staf" value={attendance.length > 0 ? `${attendance.filter(a => a.checkIn).length}/${attendance.length}` : "0"} icon={<Users size={16} />} sub={attendance.length > 0 ? "Shift Pagi Aktif" : "Belum ada staf"} />
+                </div>
+              )}
+
+              {engine === "booking" && nextBooking && (
+                <div className="bg-gradient-to-r from-primary/10 via-primary/5 to-transparent border border-primary/20 rounded-2xl p-5 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-fade-in">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl bg-primary/10 text-primary flex items-center justify-center text-lg">
+                      🏸
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold text-primary uppercase tracking-wider">Booking Berikutnya</span>
+                      <h4 className="font-bold text-foreground text-sm mt-0.5">
+                        {nextBooking.customerName} ({nextBooking.resourceName})
+                      </h4>
+                      <p className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                        <Clock size={12} className="text-muted-foreground" /> {nextBooking.startTime} - {nextBooking.endTime} | Tanggal: {nextBooking.bookingDate}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wide ${
+                      nextBooking.status === "checked_in"
+                        ? "bg-amber-100 text-amber-700 dark:bg-amber-950/30"
+                        : nextBooking.status === "playing"
+                        ? "bg-purple-100 text-purple-700 dark:bg-purple-950/30"
+                        : "bg-blue-100 text-blue-700 dark:bg-blue-950/30"
+                    }`}>
+                      {nextBooking.status === "checked_in" ? "Checked In" : nextBooking.status === "playing" ? "Playing" : "Confirmed"}
+                    </span>
+                    <Link href="/bookings">
+                      <a className="text-xs font-semibold text-primary hover:underline flex items-center gap-1">
+                        Detail Booking →
+                      </a>
+                    </Link>
+                  </div>
+                </div>
+              )}
 
               <div className="grid lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 bg-card border border-card-border rounded-2xl p-5 shadow-sm space-y-4">

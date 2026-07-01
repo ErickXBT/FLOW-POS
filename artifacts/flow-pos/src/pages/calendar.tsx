@@ -181,6 +181,23 @@ export default function CalendarPage() {
         </div>
       </div>
 
+      {/* Legend */}
+      <div className="flex flex-wrap gap-4 items-center bg-card border border-card-border p-3.5 rounded-xl text-xs font-semibold">
+        <span className="text-muted-foreground uppercase text-[10px] font-bold tracking-wider mr-2">Status Lapangan:</span>
+        <div className="flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+          <span className="w-3.5 h-3.5 rounded-full bg-emerald-500/25 border border-emerald-500/40 flex items-center justify-center text-[9px] font-bold">✓</span>
+          <span>Available (Tersedia)</span>
+        </div>
+        <div className="flex items-center gap-1.5 text-rose-600 dark:text-rose-400">
+          <span className="w-3.5 h-3.5 rounded-full bg-rose-500/25 border border-rose-500/40 flex items-center justify-center text-[9px] font-bold">✗</span>
+          <span>Booked (Sudah Dibooking)</span>
+        </div>
+        <div className="flex items-center gap-1.5 text-muted-foreground">
+          <span className="w-3.5 h-3.5 rounded-full bg-muted border border-border flex items-center justify-center text-[9px] font-bold opacity-60">!</span>
+          <span>Off / Maintenance (Tutup)</span>
+        </div>
+      </div>
+
       <div className="bg-card border border-card-border rounded-xl shadow-sm overflow-x-auto">
         <table className="w-full border-collapse text-left min-w-[700px] text-sm">
           <thead>
@@ -209,26 +226,39 @@ export default function CalendarPage() {
                     return (
                       <td
                         key={hour}
-                        className={`p-2 border-l border-border/85 text-center min-w-[100px] ${
-                          isOccupied
-                            ? "bg-primary/10 text-primary"
-                            : isBlocked
-                            ? "bg-muted text-muted-foreground/60 cursor-not-allowed"
-                            : "hover:bg-primary/5 cursor-pointer transition-colors"
+                        className={`p-2.5 border-l border-border/85 text-center min-w-[120px] ${
+                          isBlocked ? "bg-muted/40 cursor-not-allowed" : "cursor-pointer"
                         }`}
                         onClick={() => !isOccupied && !isBlocked && handleCellClick(resItem.id, hour)}
                       >
                         {isOccupied ? (
-                          <div className="text-[11px] font-semibold p-1 rounded bg-primary/20 line-clamp-2">
-                            {booking.customerName}
+                          <div className="flex flex-col gap-1 items-center justify-center p-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-600 dark:text-rose-400 text-[11px] font-medium transition-all hover:scale-[1.02] duration-200">
+                            <div className="flex items-center gap-1 font-bold text-rose-700 dark:text-rose-300">
+                              <span className="text-xs">✗</span> Terisi
+                            </div>
+                            <div className="font-semibold line-clamp-1 text-[10px] opacity-90">{booking.customerName}</div>
+                            <span className={`text-[8px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wide ${
+                              booking.status === "completed" || booking.status === "finished"
+                                ? "bg-green-100 text-green-700 dark:bg-green-950/30"
+                                : booking.status === "playing"
+                                ? "bg-purple-100 text-purple-700 dark:bg-purple-950/30"
+                                : booking.status === "checked_in"
+                                ? "bg-amber-100 text-amber-700 dark:bg-amber-950/30"
+                                : "bg-rose-200 text-rose-800"
+                            }`}>
+                              {booking.status === "checked_in" ? "Checked In" : booking.status === "playing" ? "Playing" : booking.status === "completed" || booking.status === "finished" ? "Selesai" : "Paid"}
+                            </span>
                           </div>
                         ) : isBlocked ? (
-                          <div className="text-[10px] text-muted-foreground italic flex items-center justify-center gap-1">
-                            <AlertCircle size={10} /> Off
+                          <div className="flex flex-col items-center justify-center p-2 rounded-lg bg-muted/60 text-muted-foreground/60 text-[10px] italic">
+                            <span className="font-bold">Off</span>
                           </div>
                         ) : (
-                          <div className="text-[10px] text-muted-foreground/40 hover:text-primary transition-colors flex items-center justify-center gap-0.5 opacity-0 hover:opacity-100">
-                            <Plus size={10} /> Booking
+                          <div className="flex flex-col gap-1 items-center justify-center p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[11px] font-medium hover:bg-emerald-500/20 transition-all hover:scale-[1.02] duration-200">
+                            <div className="flex items-center gap-1 font-bold">
+                              <span className="text-xs">✓</span> Tersedia
+                            </div>
+                            <span className="text-[8px] font-bold uppercase text-emerald-600/80 dark:text-emerald-400/80">Sewa</span>
                           </div>
                         )}
                       </td>

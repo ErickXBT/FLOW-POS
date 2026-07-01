@@ -634,7 +634,7 @@ export const ListBookingsResponseItem = zod.object({
   "endTime": zod.string(),
   "totalPrice": zod.number(),
   "paymentStatus": zod.enum(['unpaid', 'paid', 'partial']),
-  "status": zod.enum(['pending', 'confirmed', 'checked_in', 'completed', 'cancelled', 'rescheduled']),
+  "status": zod.enum(['pending', 'confirmed', 'checked_in', 'playing', 'completed', 'finished', 'cancelled', 'rescheduled']),
   "notes": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
@@ -655,7 +655,7 @@ export const CreateBookingBody = zod.object({
   "endTime": zod.string(),
   "totalPrice": zod.number(),
   "paymentStatus": zod.enum(['unpaid', 'paid', 'partial']).optional(),
-  "status": zod.enum(['pending', 'confirmed', 'checked_in', 'completed', 'cancelled', 'rescheduled']).optional(),
+  "status": zod.enum(['pending', 'confirmed', 'checked_in', 'playing', 'completed', 'finished', 'cancelled', 'rescheduled']).optional(),
   "notes": zod.string().optional(),
   "branchId": zod.number().nullish()
 })
@@ -682,7 +682,7 @@ export const GetBookingResponse = zod.object({
   "endTime": zod.string(),
   "totalPrice": zod.number(),
   "paymentStatus": zod.enum(['unpaid', 'paid', 'partial']),
-  "status": zod.enum(['pending', 'confirmed', 'checked_in', 'completed', 'cancelled', 'rescheduled']),
+  "status": zod.enum(['pending', 'confirmed', 'checked_in', 'playing', 'completed', 'finished', 'cancelled', 'rescheduled']),
   "notes": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
@@ -706,7 +706,7 @@ export const UpdateBookingBody = zod.object({
   "endTime": zod.string().optional(),
   "totalPrice": zod.number().optional(),
   "paymentStatus": zod.enum(['unpaid', 'paid', 'partial']).optional(),
-  "status": zod.enum(['pending', 'confirmed', 'checked_in', 'completed', 'cancelled', 'rescheduled']).optional(),
+  "status": zod.enum(['pending', 'confirmed', 'checked_in', 'playing', 'completed', 'finished', 'cancelled', 'rescheduled']).optional(),
   "notes": zod.string().optional()
 })
 
@@ -724,7 +724,7 @@ export const UpdateBookingResponse = zod.object({
   "endTime": zod.string(),
   "totalPrice": zod.number(),
   "paymentStatus": zod.enum(['unpaid', 'paid', 'partial']),
-  "status": zod.enum(['pending', 'confirmed', 'checked_in', 'completed', 'cancelled', 'rescheduled']),
+  "status": zod.enum(['pending', 'confirmed', 'checked_in', 'playing', 'completed', 'finished', 'cancelled', 'rescheduled']),
   "notes": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
@@ -760,7 +760,7 @@ export const CheckInBookingResponse = zod.object({
   "endTime": zod.string(),
   "totalPrice": zod.number(),
   "paymentStatus": zod.enum(['unpaid', 'paid', 'partial']),
-  "status": zod.enum(['pending', 'confirmed', 'checked_in', 'completed', 'cancelled', 'rescheduled']),
+  "status": zod.enum(['pending', 'confirmed', 'checked_in', 'playing', 'completed', 'finished', 'cancelled', 'rescheduled']),
   "notes": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()
@@ -788,7 +788,7 @@ export const CompleteBookingResponse = zod.object({
   "endTime": zod.string(),
   "totalPrice": zod.number(),
   "paymentStatus": zod.enum(['unpaid', 'paid', 'partial']),
-  "status": zod.enum(['pending', 'confirmed', 'checked_in', 'completed', 'cancelled', 'rescheduled']),
+  "status": zod.enum(['pending', 'confirmed', 'checked_in', 'playing', 'completed', 'finished', 'cancelled', 'rescheduled']),
   "notes": zod.string().nullish(),
   "createdAt": zod.string(),
   "updatedAt": zod.string()

@@ -10,7 +10,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import {
   ClipboardList, CheckCircle, Clock, XCircle, Trash2, Calendar,
-  ArrowRight, Search, Play, Check, AlertCircle, Phone
+  ArrowRight, Search, Play, Check, AlertCircle, Phone, Activity
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -36,6 +36,21 @@ export default function BookingsPage() {
       },
       onError: (err: any) => {
         toast({ variant: "destructive", title: "Gagal Check In", description: err?.data?.error || "Terjadi kesalahan." });
+      }
+    });
+  };
+
+  const handleStartPlaying = (id: number) => {
+    updateMutation.mutate({
+      id,
+      data: { status: "playing" }
+    }, {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: getListBookingsQueryKey() });
+        toast({ title: "Mulai Bermain", description: "Status reservasi diubah menjadi Playing." });
+      },
+      onError: (err: any) => {
+        toast({ variant: "destructive", title: "Gagal Mengubah Status", description: err?.data?.error || "Terjadi kesalahan." });
       }
     });
   };
@@ -120,14 +135,15 @@ export default function BookingsPage() {
 
   // Calculate status counters
   const counters = (() => {
-    let pending = 0, checkedIn = 0, completed = 0, cancelled = 0;
+    let pending = 0, checkedIn = 0, playing = 0, completed = 0, cancelled = 0;
     bookings?.forEach((b: any) => {
-      if (b.status === "confirmed" || b.status === "pending") pending++;
+      if (b.status === "confirmed" || b.status === "pending" || b.status === "rescheduled") pending++;
       else if (b.status === "checked_in") checkedIn++;
-      else if (b.status === "completed") completed++;
+      else if (b.status === "playing") playing++;
+      else if (b.status === "completed" || b.status === "finished") completed++;
       else if (b.status === "cancelled") cancelled++;
     });
-    return { pending, checkedIn, completed, cancelled, total: bookings?.length || 0 };
+    return { pending, checkedIn, playing, completed, cancelled, total: bookings?.length || 0 };
   })();
 
   if (isLoading) {
@@ -144,7 +160,7 @@ export default function BookingsPage() {
       </div>
 
       {/* Counters Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
         <div className="bg-card border border-card-border p-4 rounded-xl shadow-sm text-center">
           <div className="text-sm font-semibold text-muted-foreground">Semua</div>
           <div className="text-2xl font-bold text-foreground mt-1">{counters.total}</div>
@@ -160,6 +176,12 @@ export default function BookingsPage() {
             <Play size={14} /> Checked In
           </div>
           <div className="text-2xl font-bold text-foreground mt-1">{counters.checkedIn}</div>
+        </div>
+        <div className="bg-card border border-card-border p-4 rounded-xl shadow-sm text-center border-l-4 border-l-purple-500">
+          <div className="text-sm font-semibold text-purple-500 flex items-center justify-center gap-1">
+            <Activity size={14} /> Playing
+          </div>
+          <div className="text-2xl font-bold text-foreground mt-1">{counters.playing}</div>
         </div>
         <div className="bg-card border border-card-border p-4 rounded-xl shadow-sm text-center border-l-4 border-l-green-500">
           <div className="text-sm font-semibold text-green-500 flex items-center justify-center gap-1">
@@ -192,6 +214,7 @@ export default function BookingsPage() {
             { value: "all", label: "Semua Status" },
             { value: "confirmed", label: "Confirmed" },
             { value: "checked_in", label: "Checked In" },
+            { value: "playing", label: "Playing" },
             { value: "completed", label: "Selesai" },
             { value: "cancelled", label: "Batal" },
           ].map((item) => (
@@ -257,27 +280,29 @@ export default function BookingsPage() {
                   </td>
                   <td className="p-4">
                     <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                      b.status === "completed"
+                      b.status === "completed" || b.status === "finished"
                         ? "bg-green-100 text-green-700 dark:bg-green-950/30"
+                        : b.status === "playing"
+                        ? "bg-purple-100 text-purple-700 dark:bg-purple-950/30"
                         : b.status === "checked_in"
                         ? "bg-amber-100 text-amber-700 dark:bg-amber-950/30"
                         : b.status === "cancelled"
                         ? "bg-red-100 text-red-700 dark:bg-red-950/30"
                         : "bg-blue-100 text-blue-700 dark:bg-blue-950/30"
                     }`}>
-                      {b.status === "checked_in" ? "Checked In" : b.status === "completed" ? "Selesai" : b.status === "cancelled" ? "Batal" : "Confirmed"}
+                      {b.status === "checked_in" ? "Checked In" : b.status === "playing" ? "Playing" : b.status === "completed" || b.status === "finished" ? "Selesai" : b.status === "cancelled" ? "Batal" : "Confirmed"}
                     </span>
                   </td>
                   <td className="p-4 text-right">
                     <div className="flex justify-end gap-1.5">
-                      {b.status === "confirmed" && (
+                      {(b.status === "confirmed" || b.status === "pending" || b.status === "rescheduled") && (
                         <>
                           <button
                             onClick={() => handleCheckIn(b.id)}
-                            className="px-2 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded text-xs font-semibold cursor-pointer border-0 flex items-center gap-1"
+                            className="px-2 py-1 bg-blue-600 hover:bg-blue-700 text-white rounded text-xs font-semibold cursor-pointer border-0 flex items-center gap-1"
                             title="Check In Pelanggan"
                           >
-                            <Play size={12} /> Check In
+                            <Check size={12} /> Check In
                           </button>
                           <button
                             onClick={() => setRescheduleData({ id: b.id, date: b.bookingDate, time: b.startTime })}
@@ -295,10 +320,18 @@ export default function BookingsPage() {
                       )}
                       {b.status === "checked_in" && (
                         <button
+                          onClick={() => handleStartPlaying(b.id)}
+                          className="px-2 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded text-xs font-semibold cursor-pointer border-0 flex items-center gap-1"
+                        >
+                          <Play size={12} /> Mulai Main
+                        </button>
+                      )}
+                      {b.status === "playing" && (
+                        <button
                           onClick={() => handleComplete(b.id)}
                           className="px-2 py-1 bg-green-600 hover:bg-green-700 text-white rounded text-xs font-semibold cursor-pointer border-0 flex items-center gap-1"
                         >
-                          <Check size={12} /> Selesai
+                          <CheckCircle size={12} /> Selesai Main
                         </button>
                       )}
                       <button
