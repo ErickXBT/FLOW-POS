@@ -379,6 +379,10 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
       navItems.push({ href: "/calendar", label: "Kalender", icon: <Calendar size={18} /> });
       navItems.push({ href: "/bookings", label: "Booking", icon: <ClipboardList size={18} /> });
       navItems.push({ href: "/resources", label: "Lapangan", icon: <Warehouse size={18} /> });
+      if (hasPermission(user, "manage_products")) {
+        navItems.push({ href: "/products", label: "Produk", icon: <Package size={18} /> });
+        navItems.push({ href: "/categories", label: "Kategori", icon: <Tag size={18} /> });
+      }
       if (hasPermission(user, "view_pos")) {
         navItems.push({ href: "/pos", label: "Kasir (POS)", icon: <ShoppingCart size={18} /> });
       }
@@ -387,6 +391,10 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
       navItems.push({ href: "/appointments", label: "Appointment", icon: <Calendar size={18} /> });
       navItems.push({ href: "/staff-schedule", label: "Staff", icon: <Users size={18} /> });
       navItems.push({ href: "/services", label: "Service", icon: <Briefcase size={18} /> });
+      if (hasPermission(user, "manage_products")) {
+        navItems.push({ href: "/products", label: "Produk", icon: <Package size={18} /> });
+        navItems.push({ href: "/categories", label: "Kategori", icon: <Tag size={18} /> });
+      }
       if (hasPermission(user, "view_pos")) {
         navItems.push({ href: "/pos", label: "Kasir (POS)", icon: <ShoppingCart size={18} /> });
       }
@@ -395,6 +403,10 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
       navItems.push({ href: "/work-orders", label: "Work Order", icon: <ClipboardList size={18} /> });
       navItems.push({ href: "/queue", label: "Queue", icon: <Clock size={18} /> });
       navItems.push({ href: "/technicians", label: "Teknisi", icon: <Wrench size={18} /> });
+      if (hasPermission(user, "manage_products")) {
+        navItems.push({ href: "/products", label: "Produk", icon: <Package size={18} /> });
+        navItems.push({ href: "/categories", label: "Kategori", icon: <Tag size={18} /> });
+      }
       if (hasPermission(user, "view_pos")) {
         navItems.push({ href: "/pos", label: "Kasir (POS)", icon: <ShoppingCart size={18} /> });
       }
