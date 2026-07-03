@@ -1423,6 +1423,61 @@ function SecurityTab() {
   );
 }
 
+const ADMIN_BUSINESS_ENGINES = [
+  { value: "retail", label: "Penjualan (Retail)", icon: "🛒" },
+  { value: "booking", label: "Reservasi (Booking)", icon: "📅" },
+  { value: "appointment", label: "Janji Temu (Appointment)", icon: "🤝" },
+  { value: "service", label: "Layanan (Jasa/Servis)", icon: "🛠️" },
+];
+
+const ADMIN_CATEGORIES_BY_ENGINE: Record<string, { value: string; label: string; icon: string }[]> = {
+  retail: [
+    { value: "fnb", label: "F&B / Cafe", icon: "🍽️" },
+    { value: "restaurant", label: "Restaurant", icon: "🍱" },
+    { value: "coffee_shop", label: "Coffee Shop", icon: "☕" },
+    { value: "bakery", label: "Bakery", icon: "🍞" },
+    { value: "fashion", label: "Fashion Store", icon: "👗" },
+    { value: "boutique", label: "Butik", icon: "🧥" },
+    { value: "minimarket", label: "Minimarket", icon: "🏪" },
+    { value: "grocery", label: "Grocery Store", icon: "🍎" },
+    { value: "pet_shop", label: "Pet Shop", icon: "🐱" },
+    { value: "electronics", label: "Elektronik", icon: "🔌" },
+    { value: "hardware_store", label: "Toko Bangunan", icon: "🧱" },
+    { value: "pharmacy", label: "Apotek", icon: "💊" },
+  ],
+  booking: [
+    { value: "badminton", label: "Badminton", icon: "🏸" },
+    { value: "futsal", label: "Futsal", icon: "⚽" },
+    { value: "padel", label: "Padel Tennis", icon: "🎾" },
+    { value: "tennis", label: "Tennis", icon: "🥎" },
+    { value: "music_studio", label: "Studio Musik", icon: "🎸" },
+    { value: "coworking", label: "Coworking", icon: "💻" },
+    { value: "meeting_room", label: "Meeting Room", icon: "👥" },
+    { value: "rental", label: "Rental", icon: "🚗" },
+    { value: "venue", label: "Venue/Gedung", icon: "🏛️" },
+  ],
+  appointment: [
+    { value: "salon", label: "Salon Kecantikan", icon: "💇‍♀️" },
+    { value: "barbershop", label: "Barbershop", icon: "💈" },
+    { value: "spa", label: "Spa & Massage", icon: "💆" },
+    { value: "clinic", label: "Klinik Pratama", icon: "🏥" },
+    { value: "doctor", label: "Praktek Dokter", icon: "🩺" },
+    { value: "psychologist", label: "Psikolog/Konseling", icon: "🧠" },
+    { value: "mua", label: "MUA", icon: "💄" },
+    { value: "photographer", label: "Fotografer/Studio", icon: "📷" },
+    { value: "consultant", label: "Konsultan", icon: "💼" },
+    { value: "tutor", label: "Tutor/Les Privat", icon: "✏️" },
+  ],
+  service: [
+    { value: "auto_repair", label: "Bengkel Otomotif", icon: "🔧" },
+    { value: "car_wash", label: "Cuci Mobil/Motor", icon: "🧼" },
+    { value: "laundry", label: "Laundry/Binatu", icon: "🧺" },
+    { value: "ac_service", label: "Servis AC", icon: "❄️" },
+    { value: "phone_service", label: "Servis HP/Laptop", icon: "📱" },
+    { value: "cleaning_service", label: "Cleaning Service", icon: "🧹" },
+  ],
+};
+
 // ── 6. Settings Tab ───────────────────────────────────────────────────────────
 function SettingsTab() {
   const { data: dbSettings, refetch } = useGetAdminSettings();
@@ -1463,6 +1518,47 @@ function SettingsTab() {
     const newVal = {
       ...value,
       branding: { ...value.branding, [field]: val }
+    };
+    handleUpdate(newVal);
+  };
+
+  const toggleEngine = (engineKey: string) => {
+    const currentEngines = value.engines || {
+      retail: true,
+      booking: false,
+      appointment: false,
+      service: false
+    };
+    const newVal = {
+      ...value,
+      engines: {
+        ...currentEngines,
+        [engineKey]: !currentEngines[engineKey]
+      }
+    };
+    handleUpdate(newVal);
+  };
+
+  const toggleCategory = (engineKey: string, categoryKey: string) => {
+    const currentCategories = value.categories || {
+      retail: {
+        fnb: true, restaurant: true, coffee_shop: true, bakery: true, fashion: true, boutique: true,
+        minimarket: false, grocery: false, pet_shop: false, electronics: false, hardware_store: false, pharmacy: false
+      },
+      booking: { badminton: false, futsal: false, padel: false, tennis: false, music_studio: false, coworking: false, meeting_room: false, rental: false, venue: false },
+      appointment: { salon: false, barbershop: false, spa: false, clinic: false, doctor: false, psychologist: false, mua: false, photographer: false, consultant: false, tutor: false },
+      service: { auto_repair: false, car_wash: false, laundry: false, ac_service: false, phone_service: false, cleaning_service: false }
+    };
+    const engineCategories = currentCategories[engineKey] || {};
+    const newVal = {
+      ...value,
+      categories: {
+        ...currentCategories,
+        [engineKey]: {
+          ...engineCategories,
+          [categoryKey]: !engineCategories[categoryKey]
+        }
+      }
     };
     handleUpdate(newVal);
   };
@@ -1625,6 +1721,88 @@ function SettingsTab() {
           </div>
         </div>
       </div>
+
+      {/* Dynamic Engine & Category Configurations */}
+      <div className="border border-border p-5 rounded-xl space-y-4 bg-background">
+        <h4 className="text-xs font-bold text-foreground flex items-center gap-2">
+          <Cpu size={14} className="text-primary" /> Aktivasi Business Engine & Kategori Usaha
+        </h4>
+        <p className="text-[11px] text-muted-foreground">
+          Konfigurasikan business engine dan kategori usaha yang aktif di halaman pendaftaran tenant. Item yang dinonaktifkan akan terkunci sebagai <strong>Coming Soon</strong>.
+        </p>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+          {ADMIN_BUSINESS_ENGINES.map((be) => {
+            const isEngineActive = !!(value.engines?.[be.value] ?? (be.value === "retail"));
+            const engineCategories = ADMIN_CATEGORIES_BY_ENGINE[be.value] || [];
+            
+            return (
+              <div key={be.value} className="border border-border/80 rounded-xl p-4 bg-card/50 space-y-3">
+                <div className="flex justify-between items-center pb-2 border-b border-border/50">
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{be.icon}</span>
+                    <div>
+                      <div className="text-xs font-bold text-foreground">{be.label}</div>
+                      <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-mono">{be.value}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[9px] font-semibold px-2 py-0.5 rounded ${isEngineActive ? 'bg-green-100 text-green-700 dark:bg-green-950/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-950/30 dark:text-red-400'}`}>
+                      {isEngineActive ? 'ON' : 'OFF'}
+                    </span>
+                    <button
+                      onClick={() => toggleEngine(be.value)}
+                      disabled={loading}
+                      className={`w-9 h-5 rounded-full p-0.5 transition-all flex ${
+                        isEngineActive ? "bg-primary justify-end" : "bg-muted justify-start"
+                      }`}
+                    >
+                      <div className="w-4 h-4 bg-white rounded-full shadow-sm" />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Kategori Usaha</div>
+                  <div className="grid grid-cols-2 gap-2 max-h-[160px] overflow-y-auto pr-1">
+                    {engineCategories.map((cat) => {
+                      // Default active retail categories: fnb, restaurant, coffee_shop, bakery, fashion, boutique
+                      const isCatActiveDefault = be.value === "retail" && ["fnb", "restaurant", "coffee_shop", "bakery", "fashion", "boutique"].includes(cat.value);
+                      const isCatActive = !!(value.categories?.[be.value]?.[cat.value] ?? isCatActiveDefault);
+                      
+                      return (
+                        <div
+                          key={cat.value}
+                          className={`flex items-center justify-between p-2 rounded-lg border text-xs transition-all ${
+                            isCatActive 
+                              ? "border-primary/30 bg-primary/5 text-foreground font-medium"
+                              : "border-border/60 bg-muted/20 text-muted-foreground"
+                          }`}
+                        >
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="shrink-0">{cat.icon}</span>
+                            <span className="truncate font-medium text-[11px]">{cat.label}</span>
+                          </div>
+                          <button
+                            onClick={() => toggleCategory(be.value, cat.value)}
+                            disabled={loading}
+                            className={`shrink-0 w-7 h-4 rounded-full p-0.5 transition-all flex ${
+                              isCatActive ? "bg-primary justify-end" : "bg-muted justify-start"
+                            }`}
+                          >
+                            <div className="w-3 h-3 bg-white rounded-full shadow-xs" />
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
+

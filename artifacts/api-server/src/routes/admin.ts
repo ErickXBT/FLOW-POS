@@ -637,7 +637,60 @@ router.get("/admin/settings", async (req, res): Promise<void> => {
       email: { smtpHost: "smtp.mailtrap.io", smtpPort: 2525, active: true },
       sms: { provider: "twilio", active: false },
       storage: { provider: "supabase", active: true },
-      cdn: { provider: "cloudflare", active: false }
+      cdn: { provider: "cloudflare", active: false },
+      engines: {
+        retail: true,
+        booking: false,
+        appointment: false,
+        service: false
+      },
+      categories: {
+        retail: {
+          fnb: true,
+          restaurant: true,
+          coffee_shop: true,
+          bakery: true,
+          fashion: true,
+          boutique: true,
+          minimarket: false,
+          grocery: false,
+          pet_shop: false,
+          electronics: false,
+          hardware_store: false,
+          pharmacy: false
+        },
+        booking: {
+          badminton: false,
+          futsal: false,
+          padel: false,
+          tennis: false,
+          music_studio: false,
+          coworking: false,
+          meeting_room: false,
+          rental: false,
+          venue: false
+        },
+        appointment: {
+          salon: false,
+          barbershop: false,
+          spa: false,
+          clinic: false,
+          doctor: false,
+          psychologist: false,
+          mua: false,
+          photographer: false,
+          consultant: false,
+          tutor: false
+        },
+        service: {
+          auto_repair: false,
+          car_wash: false,
+          laundry: false,
+          ac_service: false,
+          phone_service: false,
+          cleaning_service: false
+        }
+      }
     };
     const [seeded] = await db.insert(platformSettingsTable).values({
       key: "global_config",

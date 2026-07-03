@@ -696,4 +696,84 @@ router.post("/auth/reset-password", async (req, res): Promise<void> => {
   res.json({ success: true, message: "Password berhasil diperbarui. Silakan login kembali." });
 });
 
+router.get("/auth/platform-settings", async (req, res): Promise<void> => {
+  try {
+    const [settings] = await db.select().from(platformSettingsTable).where(eq(platformSettingsTable.key, "global_config"));
+    
+    // Default config if not set
+    const defaultConfig = {
+      branding: { title: "Flow POS Platform", primaryColor: "#1D4EF5" },
+      engines: {
+        retail: true,
+        booking: false,
+        appointment: false,
+        service: false
+      },
+      categories: {
+        retail: {
+          fnb: true,
+          restaurant: true,
+          coffee_shop: true,
+          bakery: true,
+          fashion: true,
+          boutique: true,
+          minimarket: false,
+          grocery: false,
+          pet_shop: false,
+          electronics: false,
+          hardware_store: false,
+          pharmacy: false
+        },
+        booking: {
+          badminton: false,
+          futsal: false,
+          padel: false,
+          tennis: false,
+          music_studio: false,
+          coworking: false,
+          meeting_room: false,
+          rental: false,
+          venue: false
+        },
+        appointment: {
+          salon: false,
+          barbershop: false,
+          spa: false,
+          clinic: false,
+          doctor: false,
+          psychologist: false,
+          mua: false,
+          photographer: false,
+          consultant: false,
+          tutor: false
+        },
+        service: {
+          auto_repair: false,
+          car_wash: false,
+          laundry: false,
+          ac_service: false,
+          phone_service: false,
+          cleaning_service: false
+        }
+      }
+    };
+
+    if (!settings) {
+      res.json(defaultConfig);
+      return;
+    }
+
+    const value = settings.value as any;
+    res.json({
+      branding: value.branding || defaultConfig.branding,
+      engines: value.engines || defaultConfig.engines,
+      categories: value.categories || defaultConfig.categories
+    });
+  } catch (err: any) {
+    logger.error(err, "Failed to get public platform settings");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 export default router;
+

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useRegister, useListSubscriptionPlans } from "@workspace/api-client-react";
 import { setStoredToken } from "@/hooks/use-auth";
@@ -63,6 +63,40 @@ const CATEGORIES_BY_ENGINE: Record<string, { value: string; label: string; icon:
 export default function RegisterPage({ onLogin }: { onLogin: (token: string, user: any) => void }) {
   const [, setLocation] = useLocation();
   const [step, setStep] = useState(1);
+  const [platformSettings, setPlatformSettings] = useState<{
+    engines: Record<string, boolean>;
+    categories: Record<string, Record<string, boolean>>;
+  }>({
+    engines: {
+      retail: true,
+      booking: false,
+      appointment: false,
+      service: false
+    },
+    categories: {
+      retail: {
+        fnb: true, restaurant: true, coffee_shop: true, bakery: true, fashion: true, boutique: true,
+        minimarket: false, grocery: false, pet_shop: false, electronics: false, hardware_store: false, pharmacy: false
+      },
+      booking: { badminton: false, futsal: false, padel: false, tennis: false, music_studio: false, coworking: false, meeting_room: false, rental: false, venue: false },
+      appointment: { salon: false, barbershop: false, spa: false, clinic: false, doctor: false, psychologist: false, mua: false, photographer: false, consultant: false, tutor: false },
+      service: { auto_repair: false, car_wash: false, laundry: false, ac_service: false, phone_service: false, cleaning_service: false }
+    }
+  });
+
+  useEffect(() => {
+    fetch("/api/auth/platform-settings")
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.engines && data.categories) {
+          setPlatformSettings({
+            engines: data.engines,
+            categories: data.categories
+          });
+        }
+      })
+      .catch(err => console.error("Error fetching platform settings:", err));
+  }, []);
   const [form, setForm] = useState({
     businessEngine: "",
     businessType: "",
@@ -158,21 +192,32 @@ export default function RegisterPage({ onLogin }: { onLogin: (token: string, use
                   <Building2 size={18} className="text-primary" /> 1. Pilih Business Engine
                 </h2>
                 <div className="grid grid-cols-2 gap-3">
-                  {BUSINESS_ENGINES.map(be => (
-                    <button
-                      key={be.value}
-                      type="button"
-                      onClick={() => setForm(f => ({ ...f, businessEngine: be.value, businessType: "" }))}
-                      className={`p-4 rounded-xl border-2 text-center transition-all cursor-pointer ${
-                        form.businessEngine === be.value
-                          ? "border-primary bg-primary/5 text-primary"
-                          : "border-border hover:border-primary/40 bg-card text-foreground"
-                      }`}
-                    >
-                      <div className="text-2xl mb-1">{be.icon}</div>
-                      <div className="text-sm font-semibold">{be.label}</div>
-                    </button>
-                  ))}
+                  {BUSINESS_ENGINES.map(be => {
+                    const isEngineActive = !!(platformSettings.engines?.[be.value] ?? (be.value === "retail"));
+                    return (
+                      <button
+                        key={be.value}
+                        type="button"
+                        disabled={!isEngineActive}
+                        onClick={() => isEngineActive && setForm(f => ({ ...f, businessEngine: be.value, businessType: "" }))}
+                        className={`p-4 rounded-xl border-2 text-center transition-all ${
+                          !isEngineActive
+                            ? "border-border/60 bg-muted/10 text-muted-foreground opacity-60 cursor-not-allowed"
+                            : form.businessEngine === be.value
+                              ? "border-primary bg-primary/5 text-primary cursor-pointer"
+                              : "border-border hover:border-primary/40 bg-card text-foreground cursor-pointer"
+                        }`}
+                      >
+                        <div className="text-2xl mb-1">{be.icon}</div>
+                        <div className="text-sm font-semibold">{be.label}</div>
+                        {!isEngineActive && (
+                          <div className="text-[10px] font-bold text-destructive mt-1 uppercase tracking-wider">
+                            Coming Soon
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -182,21 +227,34 @@ export default function RegisterPage({ onLogin }: { onLogin: (token: string, use
                     🎯 2. Pilih Kategori Usaha
                   </h2>
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 max-h-[220px] overflow-y-auto pr-1">
-                    {CATEGORIES_BY_ENGINE[form.businessEngine]?.map(bt => (
-                      <button
-                        key={bt.value}
-                        type="button"
-                        onClick={() => setForm(f => ({ ...f, businessType: bt.value }))}
-                        className={`p-3 rounded-xl border-2 text-center transition-all cursor-pointer ${
-                          form.businessType === bt.value
-                            ? "border-primary bg-accent text-accent-foreground"
-                            : "border-border hover:border-primary/40 bg-card text-foreground"
-                        }`}
-                      >
-                        <div className="text-xl mb-1">{bt.icon}</div>
-                        <div className="text-xs font-semibold leading-tight">{bt.label}</div>
-                      </button>
-                    ))}
+                    {CATEGORIES_BY_ENGINE[form.businessEngine]?.map(bt => {
+                      const isCatActiveDefault = form.businessEngine === "retail" && ["fnb", "restaurant", "coffee_shop", "bakery", "fashion", "boutique"].includes(bt.value);
+                      const isCatActive = !!(platformSettings.categories?.[form.businessEngine]?.[bt.value] ?? isCatActiveDefault);
+                      
+                      return (
+                        <button
+                          key={bt.value}
+                          type="button"
+                          disabled={!isCatActive}
+                          onClick={() => isCatActive && setForm(f => ({ ...f, businessType: bt.value }))}
+                          className={`p-3 rounded-xl border-2 text-center transition-all ${
+                            !isCatActive
+                              ? "border-border/60 bg-muted/10 text-muted-foreground opacity-60 cursor-not-allowed"
+                              : form.businessType === bt.value
+                                ? "border-primary bg-accent text-accent-foreground cursor-pointer"
+                                : "border-border hover:border-primary/40 bg-card text-foreground cursor-pointer"
+                          }`}
+                        >
+                          <div className="text-xl mb-1">{bt.icon}</div>
+                          <div className="text-xs font-semibold leading-tight">{bt.label}</div>
+                          {!isCatActive && (
+                            <div className="text-[9px] font-bold text-destructive mt-1 uppercase tracking-wider">
+                              Coming Soon
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}
