@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, integer, numeric, boolean } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, integer, numeric, boolean, index } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 import { tenantsTable } from "./tenants";
@@ -22,7 +22,11 @@ export const publicMenusTable = pgTable("public_menus", {
   estimatedDeliveryTime: text("estimated_delivery_time"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
+}, (table) => [
+  index("public_menus_tenant_id_idx").on(table.tenantId),
+  index("public_menus_branch_id_idx").on(table.branchId),
+  index("public_menus_slug_idx").on(table.slug),
+]);
 
 // 2. public_menu_categories
 export const publicMenuCategoriesTable = pgTable("public_menu_categories", {
@@ -35,7 +39,11 @@ export const publicMenuCategoriesTable = pgTable("public_menu_categories", {
   sortOrder: integer("sort_order").notNull().default(0),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
+}, (table) => [
+  index("public_menu_categories_tenant_idx").on(table.tenantId),
+  index("public_menu_categories_branch_idx").on(table.branchId),
+  index("public_menu_categories_menu_idx").on(table.publicMenuId),
+]);
 
 // 3. public_menu_products
 export const publicMenuProductsTable = pgTable("public_menu_products", {
@@ -54,7 +62,12 @@ export const publicMenuProductsTable = pgTable("public_menu_products", {
   variantSettings: text("variant_settings"), // JSON string
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
+}, (table) => [
+  index("public_menu_prods_tenant_idx").on(table.tenantId),
+  index("public_menu_prods_branch_idx").on(table.branchId),
+  index("public_menu_prods_cat_idx").on(table.publicMenuCategoryId),
+  index("public_menu_prods_prod_idx").on(table.productId),
+]);
 
 // 4. customer_sessions
 export const customerSessionsTable = pgTable("customer_sessions", {
@@ -67,7 +80,11 @@ export const customerSessionsTable = pgTable("customer_sessions", {
   isActive: boolean("is_active").notNull().default(true),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   expiresAt: timestamp("expires_at", { withTimezone: true }),
-});
+}, (table) => [
+  index("customer_sessions_tenant_idx").on(table.tenantId),
+  index("customer_sessions_branch_idx").on(table.branchId),
+  index("customer_sessions_session_idx").on(table.sessionId),
+]);
 
 // 5. customer_carts
 export const customerCartsTable = pgTable("customer_carts", {
@@ -78,7 +95,11 @@ export const customerCartsTable = pgTable("customer_carts", {
   cartData: text("cart_data").notNull(), // JSON string
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
+}, (table) => [
+  index("customer_carts_tenant_idx").on(table.tenantId),
+  index("customer_carts_branch_idx").on(table.branchId),
+  index("customer_carts_session_idx").on(table.customerSessionId),
+]);
 
 // 6. customer_orders
 export const customerOrdersTable = pgTable("customer_orders", {
@@ -111,7 +132,11 @@ export const customerOrdersTable = pgTable("customer_orders", {
   isClaimReward: boolean("is_claim_reward").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow().$onUpdate(() => new Date()),
-});
+}, (table) => [
+  index("customer_orders_tenant_idx").on(table.tenantId),
+  index("customer_orders_branch_idx").on(table.branchId),
+  index("customer_orders_created_idx").on(table.createdAt),
+]);
 
 // 7. customer_order_items
 export const customerOrderItemsTable = pgTable("customer_order_items", {
@@ -127,7 +152,12 @@ export const customerOrderItemsTable = pgTable("customer_order_items", {
   notes: text("notes"),
   variantSelection: text("variant_selection"), // JSON string
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => [
+  index("customer_order_items_tenant_idx").on(table.tenantId),
+  index("customer_order_items_branch_idx").on(table.branchId),
+  index("customer_order_items_order_idx").on(table.customerOrderId),
+  index("customer_order_items_prod_idx").on(table.productId),
+]);
 
 // 8. customer_addresses
 export const customerAddressesTable = pgTable("customer_addresses", {

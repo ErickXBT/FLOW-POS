@@ -17,7 +17,17 @@ import {
   getListSupportTicketsQueryKey,
   getListTicketRepliesQueryKey,
   useListBookings,
-  useListBookingResources
+  useListBookingResources,
+  getGetDashboardStatsQueryKey,
+  getGetRecentOrdersQueryKey,
+  getGetTopProductsQueryKey,
+  getGetSalesChartDataQueryKey,
+  getListAnnouncementsQueryKey,
+  getListBookingsQueryKey,
+  getListBookingResourcesQueryKey,
+  getListEmployeesQueryKey,
+  getListProductsQueryKey,
+  getListCustomersQueryKey
 } from "@workspace/api-client-react";
 import {
   TrendingUp, TrendingDown, ShoppingCart, Package, Users, AlertTriangle, DollarSign, ChefHat, Truck, Clock,
@@ -208,10 +218,8 @@ function ClipboardListIcon() {
 function OwnerDashboard() {
   const { activeBranchId, setActiveBranchId, branches } = useActiveBranch();
   const queryClient = useQueryClient();
-  const { data: stats } = useGetDashboardStats({ branchId: activeBranchId });
-  const { data: recentOrders } = useGetRecentOrders({ limit: 10, branchId: activeBranchId });
-  const { data: topProducts } = useGetTopProducts({ limit: 5, branchId: activeBranchId });
-  const { data: chartData } = useGetSalesChartData({ period: "week", branchId: activeBranchId });
+  const [activeTab, setActiveTab] = useState("overview");
+
   const { data: tenant } = useGetTenant();
   const plan = tenant?.subscriptionPlan || "trial";
   const isFashion = tenant?.businessType === "fashion";
@@ -221,13 +229,18 @@ function OwnerDashboard() {
   const isService = engine === "service";
   const isDemo = tenant?.slug === "budi-resto";
 
+  const { data: stats } = useGetDashboardStats({ branchId: activeBranchId }, { query: { enabled: activeTab === "overview", queryKey: getGetDashboardStatsQueryKey({ branchId: activeBranchId }) } });
+  const { data: recentOrders } = useGetRecentOrders({ limit: 10, branchId: activeBranchId }, { query: { enabled: activeTab === "overview" || activeTab === "orders", queryKey: getGetRecentOrdersQueryKey({ limit: 10, branchId: activeBranchId }) } });
+  const { data: topProducts } = useGetTopProducts({ limit: 5, branchId: activeBranchId }, { query: { enabled: activeTab === "overview", queryKey: getGetTopProductsQueryKey({ limit: 5, branchId: activeBranchId }) } });
+  const { data: chartData } = useGetSalesChartData({ period: "week", branchId: activeBranchId }, { query: { enabled: activeTab === "overview" || activeTab === "analytics", queryKey: getGetSalesChartDataQueryKey({ period: "week", branchId: activeBranchId }) } });
+
   // Fetch announcements from super admin
-  const { data: announcements } = useListAnnouncements();
+  const { data: announcements } = useListAnnouncements({ query: { enabled: activeTab === "overview", queryKey: getListAnnouncementsQueryKey() } });
 
   // Fetch today's bookings and active courts
   const todayStr = useMemo(() => new Date().toLocaleDateString("sv-SE"), []);
-  const { data: todayBookings } = useListBookings({ date: todayStr });
-  const { data: bookingResources } = useListBookingResources();
+  const { data: todayBookings } = useListBookings({ date: todayStr }, { query: { enabled: (activeTab === "overview" || activeTab === "bookings") && isBooking, queryKey: getListBookingsQueryKey({ date: todayStr }) } });
+  const { data: bookingResources } = useListBookingResources({ query: { enabled: (activeTab === "overview" || activeTab === "bookings") && isBooking, queryKey: getListBookingResourcesQueryKey() } });
 
   const currentHour = useMemo(() => {
     const now = new Date();
@@ -252,12 +265,9 @@ function OwnerDashboard() {
   const occupancyRate = maxSlots > 0 ? Math.round((bookedSlots / maxSlots) * 100) : 0;
 
   // Real-time fetched resources
-  const { data: realEmployees } = useListEmployees();
-  const { data: productsResult } = useListProducts({ limit: 100 });
-  const { data: customersResult } = useListCustomers({ limit: 10 });
-
-  // Tab switching state
-  const [activeTab, setActiveTab] = useState("overview");
+  const { data: realEmployees } = useListEmployees(undefined, { query: { enabled: activeTab === "overview" || activeTab === "employees", queryKey: getListEmployeesQueryKey() } });
+  const { data: productsResult } = useListProducts({ limit: 100 }, { query: { enabled: activeTab === "overview" || activeTab === "products" || activeTab === "inventory", queryKey: getListProductsQueryKey({ limit: 100 }) } });
+  const { data: customersResult } = useListCustomers({ limit: 10 }, { query: { enabled: activeTab === "customers", queryKey: getListCustomersQueryKey({ limit: 10 }) } });
 
   // Notifications State
   const [showNotifications, setShowNotifications] = useState(false);

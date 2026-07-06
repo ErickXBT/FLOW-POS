@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, integer, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, integer, jsonb, index } from "drizzle-orm/pg-core";
 
 export const activityLogsTable = pgTable("activity_logs", {
   id: serial("id").primaryKey(),
@@ -11,6 +11,9 @@ export const activityLogsTable = pgTable("activity_logs", {
   details: jsonb("details"),
   ipAddress: text("ip_address"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-});
+}, (table) => [
+  index("activity_logs_tenant_id_idx").on(table.tenantId),
+  index("activity_logs_created_at_idx").on(table.createdAt),
+]);
 
 export type ActivityLog = typeof activityLogsTable.$inferSelect;
