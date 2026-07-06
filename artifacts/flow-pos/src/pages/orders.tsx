@@ -27,6 +27,24 @@ const TYPE_MAP: Record<string, { label: string; cls: string }> = {
   delivery: { label: "Delivery", cls: "bg-purple-50 text-purple-600 border-purple-200 dark:bg-purple-950/20 dark:text-purple-400 dark:border-purple-850" },
 };
 
+function getOrderTypeLabel(type: string, isFashion: boolean) {
+  if (isFashion) {
+    switch (type) {
+      case "dine_in": return "Fitting Room";
+      case "take_away": return "Ambil di Toko";
+      case "delivery": return "Kirim Kurir";
+      default: return type || "-";
+    }
+  } else {
+    switch (type) {
+      case "dine_in": return "Dine In";
+      case "take_away": return "Take Away";
+      case "delivery": return "Delivery";
+      default: return type || "-";
+    }
+  }
+}
+
 function getPaymentDetails(order: any) {
   if (order.paymentMethod === "cash" && order.orderType === "delivery") {
     return { label: "Delivery Cash", cls: "bg-purple-50 text-purple-600 border-purple-250 dark:bg-purple-950/20 dark:text-purple-400 dark:border-purple-850" };
@@ -65,6 +83,7 @@ function formatDateTime(iso: string) {
 
 function OrderDetail({ id, onClose, onVoidSuccess }: { id: number; onClose: () => void; onVoidSuccess?: () => void }) {
   const { user } = useAuth();
+  const isFashion = user?.businessType === "fashion";
   const [order, setOrder] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const token = localStorage.getItem("flow_token") ?? "";
@@ -450,7 +469,7 @@ function OrderDetail({ id, onClose, onVoidSuccess }: { id: number; onClose: () =
               )}
               {order.orderType === "dine_in" && order.tableNumber && (
                 <div>
-                  <div className="text-muted-foreground text-xs font-semibold mb-1 uppercase tracking-wider">Nomor Meja</div>
+                  <div className="text-muted-foreground text-xs font-semibold mb-1 uppercase tracking-wider">{isFashion ? "Fitting Room" : "Nomor Meja"}</div>
                   <div className="font-bold text-foreground text-sm">{order.tableNumber}</div>
                 </div>
               )}
@@ -462,6 +481,7 @@ function OrderDetail({ id, onClose, onVoidSuccess }: { id: number; onClose: () =
                 </div>
               )}
               
+              {/* Status and Payment Method omitted for brevity */}
               <div>
                 <div className="text-muted-foreground text-xs font-semibold mb-1 uppercase tracking-wider">Status</div>
                 <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold border ${STATUS_MAP[order.status]?.cls || "bg-gray-150 text-gray-700 border-gray-200"}`}>
@@ -482,7 +502,7 @@ function OrderDetail({ id, onClose, onVoidSuccess }: { id: number; onClose: () =
               <div>
                 <div className="text-muted-foreground text-xs font-semibold mb-1 uppercase tracking-wider">Tipe Pesanan</div>
                 <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-semibold border ${TYPE_MAP[order.orderType]?.cls || "bg-gray-100 text-gray-650"}`}>
-                  {TYPE_MAP[order.orderType]?.label || order.orderType}
+                  {getOrderTypeLabel(order.orderType, isFashion)}
                 </span>
               </div>
               
@@ -639,6 +659,8 @@ function OrderDetail({ id, onClose, onVoidSuccess }: { id: number; onClose: () =
 }
 
 export default function OrdersPage() {
+  const { user } = useAuth();
+  const isFashion = user?.businessType === "fashion";
   const { activeBranchId, branches } = useActiveBranch();
   const { data: employees } = useListEmployees();
 
@@ -994,7 +1016,7 @@ export default function OrdersPage() {
                         </td>
                         <td className="px-5 py-4">
                           <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-bold border ${TYPE_MAP[o.orderType]?.cls || "bg-gray-100"}`}>
-                            {TYPE_MAP[o.orderType]?.label || o.orderType}
+                            {getOrderTypeLabel(o.orderType, isFashion)}
                           </span>
                         </td>
                         <td className="px-5 py-4">
@@ -1078,7 +1100,7 @@ export default function OrdersPage() {
 
                       <div className="flex gap-1.5 flex-shrink-0">
                         <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold border ${TYPE_MAP[o.orderType]?.cls || "bg-gray-100"}`}>
-                          {TYPE_MAP[o.orderType]?.label || o.orderType}
+                          {getOrderTypeLabel(o.orderType, isFashion)}
                         </span>
                         <span className={`inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold border ${paymentInfo.cls}`}>
                           {paymentInfo.label}
