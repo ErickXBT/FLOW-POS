@@ -450,7 +450,11 @@ export const PrinterService = {
 
   printBarcodesViaBrowser(items: Array<{ name: string; barcode: string; price: number; qty: number }>, settings: any): void {
     const cols = settings.columns || 2;
-    const barcodeHeight = settings.barcodeHeight || 60;
+    const isRoll = cols === 1;
+    
+    // Scale barcode parameters for tiny 33x15mm roll label
+    const barWidth = isRoll ? 0.95 : 1.5;
+    const barHeight = isRoll ? Math.min(settings.barcodeHeight || 22, 22) : (settings.barcodeHeight || 60);
 
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
@@ -465,7 +469,23 @@ export const PrinterService = {
     });
 
     const labelsHtml = labels.map(label => {
-      const svgMarkup = this.generateBarcode128Svg(label.barcode, 1.5, barcodeHeight);
+      const svgMarkup = this.generateBarcode128Svg(label.barcode, barWidth, barHeight);
+      
+      if (isRoll) {
+        return `
+          <div class="label-card">
+            <div class="label-header">
+              <span class="product-name">${label.name.toUpperCase()}</span>
+              ${label.price > 0 ? `<span class="product-price">Rp ${label.price.toLocaleString("id-ID")}</span>` : ""}
+            </div>
+            <div class="barcode-svg-container">
+              ${svgMarkup}
+            </div>
+            <div class="barcode-text">${label.barcode}</div>
+          </div>
+        `;
+      }
+
       return `
         <div class="label-card">
           <div class="product-name">${label.name.toUpperCase()}</div>
@@ -478,64 +498,152 @@ export const PrinterService = {
       `;
     }).join("");
 
+    const stylesHtml = isRoll ? `
+      @media print {
+        body { margin: 0; padding: 0; }
+        @page {
+          size: 33mm 15mm;
+          margin: 0;
+        }
+      }
+      body {
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        background-color: #fff;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .grid-container {
+        display: block;
+        margin: 0;
+        padding: 0;
+      }
+      .label-card {
+        width: 33mm;
+        height: 15mm;
+        padding: 0.8mm 1.5mm 0.5mm 1.5mm;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: space-between;
+        page-break-after: always;
+        overflow: hidden;
+        background: #fff;
+        border: none;
+      }
+      .label-header {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        overflow: hidden;
+        margin-bottom: 0.2mm;
+      }
+      .product-name {
+        font-size: 6.5px;
+        font-weight: 800;
+        margin: 0;
+        padding: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        flex: 1;
+        text-align: left;
+        margin-right: 1mm;
+      }
+      .product-price {
+        font-size: 6.5px;
+        font-weight: 800;
+        margin: 0;
+        padding: 0;
+        white-space: nowrap;
+        text-align: right;
+      }
+      .barcode-svg-container {
+        margin: 0.1mm 0;
+        height: 6.5mm;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+      .barcode-svg-container svg {
+        max-height: 6.5mm !important;
+        max-width: 30mm !important;
+      }
+      .barcode-text {
+        font-size: 5.5px;
+        font-weight: bold;
+        letter-spacing: 0.5px;
+        margin: 0;
+        line-height: 1;
+        font-family: monospace;
+      }
+    ` : `
+      @media print {
+        body { margin: 0; padding: 0; }
+        @page { margin: 0; }
+      }
+      body {
+        font-family: 'Courier New', Courier, monospace;
+        margin: 15px;
+        padding: 0;
+        box-sizing: border-box;
+        background-color: #fff;
+      }
+      .grid-container {
+        display: grid;
+        grid-template-columns: repeat(${cols}, 1fr);
+        gap: 15px;
+      }
+      .label-card {
+        border: 1px solid #ddd;
+        padding: 12px;
+        text-align: center;
+        border-radius: 8px;
+        background: #fff;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        page-break-inside: avoid;
+      }
+      .product-name {
+        font-size: 11px;
+        font-weight: bold;
+        margin-bottom: 6px;
+        word-break: break-all;
+        max-height: 24px;
+        overflow: hidden;
+      }
+      .barcode-svg-container {
+        margin: 4px 0;
+      }
+      .barcode-text {
+        font-size: 10px;
+        font-weight: bold;
+        letter-spacing: 2px;
+        margin-top: 4px;
+      }
+      .product-price {
+        font-size: 11px;
+        font-weight: bold;
+        margin-top: 5px;
+        border: 1px solid #000;
+        padding: 1px 8px;
+        border-radius: 4px;
+      }
+    `;
+
     const htmlContent = `
       <html>
         <head>
           <title>Cetak Barcode</title>
           <style>
-            @media print {
-              body { margin: 0; padding: 0; }
-              @page { margin: 0; }
-            }
-            body {
-              font-family: 'Courier New', Courier, monospace;
-              margin: 15px;
-              padding: 0;
-              box-sizing: border-box;
-              background-color: #fff;
-            }
-            .grid-container {
-              display: grid;
-              grid-template-columns: repeat(${cols}, 1fr);
-              gap: 15px;
-            }
-            .label-card {
-              border: 1px solid #ddd;
-              padding: 12px;
-              text-align: center;
-              border-radius: 8px;
-              background: #fff;
-              display: flex;
-              flex-direction: column;
-              align-items: center;
-              justify-content: center;
-              page-break-inside: avoid;
-            }
-            .product-name {
-              font-size: 11px;
-              font-weight: bold;
-              margin-bottom: 6px;
-              word-break: break-all;
-              max-height: 24px;
-              overflow: hidden;
-            }
-            .barcode-svg-container {
-              margin: 4px 0;
-            }
-            .barcode-text {
-              font-size: 10px;
-              font-weight: bold;
-              letter-spacing: 2px;
-              margin-top: 4px;
-            }
-            .product-price {
-              font-size: 11px;
-              font-weight: bold;
-              margin-top: 5px;
-              border: 1px solid #000;
-              padding: 1px 8px;
-              border-radius: 4px;
-            }
+            ${stylesHtml}
           </style>
         </head>
         <body>

@@ -1501,6 +1501,14 @@ function BarcodeBatchModal({ selectedProducts, onClose, onRemoveProduct, onClear
   const [barcodeHeight, setBarcodeHeight] = useState(60);
   const [isPrinting, setIsPrinting] = useState(false);
 
+  useEffect(() => {
+    if (columns === 1) {
+      setBarcodeHeight(22);
+    } else {
+      setBarcodeHeight(60);
+    }
+  }, [columns]);
+
   const handleQtyChange = (id: number, val: number) => {
     setQuantities(prev => ({
       ...prev,
