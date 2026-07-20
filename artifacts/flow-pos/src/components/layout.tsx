@@ -306,7 +306,7 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
   const activeBranchIdRef = useRef(activeBranchId);
   activeBranchIdRef.current = activeBranchId;
 
-  const seenOrderIdsRef = useRef<Set<number>>(new Set());
+  const seenOrderIdsRef = useRef<Set<string | number>>(new Set());
   const isInitialOrderFetchRef = useRef<boolean>(true);
 
   const triggerOrderNotification = useCallback((ord: any) => {
@@ -377,7 +377,7 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
     };
   }, [user?.id, triggerOrderNotification]);
 
-  // Backup Realtime Order Detector (3s interval)
+  // Backup Realtime Order Detector (3s interval) - Checks both POS Cashier Orders and Customer Menu Orders
   useEffect(() => {
     if (!user || user.role === "super_admin") return;
     const token = localStorage.getItem("flow_token") ?? "";
@@ -386,24 +386,42 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
     const checkNewOrders = async () => {
       try {
         const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-        const res = await fetch(`${BASE}/api/tenant/customer-orders?status=pending,confirmed,preparing&limit=50`, {
+        
+        // 1. Fetch recent customer orders (Online + KDS)
+        const resCust = await fetch(`${BASE}/api/tenant/customer-orders?limit=50`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        if (!res.ok) return;
-        const json = await res.json();
-        const orders = Array.isArray(json) ? json : (Array.isArray(json?.data) ? json.data : []);
+        let custOrders: any[] = [];
+        if (resCust.ok) {
+          const jsonCust = await resCust.json();
+          custOrders = Array.isArray(jsonCust) ? jsonCust : (Array.isArray(jsonCust?.data) ? jsonCust.data : []);
+        }
+
+        // 2. Fetch recent main sales orders (POS Cashier transactions)
+        const resPos = await fetch(`${BASE}/api/orders?limit=30`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        let posOrders: any[] = [];
+        if (resPos.ok) {
+          const jsonPos = await resPos.json();
+          posOrders = Array.isArray(jsonPos) ? jsonPos : (Array.isArray(jsonPos?.data) ? jsonPos.data : []);
+        }
+
+        const allRecentOrders = [...custOrders, ...posOrders];
 
         if (isInitialOrderFetchRef.current) {
-          orders.forEach((o: any) => {
-            if (o.id) seenOrderIdsRef.current.add(o.id);
+          allRecentOrders.forEach((o: any) => {
+            const key = o.id ? `id_${o.id}` : `num_${o.orderNumber}`;
+            if (key) seenOrderIdsRef.current.add(key);
           });
           isInitialOrderFetchRef.current = false;
           return;
         }
 
-        for (const ord of orders) {
-          if (ord.id && !seenOrderIdsRef.current.has(ord.id)) {
-            seenOrderIdsRef.current.add(ord.id);
+        for (const ord of allRecentOrders) {
+          const key = ord.id ? `id_${ord.id}` : `num_${ord.orderNumber}`;
+          if (key && !seenOrderIdsRef.current.has(key)) {
+            seenOrderIdsRef.current.add(key);
             triggerOrderNotification(ord);
           }
         }
