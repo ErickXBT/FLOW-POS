@@ -779,5 +779,27 @@ router.get("/auth/platform-settings", async (req, res): Promise<void> => {
   }
 });
 
+router.get("/push/vapid-key", (_req, res) => {
+  const { PUBLIC_VAPID_KEY } = require("../lib/push-service");
+  res.json({ vapidPublicKey: PUBLIC_VAPID_KEY });
+});
+
+router.post("/push/subscribe", async (req, res): Promise<void> => {
+  const claims = extractToken(req);
+  if (!claims || !claims.tenantId || !claims.userId) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  try {
+    const { savePushSubscription } = require("../lib/push-service");
+    await savePushSubscription(claims.tenantId, claims.userId, req.body.subscription, req.headers["user-agent"]);
+    res.json({ success: true });
+  } catch (err: any) {
+    logger.error(err, "Failed to save push subscription");
+    res.status(500).json({ error: "Failed to save push subscription" });
+  }
+});
+
 export default router;
 

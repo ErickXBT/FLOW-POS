@@ -508,6 +508,18 @@ router.post("/orders", async (req, res): Promise<void> => {
       };
 
       broadcastNewOrder(claims.tenantId!, formatted);
+
+      try {
+        const { sendPushNotificationToTenantOwners } = require("../lib/push-service");
+        sendPushNotificationToTenantOwners(claims.tenantId!, {
+          title: `🔔 Pesanan Kasir Masuk! (${formatted.orderNumber})`,
+          body: `Kasir: ${formatted.employeeName} • Pelanggan: ${formatted.customerName}\nTipe: ${formatted.orderType === "takeaway" || formatted.orderType === "take_away" ? "Take Away" : "Dine In"} • Rp ${Number(formatted.total).toLocaleString("id-ID")}`,
+          url: "/customer-orders",
+          orderId: formatted.id,
+        });
+      } catch (pErr) {
+        console.error("Push notification error:", pErr);
+      }
     }
   } catch (err) {
     console.error("Failed to sync POS order to KDS/customer_orders:", err);

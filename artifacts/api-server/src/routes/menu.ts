@@ -811,6 +811,19 @@ router.post("/menu/:slug/orders", async (req, res): Promise<void> => {
 
   const formatted = formatCustomerOrder(order, insertedItemsWithImage);
   broadcastNewOrder(tenant.id, formatted);
+
+  try {
+    const { sendPushNotificationToTenantOwners } = require("../lib/push-service");
+    sendPushNotificationToTenantOwners(tenant.id, {
+      title: `🍳 Pesanan Baru Masuk! (${formatted.orderNumber})`,
+      body: `Pelanggan: ${formatted.customerName}\nTipe: ${formatted.orderType === "takeaway" || formatted.orderType === "take_away" ? "Take Away" : "Dine In"} • Rp ${Number(formatted.total).toLocaleString("id-ID")}`,
+      url: "/customer-orders",
+      orderId: formatted.id,
+    });
+  } catch (pErr) {
+    console.error("Push notification error:", pErr);
+  }
+
   res.status(201).json(formatted);
 });
 

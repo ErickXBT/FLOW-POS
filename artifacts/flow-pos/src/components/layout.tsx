@@ -448,8 +448,63 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
       }
     };
     window.addEventListener("flow_pos_order_created", handlePosOrderCreated);
-    return () => window.removeEventListener("flow_pos_order_created", handlePosOrderCreated);
+    return () => {
+      window.removeEventListener("flow_pos_order_created", handlePosOrderCreated);
+    };
   }, [triggerOrderNotification]);
+
+  // Auto Register Background Web Push Subscription for Mobile HP lockscreen when closed
+  useEffect(() => {
+    if (!user || user.role === "super_admin") return;
+    if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("PushManager" in window)) return;
+
+    const token = localStorage.getItem("flow_token");
+    if (!token) return;
+
+    const registerPush = async () => {
+      try {
+        const reg = await navigator.serviceWorker.ready;
+        const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+        const resKey = await fetch(`${BASE}/api/push/vapid-key`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!resKey.ok) return;
+        const { vapidPublicKey } = await resKey.json();
+        if (!vapidPublicKey) return;
+
+        let sub = await reg.pushManager.getSubscription();
+        if (!sub) {
+          const padding = '='.repeat((4 - (vapidPublicKey.length % 4)) % 4);
+          const base64 = (vapidPublicKey + padding).replace(/-/g, '+').replace(/_/g, '/');
+          const rawData = window.atob(base64);
+          const convertedKey = new Uint8Array(rawData.length);
+          for (let i = 0; i < rawData.length; ++i) {
+            convertedKey[i] = rawData.charCodeAt(i);
+          }
+
+          sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: convertedKey
+          });
+        }
+
+        if (sub) {
+          await fetch(`${BASE}/api/push/subscribe`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({ subscription: sub })
+          });
+        }
+      } catch (err) {
+        console.error("Auto Web Push subscription error:", err);
+      }
+    };
+
+    registerPush();
+  }, [user?.id]);
 
   const navItems: NavItem[] = [];
 
