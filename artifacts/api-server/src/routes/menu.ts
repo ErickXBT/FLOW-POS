@@ -69,7 +69,7 @@ router.get("/tenant/orders/events", (req, res) => {
   res.flushHeaders();
 
   const clientId = `${claims.tenantId}-${Date.now()}`;
-  const client: SseClient = { id: clientId, tenantId: claims.tenantId, res };
+  const client: SseClient = { id: clientId, tenantId: Number(claims.tenantId), res };
   sseClients.push(client);
   res.write(`data: ${JSON.stringify({ type: "connected", clientId })}\n\n`);
 

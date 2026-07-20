@@ -684,6 +684,13 @@ const { data: categories } = useListCategories();
         setTimeout(() => setSuccess(false), 3000);
         setLastCreatedOrder(data);
         setShowSuccessModal(true);
+
+        // Dispatch local event for instant notification sound & popup modal trigger
+        try {
+          window.dispatchEvent(new CustomEvent("flow_pos_order_created", { detail: data }));
+        } catch (evErr) {
+          console.error("Failed to dispatch flow_pos_order_created event:", evErr);
+        }
         
         // Auto print receipt if enabled
         try {

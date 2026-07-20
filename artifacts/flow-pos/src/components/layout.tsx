@@ -390,8 +390,8 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
           headers: { Authorization: `Bearer ${token}` }
         });
         if (!res.ok) return;
-        const orders = await res.json();
-        if (!Array.isArray(orders)) return;
+        const json = await res.json();
+        const orders = Array.isArray(json) ? json : (Array.isArray(json?.data) ? json.data : []);
 
         if (isInitialOrderFetchRef.current) {
           orders.forEach((o: any) => {
@@ -420,6 +420,18 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
       clearInterval(interval);
     };
   }, [user?.id, triggerOrderNotification]);
+
+  // Listen for local POS orders created on the same window
+  useEffect(() => {
+    const handlePosOrderCreated = (e: any) => {
+      if (e.detail) {
+        if (e.detail.id) seenOrderIdsRef.current.add(e.detail.id);
+        triggerOrderNotification(e.detail);
+      }
+    };
+    window.addEventListener("flow_pos_order_created", handlePosOrderCreated);
+    return () => window.removeEventListener("flow_pos_order_created", handlePosOrderCreated);
+  }, [triggerOrderNotification]);
 
   const navItems: NavItem[] = [];
 
