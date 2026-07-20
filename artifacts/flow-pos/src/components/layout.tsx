@@ -361,6 +361,74 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
     };
   }, [user?.branchId, location]);
 
+  const seenOrderIdsRef = useRef<Set<number>>(new Set());
+  const isInitialOrderFetchRef = useRef<boolean>(true);
+
+  // Backup Realtime Order Detector (3s interval) to guarantee alerts on all mobile & desktop browsers
+  useEffect(() => {
+    if (!user || user.role === "super_admin") return;
+    const token = localStorage.getItem("flow_token") ?? "";
+    if (!token) return;
+
+    const checkNewOrders = async () => {
+      try {
+        const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+        const res = await fetch(`${BASE}/api/tenant/customer-orders?status=pending,confirmed,preparing`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!res.ok) return;
+        const orders = await res.json();
+        if (!Array.isArray(orders)) return;
+
+        if (isInitialOrderFetchRef.current) {
+          orders.forEach((o: any) => {
+            if (o.id) seenOrderIdsRef.current.add(o.id);
+          });
+          isInitialOrderFetchRef.current = false;
+          return;
+        }
+
+        for (const ord of orders) {
+          if (ord.id && !seenOrderIdsRef.current.has(ord.id)) {
+            seenOrderIdsRef.current.add(ord.id);
+
+            const isOwner = user.role === "owner" || user.role === "manager";
+            const isTargetBranch = !user.branchId || isOwner || !activeBranchId || ord.branchId === activeBranchId || ord.branchId === user.branchId;
+
+            if (isTargetBranch) {
+              // 1. Play loud bell chime sound
+              playOrderAlertSound();
+
+              // 2. Trigger native push notification
+              triggerNativeNotification(ord);
+
+              // 3. Pop up detailed overlay modal
+              setActivePopupOrder(ord);
+
+              // 4. Show detailed toast notification
+              const notifInfo = formatOrderNotificationDetails(ord);
+              toast({
+                title: notifInfo.title,
+                description: notifInfo.body,
+                duration: 10000,
+              });
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Order polling error:", err);
+      }
+    };
+
+    const timer = setTimeout(checkNewOrders, 1000);
+    const interval = setInterval(checkNewOrders, 3000);
+
+    return () => {
+      clearTimeout(timer);
+      clearInterval(interval);
+    };
+  }, [user?.branchId, activeBranchId, location]);
+
   const navItems: NavItem[] = [];
 
   if (user.role === "super_admin") {
