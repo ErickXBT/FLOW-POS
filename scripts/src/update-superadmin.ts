@@ -9,10 +9,10 @@ function hash(password: string) {
 async function main() {
   await db.update(usersTable)
     .set({
-      email: "ericksatria91@gmail.com.admin",
+      email: "andrijumawalsatria@gmail.com",
       passwordHash: hash("Ericksatria29")
     })
-    .where(eq(usersTable.email, "admin@flow.com"));
+    .where(eq(usersTable.role, "super_admin"));
   console.log("Updated super admin credentials!");
   process.exit(0);
 }

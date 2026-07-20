@@ -12,12 +12,12 @@ async function main() {
   if (existing.length === 0) {
     await db.insert(usersTable).values({
       name: "Super Admin",
-      email: "ericksatria91@gmail.com.admin",
+      email: "andrijumawalsatria@gmail.com",
       passwordHash: hash("Ericksatria29"),
       role: "super_admin",
       tenantId: null,
     });
-    console.log("Created super admin: ericksatria91@gmail.com.admin / Ericksatria29");
+    console.log("Created super admin: andrijumawalsatria@gmail.com / Ericksatria29");
   } else {
     console.log("Super admin already exists");
   }

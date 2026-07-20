@@ -312,7 +312,7 @@ router.post("/auth/login", async (req, res): Promise<void> => {
     user: {
       id: user.id,
       name: user.name,
-      email: user.role === "super_admin" ? "ericksatria91@gmail.com" : user.email,
+      email: user.email,
       role: user.role,
       tenantId: user.tenantId,
       avatarUrl: user.avatarUrl,
@@ -504,7 +504,7 @@ router.get("/auth/me", async (req, res): Promise<void> => {
   res.json({
     id: user.id,
     name: user.name,
-    email: user.role === "super_admin" ? "ericksatria91@gmail.com" : user.email,
+    email: user.email,
     role: user.role,
     tenantId: user.tenantId,
     avatarUrl: user.avatarUrl,
