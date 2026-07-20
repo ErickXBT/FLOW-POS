@@ -253,43 +253,50 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
     return () => window.removeEventListener("keydown", handleKeyDown, true);
   }, [location, activeBranchId]);
 
-  const handleTestAudioAndPermission = async () => {
-    const perm = await requestNotificationPermission();
-    playOrderAlertSound();
-    if (perm === "granted") {
-      toast({
-        title: "Notifikasi & Suara Aktif! 🔔",
-        description: "Suara bel pesanan dan notifikasi detail HP telah siap digunakan.",
-      });
-    } else {
-      toast({
-        title: "Suara Bel Diuji 🔔",
-        description: "Suara bel telah diputar. Izinkan notifikasi di browser untuk notifikasi di HP saat aplikasi di-background.",
-      });
-    }
-  };
+  // Auto-unlock AudioContext & request Notification permission on first user interaction
+  useEffect(() => {
+    const handleFirstInteraction = () => {
+      unlockAudioContext();
+      requestNotificationPermission().catch(() => {});
+    };
+    window.addEventListener("pointerdown", handleFirstInteraction, { once: true });
+    window.addEventListener("click", handleFirstInteraction, { once: true });
+    window.addEventListener("touchstart", handleFirstInteraction, { once: true });
+    window.addEventListener("keydown", handleFirstInteraction, { once: true });
+    return () => {
+      window.removeEventListener("pointerdown", handleFirstInteraction);
+      window.removeEventListener("click", handleFirstInteraction);
+      window.removeEventListener("touchstart", handleFirstInteraction);
+      window.removeEventListener("keydown", handleFirstInteraction);
+    };
+  }, []);
 
   const triggerNativeNotification = (ord: any) => {
-    if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
-      try {
-        const { title, body } = formatOrderNotificationDetails(ord);
-        if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
-          navigator.serviceWorker.ready.then(reg => {
-            (reg as any).showNotification(title, {
-              body,
-              icon: "/icon-192.jpg",
-              badge: "/icon-192.jpg",
-              vibrate: [200, 100, 200, 100, 200],
-              data: "/customer-orders",
+    if (typeof window !== "undefined" && "Notification" in window) {
+      if (Notification.permission === "default") {
+        Notification.requestPermission().catch(() => {});
+      }
+      if (Notification.permission === "granted") {
+        try {
+          const { title, body } = formatOrderNotificationDetails(ord);
+          if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.ready.then(reg => {
+              (reg as any).showNotification(title, {
+                body,
+                icon: "/icon-192.jpg",
+                badge: "/icon-192.jpg",
+                vibrate: [200, 100, 200, 100, 200],
+                data: "/customer-orders",
+              });
+            }).catch(() => {
+              new Notification(title, { body, icon: "/icon-192.jpg" });
             });
-          }).catch(() => {
+          } else {
             new Notification(title, { body, icon: "/icon-192.jpg" });
-          });
-        } else {
-          new Notification(title, { body, icon: "/icon-192.jpg" });
+          }
+        } catch (err) {
+          console.error("Failed to trigger native notification:", err);
         }
-      } catch (err) {
-        console.error("Failed to trigger native notification:", err);
       }
     }
   };
@@ -301,41 +308,56 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
     if (!token) return;
 
     const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-    const evtSrc = new EventSource(`${BASE}/api/tenant/orders/events?token=${encodeURIComponent(token)}`);
+    let evtSrc: EventSource | null = null;
+    let reconnectTimeout: any = null;
 
-    evtSrc.onmessage = (e) => {
-      try {
-        const data = JSON.parse(e.data);
-        if (data.type === "new_order") {
-          const isOwner = user.role === "owner" || user.role === "manager";
-          const isTargetBranch = !user.branchId || isOwner || !activeBranchId || data.order.branchId === activeBranchId || data.order.branchId === user.branchId;
+    const connectSSE = () => {
+      evtSrc = new EventSource(`${BASE}/api/tenant/orders/events?token=${encodeURIComponent(token)}`);
 
-          if (isTargetBranch) {
-            // 1. Play loud bell chime sound
-            playOrderAlertSound();
+      evtSrc.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.type === "new_order") {
+            const isOwner = user.role === "owner" || user.role === "manager";
+            const isTargetBranch = !user.branchId || isOwner || !activeBranchId || data.order.branchId === activeBranchId || data.order.branchId === user.branchId;
 
-            // 2. Trigger native push notification
-            triggerNativeNotification(data.order);
+            if (isTargetBranch) {
+              // 1. Play loud bell chime sound
+              playOrderAlertSound();
 
-            // 3. Pop up detailed overlay modal
-            setActivePopupOrder(data.order);
+              // 2. Trigger native push notification
+              triggerNativeNotification(data.order);
 
-            // 4. Show detailed toast notification
-            const notifInfo = formatOrderNotificationDetails(data.order);
-            toast({
-              title: notifInfo.title,
-              description: notifInfo.body,
-              duration: 10000,
-            });
+              // 3. Pop up detailed overlay modal
+              setActivePopupOrder(data.order);
+
+              // 4. Show detailed toast notification
+              const notifInfo = formatOrderNotificationDetails(data.order);
+              toast({
+                title: notifInfo.title,
+                description: notifInfo.body,
+                duration: 10000,
+              });
+            }
           }
+        } catch (err) {
+          console.error("Error processing SSE message in Layout:", err);
         }
-      } catch (err) {
-        console.error("Error processing SSE message in Layout:", err);
-      }
+      };
+
+      evtSrc.onerror = () => {
+        if (evtSrc) {
+          evtSrc.close();
+        }
+        reconnectTimeout = setTimeout(connectSSE, 3000);
+      };
     };
 
+    connectSSE();
+
     return () => {
-      evtSrc.close();
+      if (evtSrc) evtSrc.close();
+      if (reconnectTimeout) clearTimeout(reconnectTimeout);
     };
   }, [user?.branchId, location]);
 
@@ -660,14 +682,6 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${ROLE_COLORS[user.role] ?? ""}`}>
                 {ROLE_LABELS[user.role as keyof typeof ROLE_LABELS] ?? user.role}
               </span>
-              <button
-                onClick={handleTestAudioAndPermission}
-                title="Tes Suara & Notifikasi Order Masuk"
-                className="flex items-center gap-1.5 text-xs font-bold px-2.5 py-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 active:scale-95 transition-all shadow-sm"
-              >
-                <Bell size={14} className="text-amber-500 animate-pulse" />
-                <span>Tes Suara</span>
-              </button>
               <span className="text-sm font-medium text-foreground">{user.name}</span>
               <button onClick={onLogout} className="text-muted-foreground hover:text-foreground p-1.5 hover:bg-muted rounded-lg transition-colors">
                 <LogOut size={16} />
@@ -725,14 +739,6 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
                 )
               )}
               <div className="flex-1" />
-              <button
-                onClick={handleTestAudioAndPermission}
-                title="Tes Suara & Notifikasi Order Masuk"
-                className="flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-600 dark:text-amber-400 hover:bg-amber-500/20 active:scale-95 transition-all shadow-sm"
-              >
-                <Bell size={14} className="text-amber-500 animate-bounce" />
-                <span>Tes Suara & Notif</span>
-              </button>
               <button onClick={toggleDark} className="text-muted-foreground hover:text-foreground transition-colors p-1.5 rounded-lg hover:bg-muted">
                 {dark ? <Sun size={18} /> : <Moon size={18} />}
               </button>

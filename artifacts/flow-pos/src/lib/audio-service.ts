@@ -32,21 +32,21 @@ export function unlockAudioContext(): void {
  */
 export function playOrderAlertSound(): void {
   try {
-    const ctx = getAudioContext();
+    let ctx = getAudioContext();
     if (!ctx) return;
     if (ctx.state === "suspended") {
-      ctx.resume().catch(() => {});
+      ctx.resume().then(() => playOrderAlertSound()).catch(() => {});
     }
 
     const now = ctx.currentTime;
 
     // Helper to play a single bell note with harmonics and decay
-    const playBellNote = (freq: number, startTime: number, duration: number = 0.4) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
+    const playBellNote = (freq: number, startTime: number, duration: number = 0.45) => {
+      const osc = ctx!.createOscillator();
+      const gain = ctx!.createGain();
       
-      const osc2 = ctx.createOscillator();
-      const gain2 = ctx.createGain();
+      const osc2 = ctx!.createOscillator();
+      const gain2 = ctx!.createGain();
 
       osc.type = "sine";
       osc.frequency.setValueAtTime(freq, startTime);
@@ -56,18 +56,18 @@ export function playOrderAlertSound(): void {
 
       // Volume envelope (fast attack, exponential decay)
       gain.gain.setValueAtTime(0.01, startTime);
-      gain.gain.linearRampToValueAtTime(0.4, startTime + 0.02);
+      gain.gain.linearRampToValueAtTime(0.6, startTime + 0.02);
       gain.gain.exponentialRampToValueAtTime(0.001, startTime + duration);
 
       gain2.gain.setValueAtTime(0.01, startTime);
-      gain2.gain.linearRampToValueAtTime(0.15, startTime + 0.02);
+      gain2.gain.linearRampToValueAtTime(0.25, startTime + 0.02);
       gain2.gain.exponentialRampToValueAtTime(0.001, startTime + (duration * 0.7));
 
       osc.connect(gain);
-      gain.connect(ctx.destination);
+      gain.connect(ctx!.destination);
 
       osc2.connect(gain2);
-      gain2.connect(ctx.destination);
+      gain2.connect(ctx!.destination);
 
       osc.start(startTime);
       osc.stop(startTime + duration);
@@ -77,14 +77,14 @@ export function playOrderAlertSound(): void {
     };
 
     // First Chime Sequence (G5 -> C6 -> E6)
-    playBellNote(783.99, now + 0.00, 0.35); // G5
-    playBellNote(1046.50, now + 0.18, 0.35); // C6
-    playBellNote(1318.51, now + 0.36, 0.60); // E6
+    playBellNote(783.99, now + 0.00, 0.40); // G5
+    playBellNote(1046.50, now + 0.20, 0.40); // C6
+    playBellNote(1318.51, now + 0.40, 0.65); // E6
 
-    // Repeat Chime Sequence after 0.75s pause
-    playBellNote(783.99, now + 0.95, 0.35);
-    playBellNote(1046.50, now + 1.13, 0.35);
-    playBellNote(1318.51, now + 1.31, 0.70);
+    // Repeat Chime Sequence after 0.85s pause
+    playBellNote(783.99, now + 1.05, 0.40);
+    playBellNote(1046.50, now + 1.25, 0.40);
+    playBellNote(1318.51, now + 1.45, 0.75);
 
   } catch (err) {
     console.error("Audio playback error:", err);
