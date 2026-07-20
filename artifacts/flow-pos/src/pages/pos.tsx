@@ -487,30 +487,22 @@ const { data: categories } = useListCategories();
     setModalQty(1);
     setModalNotes("");
     
-    const skipDefaults = isFashion || engine !== "retail";
-    let variants = skipDefaults ? [] : DEFAULT_VARIANTS;
-    let toppings = skipDefaults ? [] : DEFAULT_TOPPINGS;
+    let variants: any[] = [];
+    let toppings: any[] = [];
 
     if (product.variantSettings) {
       try {
         const parsed = JSON.parse(product.variantSettings);
         if (parsed.variants && Array.isArray(parsed.variants)) {
           variants = parsed.variants;
-        } else {
-          variants = skipDefaults ? [] : DEFAULT_VARIANTS;
         }
         if (parsed.toppings && Array.isArray(parsed.toppings)) {
           toppings = parsed.toppings;
-        } else {
-          toppings = skipDefaults ? [] : DEFAULT_TOPPINGS;
         }
       } catch (e) {
-        variants = skipDefaults ? [] : DEFAULT_VARIANTS;
-        toppings = skipDefaults ? [] : DEFAULT_TOPPINGS;
+        variants = [];
+        toppings = [];
       }
-    } else {
-      variants = skipDefaults ? [] : DEFAULT_VARIANTS;
-      toppings = skipDefaults ? [] : DEFAULT_TOPPINGS;
     }
 
     setModalVariantsList(variants);

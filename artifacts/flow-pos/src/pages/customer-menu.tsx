@@ -435,7 +435,7 @@ function TrackingView({
     ctx.textAlign = "center";
 
     // Store / Brand name
-    const brandName = tenantName || "FreshMood";
+    const brandName = tenantName || "Flow POS";
     ctx.font = "bold 24px 'Courier New', monospace";
     ctx.fillText(brandName, canvas.width / 2, 35);
 
@@ -1892,8 +1892,8 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
     setModalQty(1);
     setModalNotes("");
     
-    let variants = DEFAULT_VARIANTS;
-    let toppings = isFashion ? [] : DEFAULT_TOPPINGS;
+    let variants: any[] = [];
+    let toppings: any[] = [];
 
     if (product.variantSettings) {
       try {
@@ -1905,12 +1905,9 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
           toppings = parsed.toppings;
         }
       } catch (e) {
-        variants = DEFAULT_VARIANTS;
-        toppings = isFashion ? [] : DEFAULT_TOPPINGS;
+        variants = [];
+        toppings = [];
       }
-    } else {
-      variants = DEFAULT_VARIANTS;
-      toppings = isFashion ? [] : DEFAULT_TOPPINGS;
     }
 
     setModalVariantsList(variants);
@@ -1995,8 +1992,8 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
         let toppingsPrice = 0;
         
         const settingsStr = item.product.variantSettings;
-        let variantsList = DEFAULT_VARIANTS;
-        let toppingsList = isFashion ? [] : DEFAULT_TOPPINGS;
+        let variantsList: any[] = [];
+        let toppingsList: any[] = [];
         
         if (settingsStr) {
           try {
@@ -2418,7 +2415,7 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
         orderId={trackingId}
         slug={slug!}
         primary={primary}
-        tenantName={tenant?.name || "FreshMood"}
+        tenantName={tenant?.name || "Flow POS"}
         branchName={branch?.name || "Utama"}
         onBack={() => { setStep("menu"); setTrackingId(null); }}
         isFashion={isFashion}

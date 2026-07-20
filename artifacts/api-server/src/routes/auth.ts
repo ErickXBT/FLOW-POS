@@ -121,12 +121,14 @@ export async function getUserExtraDetails(userId: number, role: string, tenantId
 
   const [tenant] = await db
     .select({
+      name: tenantsTable.name,
       businessType: tenantsTable.businessType,
       businessEngine: tenantsTable.businessEngine
     })
     .from(tenantsTable)
     .where(eq(tenantsTable.id, tenantId))
     .limit(1);
+  const tenantName = tenant?.name || null;
   const businessType = tenant?.businessType || "fnb";
   const businessEngine = tenant?.businessEngine || "retail";
   
@@ -139,6 +141,7 @@ export async function getUserExtraDetails(userId: number, role: string, tenantId
       ],
       branchId: null,
       branchName: null,
+      tenantName,
       businessType,
       businessEngine,
     };
@@ -158,7 +161,7 @@ export async function getUserExtraDetails(userId: number, role: string, tenantId
     .limit(1);
 
   if (!emp) {
-    return { permissions: getDefaultPermissions(role), branchId: null, branchName: null, businessType, businessEngine };
+    return { permissions: getDefaultPermissions(role), branchId: null, branchName: null, tenantName, businessType, businessEngine };
   }
 
   let permissions: string[] = [];
@@ -172,6 +175,7 @@ export async function getUserExtraDetails(userId: number, role: string, tenantId
     permissions,
     branchId: emp.employee.branchId,
     branchName: emp.branchName || null,
+    tenantName,
     businessType,
     businessEngine,
   };

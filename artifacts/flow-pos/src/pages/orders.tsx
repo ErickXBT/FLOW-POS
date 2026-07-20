@@ -262,7 +262,7 @@ function OrderDetail({ id, onClose, onVoidSuccess }: { id: number; onClose: () =
     ctx.textAlign = "center";
 
     // Store / Brand name
-    const brandName = (user as any)?.tenantName || user?.branchName || "FreshMood";
+    const brandName = (user as any)?.tenantName || order?.tenantName || "Flow POS";
     ctx.font = "bold 24px 'Courier New', monospace";
     ctx.fillText(brandName, canvas.width / 2, 35);
 

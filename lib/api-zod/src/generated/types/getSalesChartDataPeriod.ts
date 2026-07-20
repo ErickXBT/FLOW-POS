@@ -13,4 +13,5 @@ export const GetSalesChartDataPeriod = {
   week: 'week',
   month: 'month',
   year: 'year',
+  custom: 'custom',
 } as const;

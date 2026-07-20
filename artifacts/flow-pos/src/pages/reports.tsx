@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useGetSalesReport, useGetSalesChartData, useListBranches } from "@workspace/api-client-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from "recharts";
-import { TrendingUp, ShoppingCart, Package, CreditCard, Award, Users, RefreshCw, BarChart3 } from "lucide-react";
+import { TrendingUp, ShoppingCart, Package, CreditCard, Award, Users, RefreshCw, BarChart3, Calendar } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useActiveBranch } from "@/hooks/use-active-branch";
 
@@ -25,10 +25,18 @@ export default function ReportsPage() {
   const isOwnerOrAdmin = user?.role === "owner" || user?.role === "super_admin";
   const [reportTab, setReportTab] = useState("single"); // "single" or "multi"
   const [period, setPeriod] = useState("month");
+  const [customDate, setCustomDate] = useState("");
   const { activeBranchId, setActiveBranchId, branches } = useActiveBranch();
 
-  const { data: report, isLoading } = useGetSalesReport({ period: period as any, branchId: activeBranchId });
-  const { data: chartData } = useGetSalesChartData({ period: period === "today" ? "week" : (period as any), branchId: activeBranchId });
+  const queryParams = useMemo(() => {
+    if (period === "custom" && customDate) {
+      return { period: "custom" as any, dateFrom: customDate, dateTo: customDate, branchId: activeBranchId };
+    }
+    return { period: period as any, branchId: activeBranchId };
+  }, [period, customDate, activeBranchId]);
+
+  const { data: report, isLoading } = useGetSalesReport(queryParams);
+  const { data: chartData } = useGetSalesChartData(queryParams);
 
   // Multi-branch ranking states
   const [rankingsData, setRankingsData] = useState<any>(null);
@@ -84,14 +92,28 @@ export default function ReportsPage() {
                   </select>
                 </div>
               )}
-              <div className="flex gap-1 bg-muted rounded-lg p-1">
+              <div className="flex flex-wrap items-center gap-1.5 bg-muted rounded-xl p-1 border border-border/40">
                 {PERIODS.map(p => (
-                  <button key={p.value} onClick={() => setPeriod(p.value)}
-                    className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${period === p.value ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
+                  <button key={p.value} onClick={() => { setPeriod(p.value); setCustomDate(""); }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${period === p.value ? "bg-card shadow-sm text-foreground" : "text-muted-foreground hover:text-foreground"
                       }`}>
                     {p.label}
                   </button>
                 ))}
+                <div className="flex items-center gap-1.5 pl-1.5 border-l border-border/60">
+                  <Calendar size={13} className="text-muted-foreground" />
+                  <input
+                    type="date"
+                    value={customDate}
+                    onChange={e => {
+                      setCustomDate(e.target.value);
+                      if (e.target.value) setPeriod("custom");
+                    }}
+                    className={`px-2 py-1 text-xs rounded-lg border border-input bg-card font-medium focus:outline-none focus:ring-1 focus:ring-primary ${
+                      period === "custom" ? "ring-2 ring-primary text-foreground font-bold" : "text-muted-foreground"
+                    }`}
+                  />
+                </div>
               </div>
             </>
           )}

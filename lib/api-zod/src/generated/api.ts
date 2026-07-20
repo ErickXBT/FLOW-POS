@@ -1961,7 +1961,7 @@ export const GetDashboardStatsResponse = zod.object({
  * @summary Get sales report
  */
 export const GetSalesReportQueryParams = zod.object({
-  "period": zod.enum(['today', 'week', 'month', 'year']).optional(),
+  "period": zod.enum(['today', 'week', 'month', 'year', 'custom']).optional(),
   "dateFrom": zod.coerce.string().optional(),
   "dateTo": zod.coerce.string().optional(),
   "branchId": zod.coerce.number().optional()
@@ -1997,7 +1997,9 @@ export const GetSalesReportResponse = zod.object({
  * @summary Get sales chart data over time
  */
 export const GetSalesChartDataQueryParams = zod.object({
-  "period": zod.enum(['week', 'month', 'year']).optional(),
+  "period": zod.enum(['week', 'month', 'year', 'custom']).optional(),
+  "dateFrom": zod.coerce.string().optional(),
+  "dateTo": zod.coerce.string().optional(),
   "branchId": zod.coerce.number().optional()
 })
 

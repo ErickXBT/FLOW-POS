@@ -680,61 +680,6 @@ function ProductForm({ initial, categories, onSubmit, onClose, loading, business
               </div>
             )}
 
-            {/* Varian Section */}
-            {!isBundle && (
-              <div className="col-span-2 space-y-2">
-                <div className="flex items-center justify-between border-b pb-1.5 border-border">
-                  <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Pilihan Ukuran / Varian</span>
-                  <button
-                    type="button"
-                    onClick={() => setVariantsList(prev => [...prev, { name: "", price: 0 }])}
-                    className="text-xs font-bold text-amber-500 hover:text-amber-600 transition-colors"
-                  >
-                    + Tambah Varian
-                  </button>
-                </div>
-                
-                {variantsList.length === 0 ? (
-                  <p className="text-xs text-muted-foreground italic">Belum ada varian ditambahkan.</p>
-                ) : (
-                  <div className="space-y-2 max-h-40 overflow-y-auto pr-1">
-                    {variantsList.map((variant, index) => (
-                      <div key={index} className="flex items-center gap-2">
-                        <input
-                          type="text"
-                          placeholder="Nama Varian (misal: Large)"
-                          value={variant.name}
-                          onChange={e => {
-                            const updated = [...variantsList];
-                            updated[index].name = e.target.value;
-                            setVariantsList(updated);
-                          }}
-                          className="flex-1 min-w-0 px-3 py-2 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400"
-                        />
-                        <input
-                          type="number"
-                          placeholder="Tambahan Harga (Rp)"
-                          value={variant.price || ""}
-                          onChange={e => {
-                            const updated = [...variantsList];
-                            updated[index].price = Number(e.target.value) || 0;
-                            setVariantsList(updated);
-                          }}
-                          className="w-32 px-3 py-2 rounded-xl border border-input bg-background text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-400"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setVariantsList(prev => prev.filter((_, idx) => idx !== index))}
-                          className="p-2 text-red-500 hover:bg-red-500/10 rounded-xl transition-colors"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
 
             {/* Varian Section */}
             {!isBundle && (

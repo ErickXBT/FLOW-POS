@@ -24,6 +24,7 @@ export interface AuthUser {
   permissions?: string[];
   branchId?: number | null;
   branchName?: string | null;
+  tenantName?: string | null;
   businessType?: string;
   businessEngine?: string;
 }

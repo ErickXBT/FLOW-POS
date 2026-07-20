@@ -207,13 +207,17 @@ router.get("/reports/sales", async (req, res): Promise<void> => {
 
   if (qp.success && qp.data.dateFrom) {
     dateFrom = new Date(qp.data.dateFrom);
+    if (!qp.data.dateFrom.includes("T")) dateFrom.setHours(0, 0, 0, 0);
   } else {
     if (period === "today") dateFrom = startOf("day");
     else if (period === "week") dateFrom = startOf("week");
     else if (period === "year") dateFrom = startOf("year");
     else dateFrom = startOf("month");
   }
-  if (qp.success && qp.data.dateTo) dateTo = new Date(qp.data.dateTo);
+  if (qp.success && qp.data.dateTo) {
+    dateTo = new Date(qp.data.dateTo);
+    if (!qp.data.dateTo.includes("T")) dateTo.setHours(23, 59, 59, 999);
+  }
 
   const branchId = await getRequestedBranchId(req, claims);
   const conditions = [
@@ -305,12 +309,38 @@ router.get("/reports/sales/chart", async (req, res): Promise<void> => {
 
   const tid = claims.tenantId!;
   const qp = GetSalesChartDataQueryParams.safeParse(req.query);
-  const period = (qp.success ? qp.data.period : "month") ?? "month";
+  const queryData = (qp.success ? qp.data : req.query) as any;
+  const period = queryData.period ?? "month";
 
   const now = new Date();
   const points: { label: string; from: Date; to: Date }[] = [];
 
-  if (period === "week") {
+  const hasCustomDates = queryData.dateFrom;
+  if (hasCustomDates) {
+    const dFrom = new Date(queryData.dateFrom);
+    if (!String(queryData.dateFrom).includes("T")) dFrom.setHours(0, 0, 0, 0);
+    const dTo = queryData.dateTo ? new Date(queryData.dateTo) : new Date(dFrom);
+    if (queryData.dateTo && !String(queryData.dateTo).includes("T")) dTo.setHours(23, 59, 59, 999);
+    else if (!queryData.dateTo) dTo.setHours(23, 59, 59, 999);
+
+    const diffMs = dTo.getTime() - dFrom.getTime();
+    const diffDays = Math.round(diffMs / (1000 * 3600 * 24));
+    if (diffDays <= 1) {
+      for (let h = 0; h < 24; h += 3) {
+        const from = new Date(dFrom); from.setHours(h, 0, 0, 0);
+        const to = new Date(dFrom); to.setHours(h + 2, 59, 59, 999);
+        points.push({ label: `${String(h).padStart(2, "0")}:00`, from, to });
+      }
+    } else {
+      const curr = new Date(dFrom);
+      while (curr <= dTo) {
+        const from = new Date(curr); from.setHours(0, 0, 0, 0);
+        const to = new Date(curr); to.setHours(23, 59, 59, 999);
+        points.push({ label: `${from.getDate()}/${from.getMonth() + 1}`, from, to });
+        curr.setDate(curr.getDate() + 1);
+      }
+    }
+  } else if (period === "week") {
     for (let i = 6; i >= 0; i--) {
       const d = new Date(now);
       d.setDate(d.getDate() - i);

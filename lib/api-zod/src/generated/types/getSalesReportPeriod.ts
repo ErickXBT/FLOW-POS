@@ -14,4 +14,5 @@ export const GetSalesReportPeriod = {
   week: 'week',
   month: 'month',
   year: 'year',
+  custom: 'custom',
 } as const;

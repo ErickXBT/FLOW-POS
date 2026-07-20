@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Clock, ChefHat, Package, Truck, CheckCircle2, XCircle, RefreshCw, Wifi, WifiOff, Navigation } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useActiveBranch } from "@/hooks/use-active-branch";
+import { playOrderAlertSound } from "@/lib/audio-service";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
@@ -132,15 +133,7 @@ export default function CustomerOrdersPage() {
   const tokenRef = useRef<string>(localStorage.getItem("flow_token") ?? "");
 
   function playAlert() {
-    try {
-      const ctx = new AudioContext();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.connect(gain); gain.connect(ctx.destination);
-      osc.frequency.value = 880; gain.gain.value = 0.3;
-      osc.start(); osc.stop(ctx.currentTime + 0.15);
-      setTimeout(() => { osc.frequency.value = 1100; osc.start(ctx.currentTime + 0.2); osc.stop(ctx.currentTime + 0.35); }, 200);
-    } catch {}
+    playOrderAlertSound();
   }
 
   async function fetchOrders() {
