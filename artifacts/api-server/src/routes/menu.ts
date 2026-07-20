@@ -17,16 +17,16 @@ const router: IRouter = Router();
 type SseClient = { id: string; tenantId: number; res: any };
 const sseClients: SseClient[] = [];
 
-export function broadcastNewOrder(tenantId: number, order: any) {
-  const clients = sseClients.filter(c => c.tenantId === tenantId);
+export function broadcastNewOrder(tenantId: number | string, order: any) {
+  const clients = sseClients.filter(c => Number(c.tenantId) === Number(tenantId));
   const data = `data: ${JSON.stringify({ type: "new_order", order })}\n\n`;
-  clients.forEach(c => { try { c.res.write(data); } catch {} });
+  clients.forEach(c => { try { c.res.write(data); } catch (err) {} });
 }
 
-export function broadcastStatusUpdate(tenantId: number, orderId: number, status: string, paymentStatus?: string) {
-  const clients = sseClients.filter(c => c.tenantId === tenantId);
+export function broadcastStatusUpdate(tenantId: number | string, orderId: number, status: string, paymentStatus?: string) {
+  const clients = sseClients.filter(c => Number(c.tenantId) === Number(tenantId));
   const data = `data: ${JSON.stringify({ type: "status_update", orderId, status, paymentStatus })}\n\n`;
-  clients.forEach(c => { try { c.res.write(data); } catch {} });
+  clients.forEach(c => { try { c.res.write(data); } catch (err) {} });
 }
 
 function formatCustomerOrder(order: any, items: any[]) {

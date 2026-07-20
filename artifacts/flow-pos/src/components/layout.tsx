@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Link, useLocation } from "wouter";
 import {
   LayoutDashboard, ShoppingCart, Package, Tag, ClipboardList,
@@ -301,6 +301,43 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
     }
   };
 
+  const userRef = useRef(user);
+  userRef.current = user;
+  const activeBranchIdRef = useRef(activeBranchId);
+  activeBranchIdRef.current = activeBranchId;
+
+  const seenOrderIdsRef = useRef<Set<number>>(new Set());
+  const isInitialOrderFetchRef = useRef<boolean>(true);
+
+  const triggerOrderNotification = useCallback((ord: any) => {
+    const currentUser = userRef.current;
+    if (!currentUser || currentUser.role === "super_admin") return;
+
+    const isOwner = currentUser.role === "owner" || currentUser.role === "manager";
+    const curBranchId = activeBranchIdRef.current;
+    const isTargetBranch = !currentUser.branchId || isOwner || !curBranchId || ord.branchId === curBranchId || ord.branchId === currentUser.branchId;
+
+    if (isTargetBranch) {
+      // 1. Play loud bell chime sound
+      playOrderAlertSound();
+
+      // 2. Trigger native push notification
+      triggerNativeNotification(ord);
+
+      // 3. Pop up detailed overlay modal
+      setActivePopupOrder(ord);
+
+      // 4. Show detailed toast notification
+      const notifInfo = formatOrderNotificationDetails(ord);
+      toast({
+        title: notifInfo.title,
+        description: notifInfo.body,
+        duration: 10000,
+      });
+    }
+  }, [toast]);
+
+  // Realtime SSE Listener (persistent connection per user session)
   useEffect(() => {
     if (!user || user.role === "super_admin") return;
     const token = localStorage.getItem("flow_token") ?? "";
@@ -317,28 +354,9 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
       evtSrc.onmessage = (e) => {
         try {
           const data = JSON.parse(e.data);
-          if (data.type === "new_order") {
-            const isOwner = user.role === "owner" || user.role === "manager";
-            const isTargetBranch = !user.branchId || isOwner || !activeBranchId || data.order.branchId === activeBranchId || data.order.branchId === user.branchId;
-
-            if (isTargetBranch) {
-              // 1. Play loud bell chime sound
-              playOrderAlertSound();
-
-              // 2. Trigger native push notification
-              triggerNativeNotification(data.order);
-
-              // 3. Pop up detailed overlay modal
-              setActivePopupOrder(data.order);
-
-              // 4. Show detailed toast notification
-              const notifInfo = formatOrderNotificationDetails(data.order);
-              toast({
-                title: notifInfo.title,
-                description: notifInfo.body,
-                duration: 10000,
-              });
-            }
+          if (data.type === "new_order" && data.order) {
+            if (data.order.id) seenOrderIdsRef.current.add(data.order.id);
+            triggerOrderNotification(data.order);
           }
         } catch (err) {
           console.error("Error processing SSE message in Layout:", err);
@@ -346,9 +364,7 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
       };
 
       evtSrc.onerror = () => {
-        if (evtSrc) {
-          evtSrc.close();
-        }
+        if (evtSrc) evtSrc.close();
         reconnectTimeout = setTimeout(connectSSE, 3000);
       };
     };
@@ -359,12 +375,9 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
       if (evtSrc) evtSrc.close();
       if (reconnectTimeout) clearTimeout(reconnectTimeout);
     };
-  }, [user?.branchId, location]);
+  }, [user?.id, triggerOrderNotification]);
 
-  const seenOrderIdsRef = useRef<Set<number>>(new Set());
-  const isInitialOrderFetchRef = useRef<boolean>(true);
-
-  // Backup Realtime Order Detector (3s interval) to guarantee alerts on all mobile & desktop browsers
+  // Backup Realtime Order Detector (3s interval)
   useEffect(() => {
     if (!user || user.role === "super_admin") return;
     const token = localStorage.getItem("flow_token") ?? "";
@@ -373,7 +386,7 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
     const checkNewOrders = async () => {
       try {
         const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
-        const res = await fetch(`${BASE}/api/tenant/customer-orders?status=pending,confirmed,preparing`, {
+        const res = await fetch(`${BASE}/api/tenant/customer-orders?status=pending,confirmed,preparing&limit=50`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         if (!res.ok) return;
@@ -391,28 +404,7 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
         for (const ord of orders) {
           if (ord.id && !seenOrderIdsRef.current.has(ord.id)) {
             seenOrderIdsRef.current.add(ord.id);
-
-            const isOwner = user.role === "owner" || user.role === "manager";
-            const isTargetBranch = !user.branchId || isOwner || !activeBranchId || ord.branchId === activeBranchId || ord.branchId === user.branchId;
-
-            if (isTargetBranch) {
-              // 1. Play loud bell chime sound
-              playOrderAlertSound();
-
-              // 2. Trigger native push notification
-              triggerNativeNotification(ord);
-
-              // 3. Pop up detailed overlay modal
-              setActivePopupOrder(ord);
-
-              // 4. Show detailed toast notification
-              const notifInfo = formatOrderNotificationDetails(ord);
-              toast({
-                title: notifInfo.title,
-                description: notifInfo.body,
-                duration: 10000,
-              });
-            }
+            triggerOrderNotification(ord);
           }
         }
       } catch (err) {
@@ -427,7 +419,7 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
       clearTimeout(timer);
       clearInterval(interval);
     };
-  }, [user?.branchId, activeBranchId, location]);
+  }, [user?.id, triggerOrderNotification]);
 
   const navItems: NavItem[] = [];
 
