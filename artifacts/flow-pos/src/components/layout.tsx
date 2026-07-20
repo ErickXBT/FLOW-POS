@@ -5,7 +5,7 @@ import {
   Users, UserCheck, BarChart3, Warehouse, Settings,
   Shield, LogOut, Menu, X, Sun, Moon, Smartphone,
   ChefHat, Truck, Activity, MapPin, ShieldCheck, QrCode, ShoppingBag, Sparkles,
-  Receipt, Coins, History, ArrowLeftRight, Printer, AlertTriangle, Bell,
+  Receipt, Coins, History, ArrowLeftRight, Printer, AlertTriangle, Bell, BellRing,
   Calendar, Wrench, Briefcase, Clock
 } from "lucide-react";
 import flowLogo from "@assets/FLOW_LOGO_1780799864457.png";
@@ -308,6 +308,81 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
 
   const seenOrderIdsRef = useRef<Set<string | number>>(new Set());
   const isInitialOrderFetchRef = useRef<boolean>(true);
+
+  const [pushPermissionGranted, setPushPermissionGranted] = useState<boolean>(() => {
+    return typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted";
+  });
+
+  const handleEnableMobilePush = async () => {
+    try {
+      if (typeof window === "undefined" || !("Notification" in window)) {
+        toast({ title: "Fitur tidak didukung", description: "Browser Anda belum mendukung Notifikasi Push.", variant: "destructive" });
+        return;
+      }
+
+      const perm = await Notification.requestPermission();
+      if (perm !== "granted") {
+        toast({ title: "Izin Notifikasi Ditolak", description: "Silakan izinkan notifikasi pada Pengaturan Browser / HP Anda.", variant: "destructive" });
+        return;
+      }
+      setPushPermissionGranted(true);
+
+      if (!("serviceWorker" in navigator) || !("PushManager" in window)) {
+        toast({ title: "Izin Diberikan", description: "Notifikasi aktif saat aplikasi terbuka." });
+        return;
+      }
+
+      const token = localStorage.getItem("flow_token");
+      const reg = await navigator.serviceWorker.ready;
+      const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
+      const resKey = await fetch(`${BASE}/api/push/vapid-key`, {
+        headers: { Authorization: `Bearer ${token || ""}` }
+      });
+
+      if (!resKey.ok) throw new Error("Gagal mengambil VAPID key");
+      const { vapidPublicKey } = await resKey.json();
+
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub && vapidPublicKey) {
+        const padding = '='.repeat((4 - (vapidPublicKey.length % 4)) % 4);
+        const base64 = (vapidPublicKey + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const rawData = window.atob(base64);
+        const convertedKey = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) {
+          convertedKey[i] = rawData.charCodeAt(i);
+        }
+
+        sub = await reg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: convertedKey
+        });
+      }
+
+      if (sub) {
+        const subRes = await fetch(`${BASE}/api/push/subscribe`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({ subscription: sub })
+        });
+        if (subRes.ok) {
+          toast({
+            title: "🔔 Notifikasi HP Berhasil Aktif!",
+            description: "Notifikasi orderan akan tetap masuk dan berbunyi meskipun HP Anda dalam keadaan tertutup/terkunci.",
+          });
+        }
+      }
+    } catch (err: any) {
+      console.error("Failed to enable push notification:", err);
+      toast({
+        title: "Gagal Mengaktifkan Notifikasi Push",
+        description: err.message || "Terjadi kesalahan saat pendaftaran push.",
+        variant: "destructive"
+      });
+    }
+  };
 
   const triggerOrderNotification = useCallback((ord: any) => {
     const currentUser = userRef.current;
@@ -814,6 +889,21 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
           <span>⚠️ Anda sedang menguji coba dasbor {user.branchName ? `Cabang ${user.branchName}` : "Tenant"} sebagai Super Admin</span>
           <button onClick={exitImpersonate} className="bg-amber-950 text-white rounded-lg px-3 py-1 font-semibold hover:bg-black transition-all">
             Keluar Preview
+          </button>
+        </div>
+      )}
+
+      {!pushPermissionGranted && user.role !== "super_admin" && (
+        <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 text-white px-4 py-2 shadow-md flex items-center justify-between gap-3 text-xs sm:text-sm flex-shrink-0 z-40">
+          <div className="flex items-center gap-2 font-medium">
+            <BellRing className="h-4 w-4 animate-bounce text-yellow-300 shrink-0" />
+            <span>Aktifkan Notifikasi HP agar orderan tetap berbunyi saat HP terkunci/tertutup.</span>
+          </div>
+          <button
+            onClick={handleEnableMobilePush}
+            className="bg-white text-blue-700 hover:bg-blue-50 font-bold text-xs px-3 py-1.5 rounded-lg shrink-0 shadow transition-all active:scale-95 flex items-center gap-1.5"
+          >
+            Aktifkan Sekarang 🔔
           </button>
         </div>
       )}
