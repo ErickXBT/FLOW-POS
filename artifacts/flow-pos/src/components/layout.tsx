@@ -307,7 +307,10 @@ export default function Layout({ user, onLogout, isImpersonating, exitImpersonat
       try {
         const data = JSON.parse(e.data);
         if (data.type === "new_order") {
-          if (!user.branchId || data.order.branchId === user.branchId) {
+          const isOwner = user.role === "owner" || user.role === "manager";
+          const isTargetBranch = !user.branchId || isOwner || !activeBranchId || data.order.branchId === activeBranchId || data.order.branchId === user.branchId;
+
+          if (isTargetBranch) {
             // 1. Play loud bell chime sound
             playOrderAlertSound();
 

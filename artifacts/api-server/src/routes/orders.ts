@@ -494,6 +494,8 @@ router.post("/orders", async (req, res): Promise<void> => {
 
       const formatted = {
         ...custOrder,
+        source: "pos",
+        employeeName: employeeName || (tenant as any)?.defaultCashierName || "Kasir",
         subtotal: Number(custOrder.subtotal),
         discount: Number(custOrder.discount),
         tax: Number(custOrder.tax),
@@ -502,6 +504,7 @@ router.post("/orders", async (req, res): Promise<void> => {
         createdAt: custOrder.createdAt.toISOString(),
         items: itemsForBroadcast,
         paymentStatus: custOrder.paymentStatus,
+        paymentMethod: body.data.paymentMethod,
       };
 
       broadcastNewOrder(claims.tenantId!, formatted);

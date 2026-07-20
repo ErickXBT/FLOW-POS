@@ -116,16 +116,27 @@ export async function requestNotificationPermission(): Promise<NotificationPermi
  */
 export function formatOrderNotificationDetails(order: any): { title: string; body: string } {
   const orderNum = order.orderNumber || `#${order.id || ''}`;
-  const title = `🔔 Pesanan Baru Masuk! (${orderNum})`;
+  const isPosOrder = order.source === "pos" || !!order.employeeName;
+  
+  const title = isPosOrder 
+    ? `🔔 Pesanan Kasir Masuk! (${orderNum})` 
+    : `🔔 Pesanan Online Masuk! (${orderNum})`;
 
   const customer = order.customerName || "Pelanggan";
   const typeMap: Record<string, string> = {
-    dine_in: "Dine In (Makan di Tempat)",
-    take_away: "Take Away (Bungkus)",
-    delivery: "Delivery (Antar)",
+    dine_in: "Dine In",
+    take_away: "Take Away",
+    delivery: "Delivery",
   };
   const typeStr = typeMap[order.orderType] || order.orderType || "Take Away";
   const totalStr = `Rp ${Number(order.total || 0).toLocaleString("id-ID")}`;
+
+  const payMap: Record<string, string> = {
+    cash: "Tunai",
+    qris: "QRIS",
+    transfer: "Transfer",
+  };
+  const payStr = order.paymentMethod ? (payMap[order.paymentMethod] || order.paymentMethod) : "";
 
   let itemsStr = "";
   if (Array.isArray(order.items) && order.items.length > 0) {
@@ -133,7 +144,7 @@ export function formatOrderNotificationDetails(order: any): { title: string; bod
       .map((item: any) => {
         const name = item.productName || item.name || "Produk";
         const qty = item.quantity || item.qty || 1;
-        const variant = item.selectedVariant ? ` (${item.selectedVariant})` : "";
+        const variant = item.selectedVariant || item.variantSelection ? ` (${item.selectedVariant || item.variantSelection})` : "";
         return `${qty}x ${name}${variant}`;
       })
       .slice(0, 3)
@@ -144,10 +155,16 @@ export function formatOrderNotificationDetails(order: any): { title: string; bod
     }
   }
 
-  const bodyLines = [
-    `Pelanggan: ${customer}`,
-    `Tipe: ${typeStr} • ${totalStr}`,
-  ];
+  const bodyLines: string[] = [];
+
+  if (isPosOrder && order.employeeName) {
+    bodyLines.push(`Kasir: ${order.employeeName} • Pelanggan: ${customer}`);
+  } else {
+    bodyLines.push(`Pelanggan: ${customer}`);
+  }
+
+  bodyLines.push(`Tipe: ${typeStr} • ${totalStr}${payStr ? ` (${payStr})` : ""}`);
+
   if (itemsStr) {
     bodyLines.push(`Menu: ${itemsStr}`);
   }
