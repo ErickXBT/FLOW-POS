@@ -17,7 +17,8 @@ interface TenantInfo {
   coverUrl: string | null; bio: string | null;
   enableDineIn: boolean; enableTakeAway: boolean; enableDelivery: boolean;
   enableCash: boolean; enableQris: boolean; enableBankTransfer: boolean; enableEwallet: boolean;
-  deliveryFeeNear?: number; deliveryFeeFar?: number;
+  deliveryFeeNear?: number; deliveryFeeFar?: number; deliveryFeeFlat?: number;
+  enableDeliveryNear?: boolean; enableDeliveryFar?: boolean; enableDeliveryFlat?: boolean;
   showVariants?: boolean; showToppings?: boolean;
   enableCustomerLogin?: boolean;
   pointSystemConfig?: any;
@@ -918,7 +919,7 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
   const slug = slugProp ?? params.slug;
 
   const [loading, setLoading] = useState(true);
-  const [deliveryDistance, setDeliveryDistance] = useState<"near" | "far">("near");
+  const [deliveryDistance, setDeliveryDistance] = useState<"near" | "far" | "flat">("near");
   const [mapModalOpen, setMapModalOpen] = useState(false);
   const [tempCoords, setTempCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [geocoding, setGeocoding] = useState(false);
@@ -1828,6 +1829,25 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
 
   useEffect(() => {
     if (tenant) {
+      const hasNear = tenant.enableDeliveryNear !== false;
+      const hasFar = tenant.enableDeliveryFar !== false;
+      const hasFlat = tenant.enableDeliveryFlat === true;
+
+      if (deliveryDistance === "near" && !hasNear) {
+        if (hasFar) setDeliveryDistance("far");
+        else if (hasFlat) setDeliveryDistance("flat");
+      } else if (deliveryDistance === "far" && !hasFar) {
+        if (hasNear) setDeliveryDistance("near");
+        else if (hasFlat) setDeliveryDistance("flat");
+      } else if (deliveryDistance === "flat" && !hasFlat) {
+        if (hasNear) setDeliveryDistance("near");
+        else if (hasFar) setDeliveryDistance("far");
+      }
+    }
+  }, [tenant]);
+
+  useEffect(() => {
+    if (tenant) {
       document.title = `${tenant.name} - Menu Online`;
 
       const updateMeta = (name: string, content: string, isProperty = false) => {
@@ -2091,7 +2111,8 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
     try {
       const feeNear = tenant?.deliveryFeeNear !== undefined ? Number(tenant.deliveryFeeNear) : 0;
       const feeFar = tenant?.deliveryFeeFar !== undefined ? Number(tenant.deliveryFeeFar) : 5000;
-      const fee = orderType === "delivery" ? (deliveryDistance === "near" ? feeNear : feeFar) : 0;
+      const feeFlat = tenant?.deliveryFeeFlat !== undefined ? Number(tenant.deliveryFeeFlat) : 10000;
+      const fee = orderType === "delivery" ? (deliveryDistance === "flat" ? feeFlat : deliveryDistance === "near" ? feeNear : feeFar) : 0;
       const r = await fetch(`${BASE}/api/menu/${slug}/orders`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -3302,43 +3323,77 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
 
                 {orderType === "delivery" && (
                   <>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-gray-600 block">Jarak Pengiriman *</label>
-                      <div className="grid grid-cols-2 gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setDeliveryDistance("near")}
-                          className={`p-3 rounded-2xl border text-center transition-all ${
-                            deliveryDistance === "near"
-                              ? "bg-blue-50/20 border-2"
-                              : "bg-gray-50"
-                          }`}
-                          style={deliveryDistance === "near" ? { borderColor: primary } : {}}
-                        >
-                          <div className="text-xl mb-0.5">📍</div>
-                          <div className="font-bold text-gray-900 text-xs">Jarak Dekat</div>
-                          <div className="text-[10px] text-green-600 font-semibold mt-0.5">
-                            {tenant?.deliveryFeeNear === 0 || tenant?.deliveryFeeNear === undefined ? "Gratis" : formatRp(Number(tenant.deliveryFeeNear))}
+                    {(() => {
+                      const hasNear = tenant?.enableDeliveryNear !== false;
+                      const hasFar = tenant?.enableDeliveryFar !== false;
+                      const hasFlat = tenant?.enableDeliveryFlat === true;
+                      const activeCount = [hasNear, hasFar, hasFlat].filter(Boolean).length;
+                      const gridCols = activeCount === 3 ? "grid-cols-3" : activeCount === 2 ? "grid-cols-2" : "grid-cols-1";
+
+                      return (
+                        <div className="space-y-1.5">
+                          <label className="text-xs font-bold text-gray-600 block">Jarak Pengiriman *</label>
+                          <div className={`grid ${gridCols} gap-3`}>
+                            {hasNear && (
+                              <button
+                                type="button"
+                                onClick={() => setDeliveryDistance("near")}
+                                className={`p-3 rounded-2xl border text-center transition-all ${
+                                  deliveryDistance === "near"
+                                    ? "bg-blue-50/20 border-2"
+                                    : "bg-gray-50"
+                                }`}
+                                style={deliveryDistance === "near" ? { borderColor: primary } : {}}
+                              >
+                                <div className="text-xl mb-0.5">📍</div>
+                                <div className="font-bold text-gray-900 text-xs">Jarak Dekat</div>
+                                <div className="text-[10px] text-green-600 font-semibold mt-0.5">
+                                  {tenant?.deliveryFeeNear === 0 || tenant?.deliveryFeeNear === undefined ? "Gratis" : formatRp(Number(tenant.deliveryFeeNear))}
+                                </div>
+                              </button>
+                            )}
+
+                            {hasFar && (
+                              <button
+                                type="button"
+                                onClick={() => setDeliveryDistance("far")}
+                                className={`p-3 rounded-2xl border text-center transition-all ${
+                                  deliveryDistance === "far"
+                                    ? "bg-blue-50/20 border-2"
+                                    : "bg-gray-50"
+                                }`}
+                                style={deliveryDistance === "far" ? { borderColor: primary } : {}}
+                              >
+                                <div className="text-xl mb-0.5">🚀</div>
+                                <div className="font-bold text-gray-900 text-xs">Jarak Jauh</div>
+                                <div className="text-[10px] text-primary font-semibold mt-0.5">
+                                  {formatRp(Number(tenant?.deliveryFeeFar ?? 5000))}
+                                </div>
+                              </button>
+                            )}
+
+                            {hasFlat && (
+                              <button
+                                type="button"
+                                onClick={() => setDeliveryDistance("flat")}
+                                className={`p-3 rounded-2xl border text-center transition-all ${
+                                  deliveryDistance === "flat"
+                                    ? "bg-blue-50/20 border-2"
+                                    : "bg-gray-50"
+                                }`}
+                                style={deliveryDistance === "flat" ? { borderColor: primary } : {}}
+                              >
+                                <div className="text-xl mb-0.5">📦</div>
+                                <div className="font-bold text-gray-900 text-xs">Ongkir</div>
+                                <div className="text-[10px] text-primary font-semibold mt-0.5">
+                                  {formatRp(Number(tenant?.deliveryFeeFlat ?? 10000))}
+                                </div>
+                              </button>
+                            )}
                           </div>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDeliveryDistance("far")}
-                          className={`p-3 rounded-2xl border text-center transition-all ${
-                            deliveryDistance === "far"
-                              ? "bg-blue-50/20 border-2"
-                              : "bg-gray-50"
-                          }`}
-                          style={deliveryDistance === "far" ? { borderColor: primary } : {}}
-                        >
-                          <div className="text-xl mb-0.5">🚀</div>
-                          <div className="font-bold text-gray-900 text-xs">Jarak Jauh</div>
-                          <div className="text-[10px] text-primary font-semibold mt-0.5">
-                            {formatRp(Number(tenant?.deliveryFeeFar ?? 5000))}
-                          </div>
-                        </button>
-                      </div>
-                    </div>
+                        </div>
+                      );
+                    })()}
                     <div>
                       <label className="text-xs font-bold text-gray-600 block mb-1">Alamat Lengkap Pengantaran *</label>
                       <textarea value={form.deliveryAddress} onChange={e => setForm(f => ({ ...f, deliveryAddress: e.target.value }))}
@@ -3414,7 +3469,7 @@ export default function CustomerMenuPage({ slug: slugProp }: { slug?: string } =
                 <div className="flex flex-col">
                   <span className="text-[10px] text-gray-400 font-bold uppercase">Total Bayar</span>
                   <span className="text-base font-black" style={{ color: primary }}>
-                    {formatRp( cartTotalWithTax + (orderType === "delivery" ? (deliveryDistance === "near" ? (tenant?.deliveryFeeNear !== undefined ? Number(tenant.deliveryFeeNear) : 0) : (tenant?.deliveryFeeFar !== undefined ? Number(tenant.deliveryFeeFar) : 5000)) : 0) )}
+                    {formatRp( cartTotalWithTax + (orderType === "delivery" ? (deliveryDistance === "flat" ? (tenant?.deliveryFeeFlat !== undefined ? Number(tenant.deliveryFeeFlat) : 10000) : deliveryDistance === "near" ? (tenant?.deliveryFeeNear !== undefined ? Number(tenant.deliveryFeeNear) : 0) : (tenant?.deliveryFeeFar !== undefined ? Number(tenant.deliveryFeeFar) : 5000)) : 0) )}
                   </span>
                   {hasPointDiscount && (
                     <span className="text-[9px] text-amber-605 font-bold leading-none mt-0.5">

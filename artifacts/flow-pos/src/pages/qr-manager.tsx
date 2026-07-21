@@ -38,8 +38,9 @@ export default function QrManagerPage() {
   const [storeQrImg, setStoreQrImg] = useState("");
   const [settings, setSettings] = useState({
     enableDineIn: true, enableTakeAway: true, enableDelivery: false,
+    enableDeliveryNear: true, enableDeliveryFar: true, enableDeliveryFlat: false,
     enableCash: true, enableQris: true, enableBankTransfer: false, enableEwallet: false,
-    deliveryFeeNear: 0, deliveryFeeFar: 5000,
+    deliveryFeeNear: 0, deliveryFeeFar: 5000, deliveryFeeFlat: 10000,
     showVariants: true, showToppings: true,
     showDeliveryInfo: true,
     estimatedDeliveryTime: "25-35 menit",
@@ -189,12 +190,16 @@ export default function QrManagerPage() {
         enableDineIn: t.enableDineIn ?? true,
         enableTakeAway: t.enableTakeAway ?? true,
         enableDelivery: t.enableDelivery ?? false,
+        enableDeliveryNear: t.enableDeliveryNear ?? true,
+        enableDeliveryFar: t.enableDeliveryFar ?? true,
+        enableDeliveryFlat: t.enableDeliveryFlat ?? false,
         enableCash: t.enableCash ?? true,
         enableQris: t.enableQris ?? true,
         enableBankTransfer: t.enableBankTransfer ?? false,
         enableEwallet: t.enableEwallet ?? false,
         deliveryFeeNear: t.deliveryFeeNear !== undefined ? Number(t.deliveryFeeNear) : 0,
         deliveryFeeFar: t.deliveryFeeFar !== undefined ? Number(t.deliveryFeeFar) : 5000,
+        deliveryFeeFlat: t.deliveryFeeFlat !== undefined ? Number(t.deliveryFeeFlat) : 10000,
         showVariants: t.showVariants ?? true,
         showToppings: t.showToppings ?? true,
         showDeliveryInfo: t.showDeliveryInfo ?? true,
@@ -532,28 +537,92 @@ export default function QrManagerPage() {
               {settings.enableDelivery && (
                 <div className="mt-4 p-4 bg-muted/20 border rounded-2xl space-y-3.5 animate-slide-up">
                   <div className="text-xs font-bold text-foreground">Pengaturan Biaya Delivery</div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-[10px] font-medium text-muted-foreground mb-1">Jarak Dekat (Rp)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={settings.deliveryFeeNear}
-                        onChange={e => setSettings(s => ({ ...s, deliveryFeeNear: Number(e.target.value) }))}
-                        className="w-full px-3 py-2 border border-input rounded-xl bg-background text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
-                        placeholder="Contoh: 0 (Gratis)"
-                      />
+                  <div className="space-y-3">
+                    {/* Jarak Dekat */}
+                    <div className="p-3 bg-background border border-border rounded-xl space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-foreground flex items-center gap-1.5 font-sans">
+                          <span>📍</span> Jarak Dekat
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setSettings(s => ({ ...s, enableDeliveryNear: !s.enableDeliveryNear }))}
+                          className={`w-9 h-5 rounded-full transition-colors relative focus:outline-none flex-shrink-0 ${settings.enableDeliveryNear ? "bg-primary" : "bg-zinc-300"}`}
+                        >
+                          <span className={`absolute top-[2px] left-[2px] w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${settings.enableDeliveryNear ? "translate-x-4" : "translate-x-0"}`} />
+                        </button>
+                      </div>
+                      {settings.enableDeliveryNear && (
+                        <div>
+                          <label className="block text-[10px] font-medium text-muted-foreground mb-1">Biaya Jarak Dekat (Rp)</label>
+                          <input
+                            type="number"
+                            min={0}
+                            value={settings.deliveryFeeNear}
+                            onChange={e => setSettings(s => ({ ...s, deliveryFeeNear: Number(e.target.value) }))}
+                            className="w-full px-3 py-1.5 border border-input rounded-xl bg-background text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
+                            placeholder="Contoh: 0 (Gratis)"
+                          />
+                        </div>
+                      )}
                     </div>
-                    <div>
-                      <label className="block text-[10px] font-medium text-muted-foreground mb-1">Jarak Jauh (Rp)</label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={settings.deliveryFeeFar}
-                        onChange={e => setSettings(s => ({ ...s, deliveryFeeFar: Number(e.target.value) }))}
-                        className="w-full px-3 py-2 border border-input rounded-xl bg-background text-sm font-semibold focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
-                        placeholder="Contoh: 5000"
-                      />
+
+                    {/* Jarak Jauh */}
+                    <div className="p-3 bg-background border border-border rounded-xl space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-foreground flex items-center gap-1.5 font-sans">
+                          <span>🚀</span> Jarak Jauh
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setSettings(s => ({ ...s, enableDeliveryFar: !s.enableDeliveryFar }))}
+                          className={`w-9 h-5 rounded-full transition-colors relative focus:outline-none flex-shrink-0 ${settings.enableDeliveryFar ? "bg-primary" : "bg-zinc-300"}`}
+                        >
+                          <span className={`absolute top-[2px] left-[2px] w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${settings.enableDeliveryFar ? "translate-x-4" : "translate-x-0"}`} />
+                        </button>
+                      </div>
+                      {settings.enableDeliveryFar && (
+                        <div>
+                          <label className="block text-[10px] font-medium text-muted-foreground mb-1">Biaya Jarak Jauh (Rp)</label>
+                          <input
+                            type="number"
+                            min={0}
+                            value={settings.deliveryFeeFar}
+                            onChange={e => setSettings(s => ({ ...s, deliveryFeeFar: Number(e.target.value) }))}
+                            className="w-full px-3 py-1.5 border border-input rounded-xl bg-background text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
+                            placeholder="Contoh: 5000"
+                          />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Ongkir Flat */}
+                    <div className="p-3 bg-background border border-border rounded-xl space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-semibold text-foreground flex items-center gap-1.5 font-sans">
+                          <span>📦</span> Ongkir (Flat Rate)
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => setSettings(s => ({ ...s, enableDeliveryFlat: !s.enableDeliveryFlat }))}
+                          className={`w-9 h-5 rounded-full transition-colors relative focus:outline-none flex-shrink-0 ${settings.enableDeliveryFlat ? "bg-primary" : "bg-zinc-300"}`}
+                        >
+                          <span className={`absolute top-[2px] left-[2px] w-4 h-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${settings.enableDeliveryFlat ? "translate-x-4" : "translate-x-0"}`} />
+                        </button>
+                      </div>
+                      {settings.enableDeliveryFlat && (
+                        <div>
+                          <label className="block text-[10px] font-medium text-muted-foreground mb-1">Biaya Ongkir Flat (Rp)</label>
+                          <input
+                            type="number"
+                            min={0}
+                            value={settings.deliveryFeeFlat}
+                            onChange={e => setSettings(s => ({ ...s, deliveryFeeFlat: Number(e.target.value) }))}
+                            className="w-full px-3 py-1.5 border border-input rounded-xl bg-background text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-primary text-foreground"
+                            placeholder="Contoh: 10000"
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
                   

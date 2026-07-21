@@ -24,8 +24,12 @@ export interface TenantUpdate {
   qrisImageUrl?: string;
   qrisPayload?: string;
   enableDelivery?: boolean;
+  enableDeliveryNear?: boolean;
+  enableDeliveryFar?: boolean;
+  enableDeliveryFlat?: boolean;
   deliveryFeeNear?: number;
   deliveryFeeFar?: number;
+  deliveryFeeFlat?: number;
   showVariants?: boolean;
   showToppings?: boolean;
   enableCustomerLogin?: boolean;

@@ -185,9 +185,13 @@ router.get("/menu/:slug", async (req, res): Promise<void> => {
       bio: tenant.bio ?? null,
       deliveryFeeNear: tenant.deliveryFeeNear !== undefined ? Number(tenant.deliveryFeeNear) : 0,
       deliveryFeeFar: tenant.deliveryFeeFar !== undefined ? Number(tenant.deliveryFeeFar) : 5000,
+      deliveryFeeFlat: (tenant as any).deliveryFeeFlat !== undefined ? Number((tenant as any).deliveryFeeFlat) : 10000,
       enableDineIn: (tenant as any).enableDineIn ?? true,
       enableTakeAway: (tenant as any).enableTakeAway ?? true,
       enableDelivery: (tenant as any).enableDelivery ?? false,
+      enableDeliveryNear: (tenant as any).enableDeliveryNear ?? true,
+      enableDeliveryFar: (tenant as any).enableDeliveryFar ?? true,
+      enableDeliveryFlat: (tenant as any).enableDeliveryFlat ?? false,
       enableCash: (tenant as any).enableCash ?? true,
       enableQris: (tenant as any).enableQris ?? true,
       enableBankTransfer: (tenant as any).enableBankTransfer ?? false,
@@ -1290,6 +1294,8 @@ router.patch("/tenant/settings", async (req, res): Promise<void> => {
 
   const allowed = [
     "slug", "enableDineIn", "enableTakeAway", "enableDelivery",
+    "enableDeliveryNear", "enableDeliveryFar", "enableDeliveryFlat",
+    "deliveryFeeNear", "deliveryFeeFar", "deliveryFeeFlat",
     "enableCash", "enableQris", "enableBankTransfer", "enableEwallet",
     "showVariants", "showToppings", "defaultCashierName",
     "showDeliveryInfo", "estimatedDeliveryTime", "enableOpsHours", "opsOpeningTime", "opsClosingTime",

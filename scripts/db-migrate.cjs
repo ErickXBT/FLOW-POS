@@ -32,7 +32,11 @@ async function run() {
     await client.query(`
       ALTER TABLE tenants 
       ADD COLUMN IF NOT EXISTS delivery_fee_near integer NOT NULL DEFAULT 0,
-      ADD COLUMN IF NOT EXISTS delivery_fee_far integer NOT NULL DEFAULT 5000;
+      ADD COLUMN IF NOT EXISTS delivery_fee_far integer NOT NULL DEFAULT 5000,
+      ADD COLUMN IF NOT EXISTS enable_delivery_near boolean NOT NULL DEFAULT true,
+      ADD COLUMN IF NOT EXISTS enable_delivery_far boolean NOT NULL DEFAULT true,
+      ADD COLUMN IF NOT EXISTS enable_delivery_flat boolean NOT NULL DEFAULT false,
+      ADD COLUMN IF NOT EXISTS delivery_fee_flat integer NOT NULL DEFAULT 10000;
     `);
 
     console.log('Applying migration: adding enable_tax and tax_percentage columns to tenants...');
